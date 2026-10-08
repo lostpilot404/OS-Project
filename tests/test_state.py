@@ -12,14 +12,13 @@ from tests.helpers import Row, workload_from_rows
 
 class TestObservation:
     def test_values_match_the_documented_formulas(self) -> None:
-        # bursts 4, 8, 6, 2 -> median = (4 + 6) / 2?  nearest-rank uses the sorted list
-        # [2, 4, 6, 8] at index round(0.5 * 3) = 2 -> 6.
-        # mean = 5, population std = sqrt(((2-5)^2+(4-5)^2+(6-5)^2+(8-5)^2)/4) = sqrt(5)
+        # Sorted bursts [2, 4, 6, 8] have conventional median (4+6)/2 = 5.
+        # Mean = 5; population std = sqrt(((2-5)^2+(4-5)^2+(6-5)^2+(8-5)^2)/4) = sqrt(5).
         # priorities 1, 2, 2, 5 -> mean = 2.5, std = sqrt(2.25) = 1.5
         # arrivals 0, 2, 6, 10 -> span = 10, total burst = 20 -> offered load = 2.0
         rows: list[Row] = [(1, 0, 4, 1), (2, 2, 8, 2), (3, 6, 6, 2), (4, 10, 2, 5)]
         snapshot = observe_workload_state(workload_from_rows("obs", rows))
-        assert snapshot.burst_profile == pytest.approx(6.0)
+        assert snapshot.burst_profile == pytest.approx(5.0)
         assert snapshot.burst_dispersion == pytest.approx((5.0**0.5) / 5.0)
         assert snapshot.offered_load == pytest.approx(2.0)
         assert snapshot.priority_spread == pytest.approx(1.5)

@@ -4,11 +4,11 @@ Every tunable value used anywhere in the simulator, the Q-learning agent, the
 experiment pipeline and the plots is declared **once**, here.  No module hard-codes an
 experimental value: modules receive their configuration objects explicitly.
 
-Implementation choices that the project brief left unspecified are recorded in
-``docs/DESIGN_AND_CHOICES.md``; the values below are the frozen defaults for the
-reported experiment.  They are arbitrary-but-declared (no tuning against results was
-performed) and every one of them can be overridden by constructing a different
-:class:`ExperimentConfig`.
+Implementation choices that the project brief left unspecified are defined in
+``docs/DESIGN_AND_CHOICES.md``; the values below are the declared defaults for the
+reported experiment. They can be changed by constructing a different
+:class:`ExperimentConfig`, in which case the generated configuration snapshot records the
+changed design.
 
 The module deliberately imports nothing from the rest of the project except the
 project's exception types, so it can never take part in an import cycle.
@@ -29,14 +29,13 @@ __all__ = [
     "ACTION_ROUND_ROBIN",
     "ACTION_PRIORITY",
     "ACTION_NAMES",
-    "ADAPTIVE_LABEL",
+    "SELECTOR_LABEL",
     "KNOWN_STATE_VARIABLES",
     "SchedulerConfig",
     "WorkloadFamilyConfig",
     "StateConfig",
     "RewardConfig",
     "QLearningConfig",
-    "QuantumControllerConfig",
     "TrainingConfig",
     "EvaluationConfig",
     "ExperimentConfig",
@@ -79,8 +78,8 @@ ACTION_PRIORITY: int = 3
 #: Human-readable names, indexed by action.  The order is fixed by the project brief.
 ACTION_NAMES: Tuple[str, ...] = ("FCFS", "SJF", "Round Robin", "Priority")
 
-#: Label used for the adaptive (Q-learning) scheduler in tables and plots.
-ADAPTIVE_LABEL: str = "Adaptive (Q-Learning)"
+#: Display label for the learned offline policy selector in tables and plots.
+SELECTOR_LABEL: str = "Offline Policy Selector (Q-Learning)"
 
 #: State variables the encoder knows how to build (see :class:`StateConfig`).
 #:
@@ -134,26 +133,31 @@ class SchedulerConfig:
 class WorkloadFamilyConfig:
     """Generation rule set for one workload condition.
 
-    Every family generates exactly ``num_processes`` synthetic processes.  Arrival
-    times, burst times and priorities are drawn as described in
-    ``docs/DESIGN_AND_CHOICES.md``.
+    Every family generates exactly ``num_processes`` synthetic processes. Arrival times,
+    bursts and priorities follow the declared distributions documented in
+    ``docs/DESIGN_AND_CHOICES.md``. ``staggered_interactive`` is a distinct workload
+    condition with one long process and staggered short jobs; it is not a policy rule.
 
     Attributes:
         name: Short identifier used in tables, plots and file names.
         description: Human-readable description of the condition.
         num_processes: Number of processes generated per workload.
-        burst_distribution: ``"uniform"`` for a single burst range, or ``"bimodal"``
-            for a short-job mode and a long-job mode.
+        burst_distribution: ``"uniform"`` for a single burst range, ``"bimodal"`` for
+            a mixture of short and long bursts, or ``"staggered_interactive"`` for one
+            long burst followed by short bursts.
         burst_time_min: Lower bound (inclusive) of the burst-time range.
         burst_time_max: Upper bound (inclusive) of the burst-time range.
-        short_burst_max: Upper bound (inclusive) of the short mode when
-            ``burst_distribution == "bimodal"``.
-        short_burst_fraction: Probability of drawing from the short mode.
+        short_burst_max: Upper bound (inclusive) of the short mode for bimodal or
+            staggered-interactive bursts.
+        short_burst_fraction: Probability of drawing from the short mode in a bimodal family.
         arrival_pattern: ``"uniform"`` for independent arrival times drawn from
-            ``[0, arrival_window]``, or ``"poisson"`` for a Poisson process with rate
-            ``arrival_rate`` per time unit.
+            ``[0, arrival_window]``, ``"poisson"`` for a Poisson process with rate
+            ``arrival_rate``, or ``"staggered"`` for successive arrivals separated by a
+            uniformly drawn integer gap.
         arrival_window: Width of the arrival window for the uniform pattern.
         arrival_rate: Mean number of arrivals per time unit for the Poisson pattern.
+        staggered_gap_min: Minimum inclusive gap for the staggered arrival pattern.
+        staggered_gap_max: Maximum inclusive gap for the staggered arrival pattern.
         priority_pattern: ``"uniform"`` for priorities drawn from
             ``[priority_min, priority_max]``, or ``"high_priority_skewed"`` for a
             mixture that draws ``high_priority_fraction`` of the priorities from
@@ -176,6 +180,8 @@ class WorkloadFamilyConfig:
     arrival_pattern: str = "uniform"
     arrival_window: int = 20
     arrival_rate: float = 0.5
+    staggered_gap_min: int = 4
+    staggered_gap_max: int = 6
     priority_pattern: str = "uniform"
     priority_min: int = 1
     priority_max: int = 5
@@ -189,12 +195,12 @@ class WorkloadFamilyConfig:
             raise ConfigurationError(
                 f"family {self.name!r}: num_processes must be >= 1, got {self.num_processes}"
             )
-        if self.burst_distribution not in ("uniform", "bimodal"):
+        if self.burst_distribution not in ("uniform", "bimodal", "staggered_interactive"):
             raise ConfigurationError(
                 f"family {self.name!r}: unknown burst_distribution "
                 f"{self.burst_distribution!r}"
             )
-        if self.arrival_pattern not in ("uniform", "poisson"):
+        if self.arrival_pattern not in ("uniform", "poisson", "staggered"):
             raise ConfigurationError(
                 f"family {self.name!r}: unknown arrival_pattern {self.arrival_pattern!r}"
             )
@@ -214,12 +220,28 @@ class WorkloadFamilyConfig:
                 f"family {self.name!r}: short_burst_max={self.short_burst_max} must lie in "
                 f"[{self.burst_time_min}, {self.burst_time_max})"
             )
+        if self.burst_distribution == "staggered_interactive" and not (
+            1 <= self.short_burst_max < self.burst_time_min
+        ):
+            raise ConfigurationError(
+                f"family {self.name!r}: interactive short_burst_max must be in "
+                f"[1, {self.burst_time_min})"
+            )
         if not 0.0 <= self.short_burst_fraction <= 1.0:
             raise ConfigurationError(
                 f"family {self.name!r}: short_burst_fraction must lie in [0, 1]"
             )
         if self.arrival_window < 0:
             raise ConfigurationError(f"family {self.name!r}: arrival_window must be >= 0")
+        if self.staggered_gap_min < 1 or self.staggered_gap_max < self.staggered_gap_min:
+            raise ConfigurationError(
+                f"family {self.name!r}: invalid staggered gap range "
+                f"[{self.staggered_gap_min}, {self.staggered_gap_max}]"
+            )
+        if self.burst_distribution == "staggered_interactive" and self.arrival_pattern != "staggered":
+            raise ConfigurationError(
+                f"family {self.name!r}: staggered_interactive bursts require staggered arrivals"
+            )
         if self.arrival_pattern == "poisson" and self.arrival_rate <= 0.0:
             raise ConfigurationError(f"family {self.name!r}: arrival_rate must be > 0")
         if self.priority_min < 0 or self.priority_max < self.priority_min:
@@ -305,15 +327,16 @@ class StateConfig:
 
 @dataclass(frozen=True)
 class RewardConfig:
-    """Weights used by the composite reward function.
+    """Weights and ratio clipping for the single workload-relative reward.
 
-    ``reward = sum(weight_i * normalised_benefit_i) - sum(weight_j * normalised_cost_j)``
-
-    where the benefits are CPU utilisation and throughput, and the costs are mean
-    waiting time, mean turnaround time, mean response time and context switches per
-    process.  Every metric is normalised by the mean value produced by the four
-    conventional policies on the *same* workload, so a reward of ``0`` means "exactly
-    as good as the average conventional policy".
+    For each metric, let ``r`` be the chosen-policy value divided by the arithmetic mean
+    across FCFS, SJF, Round Robin and Priority on that same workload. Clip ``r`` to
+    ``[0, reference_clip]`` (a zero reference is assigned ratio 1). The reward is
+    ``sum(w_cost * (1-r_cost)) + sum(w_benefit * (r_benefit-1))``. Cost metrics are mean
+    waiting, turnaround and response time plus context switches per process; benefits
+    are CPU utilization and throughput. The default weights sum to one. A reward of zero
+    matches the four-policy reference mean on each metric; the reward is not guaranteed to
+    be non-positive for every policy or workload.
 
     Attributes:
         weight_waiting_time: Cost weight of mean waiting time.
@@ -367,15 +390,16 @@ class QLearningConfig:
 
     Attributes:
         learning_rate: Step size alpha of the Q-learning update, in (0, 1].
-        discount_factor: Discount gamma applied to the value of the next state.
+        discount_factor: Generic discount gamma. The default experiment has terminal
+            one-step episodes, so its training updates do not use this value.
         epsilon_start: Initial epsilon of the epsilon-greedy exploration.
         epsilon_min: Lower bound epsilon never decays below.
         epsilon_decay_per_episode: Multiplicative epsilon decay applied once per
             training episode.
-        initial_value: Value every Q-entry starts at.  Chosen slightly above the best
-            achievable reward (a reward of 0 means "as good as the average conventional
-            policy"), which makes unexplored actions optimistic and spreads early
-            exploration over all four policies.
+        initial_value: Value every Q-entry starts at. Zero is a neutral initialization;
+            ties use the lowest action index (FCFS) until that state-action value is
+            updated. Epsilon-greedy exploration, not optimistic initialization, explores
+            the other actions.
     """
 
     learning_rate: float = 0.1
@@ -383,7 +407,7 @@ class QLearningConfig:
     epsilon_start: float = 1.0
     epsilon_min: float = 0.05
     epsilon_decay_per_episode: float = 0.995
-    initial_value: float = 0.05
+    initial_value: float = 0.0
 
     def __post_init__(self) -> None:
         if not 0.0 < self.learning_rate <= 1.0:
@@ -410,83 +434,18 @@ class QLearningConfig:
 
 
 @dataclass(frozen=True)
-class QuantumControllerConfig:
-    """Hyperparameters of the Round-Robin quantum controller (an extension).
-
-    The policy-selection agent chooses *which* of the four policies runs.  Because the
-    Round-Robin quantum is itself a scheduling parameter that depends on the workload,
-    a second tabular Q-learning agent learns the quantum multiplier for the Round-Robin
-    action.  Its episodes are single-step: it sees the same state as the policy agent
-    and picks one multiplier for the whole workload.
-
-    The controller is *disabled during evaluation* by default
-    (``use_during_evaluation = False``), so the headline comparison uses classic Round
-    Robin with the configured fixed quantum.  A separate, explicitly labelled secondary
-    measurement reports the effect of enabling it.
-
-    Attributes:
-        enabled: Whether the controller is trained at all.
-        use_during_evaluation: Whether the learned multiplier is applied to Round Robin
-            during evaluation.  ``False`` keeps classic Round Robin in the main
-            comparison.
-        multipliers: Candidate quantum multipliers (``1.0`` == the configured quantum).
-        learning_rate: Step size of the controller's Q-learning update.
-        discount_factor: Discount factor of the controller.  Its episodes are
-            single-step, so the factor does not affect the values; it is kept for the
-            generic update rule and unit-tested.
-        epsilon_start: Initial exploration rate of the controller.
-        epsilon_min: Lower bound of the controller's exploration rate.
-        epsilon_decay_per_episode: Multiplicative decay applied once per training
-            episode.
-    """
-
-    enabled: bool = True
-    use_during_evaluation: bool = False
-    multipliers: Tuple[float, ...] = (0.5, 1.0, 2.0)
-    learning_rate: float = 0.15
-    discount_factor: float = 0.5
-    epsilon_start: float = 1.0
-    epsilon_min: float = 0.05
-    epsilon_decay_per_episode: float = 0.995
-
-    def __post_init__(self) -> None:
-        if not self.multipliers:
-            raise ConfigurationError("quantum multipliers must not be empty")
-        if any(m <= 0.0 for m in self.multipliers):
-            raise ConfigurationError("quantum multipliers must be > 0")
-        if 1.0 not in tuple(float(m) for m in self.multipliers):
-            raise ConfigurationError(
-                "quantum multipliers must include 1.0 (the configured quantum)"
-            )
-        if not 0.0 < self.learning_rate <= 1.0:
-            raise ConfigurationError(
-                f"controller learning_rate must lie in (0, 1], got {self.learning_rate!r}"
-            )
-        if not 0.0 <= self.discount_factor <= 1.0:
-            raise ConfigurationError(
-                f"controller discount_factor must lie in [0, 1], got {self.discount_factor!r}"
-            )
-        if not 0.0 <= self.epsilon_min <= self.epsilon_start <= 1.0:
-            raise ConfigurationError("controller epsilon values must satisfy 0 <= min <= start <= 1")
-        if not 0.0 < self.epsilon_decay_per_episode <= 1.0:
-            raise ConfigurationError(
-                "controller epsilon_decay_per_episode must lie in (0, 1]"
-            )
-
-
-@dataclass(frozen=True)
 class TrainingConfig:
-    """Training-loop settings for the policy-selection agent.
+    """Training-loop settings for independent tabular policy-selection agents.
 
-    Attributes:
-        episodes: Number of training episodes.  One episode is one workload.
-        seed: Master random seed of the training run.
-        family_cycle: Workload families visited in round-robin order, one family per
-            episode.  Must be a subset of the experiment's families.
+    Each episode presents one complete workload and ends immediately after the selected
+    policy has been run and rewarded. ``replicates`` independent agents use consecutive
+    master seeds beginning at ``seed``. ``family_cycle`` defines the training conditions;
+    any configured family omitted from this cycle is held out from training.
     """
 
-    episodes: int = 600
+    episodes: int = 1200
     seed: int = 42
+    replicates: int = 5
     family_cycle: Tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -494,6 +453,13 @@ class TrainingConfig:
             raise ConfigurationError(f"episodes must be >= 1, got {self.episodes}")
         if self.seed < 0:
             raise ConfigurationError(f"seed must be >= 0, got {self.seed}")
+        if self.replicates < 1:
+            raise ConfigurationError(f"replicates must be >= 1, got {self.replicates}")
+
+    @property
+    def seeds(self) -> Tuple[int, ...]:
+        """Independent training master seeds used by the default experiment runner."""
+        return tuple(self.seed + offset for offset in range(self.replicates))
 
 
 @dataclass(frozen=True)
@@ -506,7 +472,7 @@ class EvaluationConfig:
             different from the training seed, so evaluation workloads are unseen.
     """
 
-    repetitions: int = 10
+    repetitions: int = 30
     seed: int = 2024
 
     def __post_init__(self) -> None:
@@ -526,7 +492,6 @@ class ExperimentConfig:
     state: StateConfig = field(default_factory=StateConfig)
     reward: RewardConfig = field(default_factory=RewardConfig)
     q_learning: QLearningConfig = field(default_factory=QLearningConfig)
-    quantum_controller: QuantumControllerConfig = field(default_factory=QuantumControllerConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
     results_dir: str = "results"
@@ -562,18 +527,15 @@ class ExperimentConfig:
                 "state space larger than 10,000 states; the tabular Q-table would not be "
                 "usable with the configured number of episodes"
             )
-        if self.training.seed == self.evaluation.seed:
+        if self.evaluation.seed in self.training.seeds:
             raise ConfigurationError(
-                "training and evaluation seeds must differ so evaluation workloads are unseen"
+                "evaluation seed must differ from every training seed so the random streams "
+                "are independent"
             )
 
 
 def build_default_config() -> ExperimentConfig:
-    """Build the frozen default configuration used for the reported experiment.
-
-    Returns:
-        A validated :class:`ExperimentConfig`.
-    """
+    """Build the frozen default configuration for the offline policy-selection study."""
     families = (
         WorkloadFamilyConfig(
             name="short_jobs",
@@ -585,11 +547,10 @@ def build_default_config() -> ExperimentConfig:
             short_burst_fraction=0.8,
             arrival_pattern="uniform",
             arrival_window=20,
-            priority_pattern="uniform",
         ),
         WorkloadFamilyConfig(
             name="long_jobs",
-            description="Long-job-heavy: only 20% of bursts drawn from 1-5 time units.",
+            description="Long-job-heavy: 20% of bursts drawn from 1-5 time units.",
             burst_distribution="bimodal",
             burst_time_min=1,
             burst_time_max=50,
@@ -597,7 +558,6 @@ def build_default_config() -> ExperimentConfig:
             short_burst_fraction=0.2,
             arrival_pattern="uniform",
             arrival_window=20,
-            priority_pattern="uniform",
         ),
         WorkloadFamilyConfig(
             name="mixed",
@@ -607,31 +567,19 @@ def build_default_config() -> ExperimentConfig:
             burst_time_max=50,
             arrival_pattern="uniform",
             arrival_window=20,
-            priority_pattern="uniform",
         ),
         WorkloadFamilyConfig(
             name="cpu_bursty",
-            description="CPU-bound: uniformly long bursts (20-50) with dense arrivals.",
+            description="Long CPU bursts (20-50) with dense uniform arrivals.",
             burst_distribution="uniform",
             burst_time_min=20,
             burst_time_max=50,
             arrival_pattern="uniform",
             arrival_window=15,
-            priority_pattern="uniform",
-        ),
-        WorkloadFamilyConfig(
-            name="poisson_arrivals",
-            description="Poisson arrivals (rate 0.5 per time unit) with moderate bursts.",
-            burst_distribution="uniform",
-            burst_time_min=1,
-            burst_time_max=20,
-            arrival_pattern="poisson",
-            arrival_rate=0.5,
-            priority_pattern="uniform",
         ),
         WorkloadFamilyConfig(
             name="priority_skewed",
-            description="Uniform bursts with 70% of processes in the high-priority band 1-2.",
+            description="Uniform bursts; 70% of priorities lie in the 1-2 band.",
             burst_distribution="uniform",
             burst_time_min=1,
             burst_time_max=50,
@@ -641,16 +589,48 @@ def build_default_config() -> ExperimentConfig:
             high_priority_cutoff=2,
             high_priority_fraction=0.7,
         ),
+        WorkloadFamilyConfig(
+            name="staggered_interactive",
+            description=(
+                "One long process at time zero plus 14 short processes arriving at "
+                "integer gaps of 4-6 time units."
+            ),
+            burst_distribution="staggered_interactive",
+            burst_time_min=25,
+            burst_time_max=50,
+            short_burst_max=3,
+            arrival_pattern="staggered",
+            staggered_gap_min=4,
+            staggered_gap_max=6,
+            priority_min=1,
+            priority_max=1,
+        ),
+        WorkloadFamilyConfig(
+            name="poisson_arrivals",
+            description=(
+                "Held-out evaluation condition: Poisson arrivals (rate 0.5) and "
+                "uniform bursts from 1-20."
+            ),
+            burst_distribution="uniform",
+            burst_time_min=1,
+            burst_time_max=20,
+            arrival_pattern="poisson",
+            arrival_rate=0.5,
+        ),
+    )
+    training_families = tuple(
+        family.name for family in families if family.name != "poisson_arrivals"
     )
     config = ExperimentConfig(
-        name="workload_aware_q_learning_scheduling",
+        name="offline_workload_aware_policy_selection",
         families=families,
         training=TrainingConfig(
-            episodes=600,
+            episodes=1200,
             seed=42,
-            family_cycle=tuple(f.name for f in families),
+            replicates=5,
+            family_cycle=training_families,
         ),
-        evaluation=EvaluationConfig(repetitions=10, seed=2024),
+        evaluation=EvaluationConfig(repetitions=30, seed=2024),
     )
     config.validate()
     return config

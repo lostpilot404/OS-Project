@@ -1,13 +1,9 @@
-"""Training of the adaptive scheduler.
+"""Training runs for the offline single-workload policy selector.
 
-Training runs a fixed number of episodes, one workload per episode, cycling through the
-configured workload families in round-robin order.  Every draw is seeded through
-:func:`config.derive_seed`, so the whole run is reproducible from
-:attr:`config.TrainingConfig.seed` alone.
-
-Training is deliberately separated from evaluation (:mod:`experiments.evaluate`): the
-Q-table is written here and only here, and the evaluation workloads come from a different
-master seed, so no evaluation workload is ever trained on.
+Each episode generates one complete workload, selects one of the four conventional
+schedulers, runs it to completion, computes the four-policy-relative reward, and performs
+one terminal tabular Q-learning update. This module writes Q-values; evaluation is kept in
+:mod:`experiments.evaluate` and does not update them.
 """
 
 from __future__ import annotations
@@ -19,43 +15,23 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from config import ACTION_NAMES, ExperimentConfig, derive_seed
-from rl.adaptive import AdaptiveScheduler
+from errors import ConfigurationError
+from rl.adaptive import OfflinePolicySelector
 from rl.q_learning import QLearningAgent
-from rl.quantum_controller import QuantumController
 from rl.state import StateEncoder
 from scheduler import POLICY_CLASSES
 from workload.generator import WorkloadGenerator
 
 __all__ = ["TrainingHistory", "TrainingResult", "train"]
 
-#: Seed-derivation tags, so that the agent's exploration stream and the workload stream
-#: can never collide (see :func:`config.derive_seed`).
 _WORKLOAD_STREAM_TAG = 0
 _AGENT_STREAM_TAG = 1
-_CONTROLLER_STREAM_TAG = 2
-
-#: Window used for the "recent reward" summary statistics.
 _SUMMARY_WINDOW = 100
 
 
 @dataclass(frozen=True)
 class TrainingHistory:
-    """Per-episode record of a training run.
-
-    Attributes:
-        episodes: Number of episodes trained.
-        seed: Master seed of the run.
-        family_names: Workload family used in every episode, in episode order.
-        workload_fingerprints: Fingerprint of the workload scheduled in every episode.
-        state_indices: Discretised state observed in every episode.
-        chosen_actions: Action selected in every episode.
-        rewards: Reward received in every episode.
-        epsilons: Exploration rate in force in every episode.
-        explored: Whether the chosen action differed from the greedy action.
-        controller_multipliers: Quantum multiplier chosen by the controller in every
-            episode (``1.0`` when the controller is disabled).
-        visit_counts: Final per-state update counts (length = number of states).
-    """
+    """Per-episode training observations for one independent training seed."""
 
     episodes: int
     seed: int
@@ -63,61 +39,60 @@ class TrainingHistory:
     workload_fingerprints: Tuple[str, ...]
     state_indices: Tuple[int, ...]
     chosen_actions: Tuple[int, ...]
+    greedy_actions: Tuple[int, ...]
+    state_seen_before_action: Tuple[bool, ...]
     rewards: Tuple[float, ...]
     epsilons: Tuple[float, ...]
     explored: Tuple[bool, ...]
-    controller_multipliers: Tuple[float, ...]
     visit_counts: Tuple[int, ...]
 
     @property
     def mean_reward(self) -> float:
-        """Mean reward over all episodes."""
+        """Mean terminal reward over all training episodes."""
         return sum(self.rewards) / len(self.rewards) if self.rewards else 0.0
 
     def mean_reward_over_last(self, episodes: int = _SUMMARY_WINDOW) -> float:
-        """Mean reward over the final ``episodes`` episodes."""
+        """Mean reward over the final ``episodes`` training episodes."""
         window = self.rewards[-episodes:]
         return sum(window) / len(window) if window else 0.0
 
     def mean_reward_over_first(self, episodes: int = _SUMMARY_WINDOW) -> float:
-        """Mean reward over the first ``episodes`` episodes."""
+        """Mean reward over the first ``episodes`` training episodes."""
         window = self.rewards[:episodes]
         return sum(window) / len(window) if window else 0.0
 
     def action_counts(self) -> Dict[str, int]:
-        """Number of episodes in which each action was selected."""
+        """Number of episodes in which each policy action was selected."""
         counts = Counter(self.chosen_actions)
         return {ACTION_NAMES[action]: counts.get(action, 0) for action in range(len(ACTION_NAMES))}
 
-    def greedy_action_counts(self) -> Dict[str, int]:
-        """Number of episodes whose action equalled the greedy action."""
-        return {
-            ACTION_NAMES[action]: sum(
-                1 for a, was_explored in zip(self.chosen_actions, self.explored)
-                if a == action and not was_explored
-            )
-            for action in range(len(ACTION_NAMES))
-        }
-
     @property
-    def exploration_rate(self) -> float:
-        """Fraction of episodes in which the action was not the greedy action."""
+    def random_exploration_rate(self) -> float:
+        """Fraction of episodes that actually took epsilon's random-action branch."""
         if not self.explored:
             return 0.0
-        return sum(1 for flag in self.explored if flag) / len(self.explored)
+        return sum(self.explored) / len(self.explored)
+
+    @property
+    def greedy_action_match_rate(self) -> float:
+        """Fraction of selected actions equal to the pre-update greedy action."""
+        if not self.chosen_actions:
+            return 0.0
+        matches = sum(a == greedy for a, greedy in zip(self.chosen_actions, self.greedy_actions))
+        return matches / len(self.chosen_actions)
 
     @property
     def visited_states(self) -> int:
-        """Number of states that received at least one update."""
-        return sum(1 for count in self.visit_counts if count > 0)
+        """Number of states that received at least one training update."""
+        return sum(count > 0 for count in self.visit_counts)
 
     @property
     def n_states(self) -> int:
-        """Size of the state space."""
+        """Number of possible discrete states in the Q-table."""
         return len(self.visit_counts)
 
     def summary(self) -> Dict[str, object]:
-        """Return the summary statistics reported with the experiment."""
+        """Return compact training statistics for generated reports."""
         return {
             "episodes": self.episodes,
             "seed": self.seed,
@@ -125,69 +100,61 @@ class TrainingHistory:
             "mean_reward_last_100": self.mean_reward_over_last(),
             "mean_reward_all": self.mean_reward,
             "action_counts": self.action_counts(),
-            "greedy_action_counts": self.greedy_action_counts(),
-            "exploration_rate": self.exploration_rate,
+            "random_exploration_episode_rate": self.random_exploration_rate,
+            "greedy_action_match_rate": self.greedy_action_match_rate,
             "visited_states": self.visited_states,
             "n_states": self.n_states,
             "final_epsilon": self.epsilons[-1] if self.epsilons else 0.0,
-            "controller_multiplier_counts": {
-                f"{multiplier:g}": count
-                for multiplier, count in sorted(Counter(self.controller_multipliers).items())
-            },
         }
 
-    def to_json(self, path: Path) -> Path:
-        """Write the full per-episode history to ``path`` as JSON."""
-        payload = {
+    def as_dict(self) -> Dict[str, object]:
+        """Return the complete history as JSON-serializable data."""
+        return {
             "summary": self.summary(),
             "episodes_detail": {
                 "family": list(self.family_names),
                 "workload_fingerprint": list(self.workload_fingerprints),
                 "state_index": list(self.state_indices),
+                "state_seen_before_action": list(self.state_seen_before_action),
                 "action": list(self.chosen_actions),
-                "action_name": [ACTION_NAMES[a] for a in self.chosen_actions],
+                "action_name": [ACTION_NAMES[action] for action in self.chosen_actions],
+                "greedy_action": list(self.greedy_actions),
+                "greedy_action_name": [ACTION_NAMES[action] for action in self.greedy_actions],
                 "reward": list(self.rewards),
                 "epsilon": list(self.epsilons),
-                "explored": list(self.explored),
-                "controller_multiplier": list(self.controller_multipliers),
+                "used_random_exploration": list(self.explored),
             },
         }
+
+    def to_json(self, path: Path) -> Path:
+        """Write the episode-level history and its summary to JSON."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+        path.write_text(json.dumps(self.as_dict(), indent=2), encoding="utf-8")
         return path
 
 
 @dataclass(frozen=True)
 class TrainingResult:
-    """Everything produced by a training run.
-
-    Attributes:
-        config: The configuration the run was made with.
-        agent: The trained policy-selection agent.
-        controller: The trained quantum controller, or ``None`` when disabled.
-        history: The per-episode record.
-        encoder: The state encoder shared by agent and controller.
-        scheduler: The adaptive scheduler used for training (kept for inspection).
-    """
+    """Trained policy-selection agent, its history, and associated objects."""
 
     config: ExperimentConfig
     agent: QLearningAgent
-    controller: Optional[QuantumController]
     history: TrainingHistory
     encoder: StateEncoder
-    scheduler: AdaptiveScheduler
+    scheduler: OfflinePolicySelector
 
     @property
-    def training_fingerprints(self) -> frozenset:
-        """Fingerprints of all workloads seen during training."""
+    def training_fingerprints(self) -> frozenset[str]:
+        """Fingerprints of workloads presented during this training run."""
         return frozenset(self.history.workload_fingerprints)
 
     def q_table_rows(self) -> List[Dict[str, object]]:
-        """The Q-table as a list of JSON-serialisable rows (one per state)."""
+        """Return every state/action value with coverage and the training seed."""
         rows: List[Dict[str, object]] = []
         table = self.agent.q_table
         for state in range(self.agent.n_states):
             row: Dict[str, object] = {
+                "training_seed": self.history.seed,
                 "state_index": state,
                 "state_bins": self.encoder.decode(state),
                 "visit_count": int(self.agent.visit_counts[state]),
@@ -200,7 +167,7 @@ class TrainingResult:
 
 
 def build_agent(config: ExperimentConfig, encoder: StateEncoder) -> QLearningAgent:
-    """Build the policy-selection agent described by ``config``."""
+    """Build the policy-selection Q-table and independent exploration RNG."""
     return QLearningAgent(
         n_states=encoder.n_states,
         n_actions=len(ACTION_NAMES),
@@ -210,26 +177,14 @@ def build_agent(config: ExperimentConfig, encoder: StateEncoder) -> QLearningAge
     )
 
 
-def build_controller(config: ExperimentConfig, encoder: StateEncoder) -> Optional[QuantumController]:
-    """Build the quantum controller, or return ``None`` when it is disabled."""
-    if not config.quantum_controller.enabled:
-        return None
-    return QuantumController(
-        encoder=encoder,
-        config=config.quantum_controller,
-        seed=derive_seed(config.training.seed, _CONTROLLER_STREAM_TAG),
-    )
-
-
 def build_scheduler(
     config: ExperimentConfig,
     encoder: StateEncoder,
     agent: QLearningAgent,
-    controller: Optional[QuantumController],
-) -> AdaptiveScheduler:
-    """Build the adaptive scheduler from the configured conventional policies."""
+) -> OfflinePolicySelector:
+    """Build the offline selector with exactly the four reference schedulers."""
     policies = [policy_class(config.scheduler) for policy_class in POLICY_CLASSES]
-    return AdaptiveScheduler(config, encoder, agent, policies, controller)
+    return OfflinePolicySelector(config, encoder, agent, policies)
 
 
 def train(
@@ -237,38 +192,31 @@ def train(
     generator: Optional[WorkloadGenerator] = None,
     encoder: Optional[StateEncoder] = None,
 ) -> TrainingResult:
-    """Train the adaptive scheduler and record the full episode history.
+    """Train one agent using ``config.training.seed``.
 
-    Args:
-        config: The experiment configuration; validated before training starts.
-        generator: Optional pre-built workload generator (one is created if omitted).
-        encoder: Optional pre-built state encoder (one is created if omitted).
-
-    Returns:
-        The trained agent, controller, history and the objects they were built with.
-
-    Raises:
-        ConfigurationError: If the configuration is inconsistent.
+    The experiment runner invokes this function independently for each configured
+    training seed. Evaluation workloads use a separate seed stream and are never used for
+    a Q-table update.
     """
     config.validate()
     generator = generator or WorkloadGenerator(config.families)
     encoder = encoder or StateEncoder(config.state)
     agent = build_agent(config, encoder)
-    controller = build_controller(config, encoder)
-    scheduler = build_scheduler(config, encoder, agent, controller)
+    scheduler = build_scheduler(config, encoder, agent)
 
     cycle: Sequence[str] = config.training.family_cycle or generator.family_names
     if not cycle:
-        raise ValueError("no workload families to train on")
+        raise ConfigurationError("no workload families to train on")
 
     families: List[str] = []
     fingerprints: List[str] = []
     states: List[int] = []
     actions: List[int] = []
+    greedy_actions: List[int] = []
+    state_seen: List[bool] = []
     rewards: List[float] = []
     epsilons: List[float] = []
     explored: List[bool] = []
-    multipliers: List[float] = []
 
     for episode in range(config.training.episodes):
         family = cycle[episode % len(cycle)]
@@ -276,17 +224,15 @@ def train(
             family, derive_seed(config.training.seed, _WORKLOAD_STREAM_TAG, episode)
         )
         decision = scheduler.run_training_episode(workload, episode)
-
         families.append(family)
         fingerprints.append(decision.workload_fingerprint)
         states.append(decision.state_index)
         actions.append(decision.action)
+        greedy_actions.append(decision.greedy_action)
+        state_seen.append(decision.state_seen_in_training)
         rewards.append(decision.reward)
         epsilons.append(decision.epsilon)
         explored.append(decision.explored)
-        multipliers.append(
-            decision.controller_multiplier if decision.controller_multiplier is not None else 1.0
-        )
 
     history = TrainingHistory(
         episodes=config.training.episodes,
@@ -295,16 +241,16 @@ def train(
         workload_fingerprints=tuple(fingerprints),
         state_indices=tuple(states),
         chosen_actions=tuple(actions),
+        greedy_actions=tuple(greedy_actions),
+        state_seen_before_action=tuple(state_seen),
         rewards=tuple(rewards),
         epsilons=tuple(epsilons),
         explored=tuple(explored),
-        controller_multipliers=tuple(multipliers),
         visit_counts=tuple(int(count) for count in agent.visit_counts),
     )
     return TrainingResult(
         config=config,
         agent=agent,
-        controller=controller,
         history=history,
         encoder=encoder,
         scheduler=scheduler,
