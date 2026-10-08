@@ -16,6 +16,8 @@ project's exception types, so it can never take part in an import cycle.
 
 from __future__ import annotations
 
+import hashlib
+import math
 from dataclasses import dataclass, field
 from typing import Tuple
 
@@ -28,6 +30,7 @@ __all__ = [
     "ACTION_PRIORITY",
     "ACTION_NAMES",
     "ADAPTIVE_LABEL",
+    "KNOWN_STATE_VARIABLES",
     "SchedulerConfig",
     "WorkloadFamilyConfig",
     "StateConfig",
@@ -38,7 +41,31 @@ __all__ = [
     "EvaluationConfig",
     "ExperimentConfig",
     "build_default_config",
+    "derive_seed",
 ]
+
+
+def derive_seed(base_seed: int, *components: int) -> int:
+    """Derive a reproducible child seed from a base seed and integer components.
+
+    Every random draw in the project is seeded through this function, so a run is fully
+    determined by its master seeds plus the position of the draw (for example
+    ``derive_seed(training_seed, family_index, episode)``).
+
+    The derivation uses SHA-256 rather than Python's built-in ``hash``, which is
+    randomised per process, and rather than arithmetic on the seed, which would make
+    neighbouring components produce neighbouring streams.
+
+    Args:
+        base_seed: Master seed of the run.
+        *components: Position identifiers of this particular draw.
+
+    Returns:
+        A non-negative 63-bit integer usable as ``numpy.random.default_rng`` seed.
+    """
+    payload = ":".join(str(int(value)) for value in (base_seed, *components))
+    digest = hashlib.sha256(payload.encode("ascii")).digest()
+    return int.from_bytes(digest[:8], "big") >> 1
 
 # --------------------------------------------------------------------------------------
 # Action space (fixed by the project brief)
@@ -56,11 +83,16 @@ ACTION_NAMES: Tuple[str, ...] = ("FCFS", "SJF", "Round Robin", "Priority")
 ADAPTIVE_LABEL: str = "Adaptive (Q-Learning)"
 
 #: State variables the encoder knows how to build (see :class:`StateConfig`).
+#:
+#: CPU utilisation, queue length and waiting time -- named as candidates by the project
+#: brief -- are *measured* quantities: before a workload runs they are zero, and using
+#: values measured during execution would leak the outcome of the decision being taken.
+#: Their pre-execution analogues are used instead; see ``docs/DESIGN_AND_CHOICES.md``.
 KNOWN_STATE_VARIABLES: Tuple[str, ...] = (
     "burst_profile",
+    "burst_dispersion",
     "offered_load",
-    "waiting_pressure",
-    "queue_length",
+    "priority_spread",
 )
 
 
@@ -103,7 +135,7 @@ class WorkloadFamilyConfig:
     """Generation rule set for one workload condition.
 
     Every family generates exactly ``num_processes`` synthetic processes.  Arrival
-    times and burst times are drawn as described in
+    times, burst times and priorities are drawn as described in
     ``docs/DESIGN_AND_CHOICES.md``.
 
     Attributes:
@@ -211,26 +243,29 @@ class WorkloadFamilyConfig:
 class StateConfig:
     """Discretisation of the RL state.
 
-    Four state variables are implemented.  The default state uses three of them; see
-    ``docs/DESIGN_AND_CHOICES.md`` for the documented decision to exclude
-    ``queue_length``.  All variables are *pre-execution* workload characteristics: they
-    are computed from the workload description alone, never from a scheduling result.
+    All variables are *pre-execution* workload characteristics: they are computed from
+    the workload description alone, never from a scheduling result.
 
     Attributes:
         state_variables: Ordered tuple of variables that form the state.
         bins_per_variable: Number of bins per variable (3 -> low / medium / high).
-        burst_profile_range: Value range of the burst-profile variable.
-        offered_load_range: Value range of the offered-load variable.
-        waiting_pressure_range: Value range of the waiting-pressure variable.
-        queue_length_range: Value range of the optional queue-length variable.
+        burst_profile_range: Value range of the median burst time.
+        burst_dispersion_range: Value range of the burst-time coefficient of variation.
+        offered_load_range: Value range of the offered-load ratio.
+        priority_spread_range: Value range of the priority standard deviation.
     """
 
-    state_variables: Tuple[str, ...] = ("burst_profile", "offered_load", "waiting_pressure")
+    state_variables: Tuple[str, ...] = (
+        "burst_profile",
+        "burst_dispersion",
+        "offered_load",
+        "priority_spread",
+    )
     bins_per_variable: int = 3
     burst_profile_range: Tuple[float, float] = (1.0, 50.0)
-    offered_load_range: Tuple[float, float] = (1.0, 60.0)
-    waiting_pressure_range: Tuple[float, float] = (1.0, 400.0)
-    queue_length_range: Tuple[float, float] = (0.0, 50.0)
+    burst_dispersion_range: Tuple[float, float] = (0.0, 1.5)
+    offered_load_range: Tuple[float, float] = (0.5, 60.0)
+    priority_spread_range: Tuple[float, float] = (0.0, 2.0)
 
     def __post_init__(self) -> None:
         if not self.state_variables:
@@ -257,9 +292,9 @@ class StateConfig:
         """Return the configured value range of every implemented state variable."""
         return {
             "burst_profile": self.burst_profile_range,
+            "burst_dispersion": self.burst_dispersion_range,
             "offered_load": self.offered_load_range,
-            "waiting_pressure": self.waiting_pressure_range,
-            "queue_length": self.queue_length_range,
+            "priority_spread": self.priority_spread_range,
         }
 
     @property
@@ -337,6 +372,10 @@ class QLearningConfig:
         epsilon_min: Lower bound epsilon never decays below.
         epsilon_decay_per_episode: Multiplicative epsilon decay applied once per
             training episode.
+        initial_value: Value every Q-entry starts at.  Chosen slightly above the best
+            achievable reward (a reward of 0 means "as good as the average conventional
+            policy"), which makes unexplored actions optimistic and spreads early
+            exploration over all four policies.
     """
 
     learning_rate: float = 0.1
@@ -344,6 +383,7 @@ class QLearningConfig:
     epsilon_start: float = 1.0
     epsilon_min: float = 0.05
     epsilon_decay_per_episode: float = 0.995
+    initial_value: float = 0.05
 
     def __post_init__(self) -> None:
         if not 0.0 < self.learning_rate <= 1.0:
@@ -365,6 +405,8 @@ class QLearningConfig:
                 "epsilon_decay_per_episode must lie in (0, 1], got "
                 f"{self.epsilon_decay_per_episode!r}"
             )
+        if not math.isfinite(self.initial_value):
+            raise ConfigurationError(f"initial_value must be finite, got {self.initial_value!r}")
 
 
 @dataclass(frozen=True)

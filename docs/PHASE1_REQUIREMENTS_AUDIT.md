@@ -226,7 +226,33 @@ Still outstanding after that round and tracked for later sign-off: **M-05** (sta
 
 ---
 
-## 7. Gate condition for Phase 2 (Design)
+## 7. Resolution of this audit
+
+**The project owner was asked about every blocking gap and then issued a follow-up
+instruction authorising the documented-defaults path**: where an implementation detail was
+genuinely unspecified, the simplest standard academic choice was to be used, kept
+configurable, documented, and reported.  The instruction also fixed the decisions this audit
+had flagged as blocking:
+
+| Gap | Resolution |
+|---|---|
+| M-01 (documents missing) | Neither the presentation, Review 1 document nor review guideline was supplied; the prompt plus the authorising instruction is the requirements baseline, and every choice made in their absence is documented in `docs/DESIGN_AND_CHOICES.md`. |
+| M-02 (quantum) | Fixed quantum of 4 time units, configurable (`SchedulerConfig.round_robin_quantum`). |
+| M-03 (variants) | Non-preemptive SJF and non-preemptive Priority, as the follow-up instruction states. |
+| M-04 (decision model) | One policy per workload, selected before execution (`docs/DESIGN_AND_CHOICES.md` §1). |
+| M-05 (state) | Four pre-execution workload characteristics, 3 bins each, documented substitution for the measured candidates (§5). |
+| M-06/M-07 (RL hyperparameters, reward weights) | Declared values in `config.py`, documented and untuned (§6–§7). |
+| M-08/M-09 (workload rules, protocol) | Six declared conditions, 600 training episodes, 10 evaluation repetitions per condition, disjoint seeds (§9–§10). |
+| M-10 (switching convention) | Costless by default, counted as changes of the running process (§3). |
+| M-11/M-12 (tie-breaking, metric definitions) | Explicit total orders and textbook metric definitions (§2, §4). |
+| M-13 (dependencies) | NumPy, pandas, Matplotlib and pytest approved; pinned in `requirements.txt`. |
+| M-14/M-15 (config format, seeds) | Frozen dataclasses in `config.py`; SHA-256 child-seed derivation from master seeds. |
+| M-16 (oracle baseline) | **Not implemented** — it would have been a scope addition; listed under future scope in the README. |
+
+**The gate below is therefore satisfied by explicit authorisation rather than by supplying the
+missing documents, and the audit is retained as the historical record of what was missing.**
+
+## 8. Gate condition for Phase 2 (Design)
 
 Phase 2 may begin when:
 

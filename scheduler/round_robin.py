@@ -16,7 +16,7 @@ from __future__ import annotations
 from collections import deque
 from typing import ClassVar, Deque, Dict, Sequence
 
-from config import ACTION_ROUND_ROBIN, SchedulerConfig
+from config import ACTION_ROUND_ROBIN
 from scheduler.base import SchedulingPolicy, Timeline
 from workload.models import ExecutionSlice, Process, Workload
 

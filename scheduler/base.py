@@ -18,8 +18,7 @@ into a trace, nothing more.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections import deque
-from typing import ClassVar, Deque, List, Sequence, Tuple
+from typing import ClassVar, List, Sequence, Tuple
 
 from config import SchedulerConfig
 from errors import ValidationError

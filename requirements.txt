@@ -1,0 +1,8 @@
+# Runtime and test dependencies of the project.
+# Install with:  python3 -m pip install -r requirements.txt
+# (On Debian/Ubuntu systems with an externally managed Python, use a virtual
+# environment:  python3 -m venv .venv && . .venv/bin/activate && pip install -r requirements.txt)
+numpy>=1.24
+pandas>=2.0
+matplotlib>=3.7
+pytest>=7.4
