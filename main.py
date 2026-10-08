@@ -1,18 +1,16 @@
-"""Command-line entry point of the project.
+"""Command-line entry point for the offline workload-aware policy selector.
 
 Usage::
 
-    python3 main.py experiment        # verify, train, evaluate, tabulate, plot (default)
-    python3 main.py train             # train only and report the training history
-
-Every command uses the frozen configuration in :func:`config.build_default_config`; no
-hyperparameter can be changed from the command line, so a reported result can always be
-traced back to an exact configuration (which is written to ``results/config.json``).
+    python main.py experiment        # train, evaluate, report, and plot
+    python main.py experiment --no-figures
+    python main.py train             # train the configured independent seeds only
 """
 
 from __future__ import annotations
 
 import argparse
+from dataclasses import replace
 from pathlib import Path
 from typing import Optional, Sequence
 
@@ -28,9 +26,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="main.py",
         description=(
-            "Reinforcement-learning-based workload-aware CPU scheduling with dynamic "
-            "policy selection (tabular Q-learning over FCFS, SJF, Round Robin and "
-            "Priority on a single simulated CPU)."
+            "Offline workload-aware CPU policy selection: one batch decision per complete "
+            "workload using tabular Q-learning over FCFS, SJF, Round Robin, and Priority. "
+            "This project does not perform runtime policy switching."
         ),
     )
     parser.add_argument(
@@ -38,153 +36,97 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default="experiment",
         choices=("experiment", "train"),
-        help="'experiment' verifies the classes, trains, evaluates, tabulates and plots; "
-        "'train' only trains.",
+        help="'experiment' runs the full multi-seed evaluation; 'train' trains configured seeds only.",
     )
     parser.add_argument(
         "--results-dir",
         type=Path,
         default=None,
-        help="where result files are written (default: the configured results directory)",
+        help="where result files are written (default: configured results directory)",
     )
     parser.add_argument(
         "--figures-dir",
         type=Path,
         default=None,
-        help="where figures are written (default: the configured figures directory)",
+        help="where figures are written (default: configured figures directory)",
     )
     parser.add_argument(
         "--no-figures",
         action="store_true",
-        help="skip figure creation (useful on machines without Matplotlib)",
+        help="skip optional Matplotlib figures; result tables and report are still generated",
     )
     return parser
 
 
-def _report_verification(summary) -> None:
-    """Print the pre-training verification of the workload classes."""
-    verification = summary["verification"]
-    print("Pre-training class verification")
-    print("-------------------------------")
-    print(f"  probe workloads per class      : {verification['repetitions_per_family']}")
-    print(f"  probe workloads total          : {verification['workloads_total']}")
-    print(
-        f"  state-conditional consistency  : "
-        f"{verification['state_conditional_consistency']:.1%} of probe workloads match "
-        "their state's modal reward-argmax"
-    )
-    print("  Reward-optimal policy per class (measured before training):")
-    for entry in verification["classes"]:
-        counts = ", ".join(
-            f"{name} {entry['winner_shares'][name]:.0%}"
-            for name in ACTION_NAMES
-            if entry["winner_shares"][name] > 0.0
-        )
-        print(
-            f"    {entry['family']:<20} -> {entry['modal_winner']:<12} "
-            f"({counts}; {entry['distinct_states']} states)"
-        )
-    print()
-
-
 def _report_training(history) -> None:
-    """Print the training summary."""
+    """Print the measured summary for one training seed."""
     summary = history.summary()
-    print("Training")
-    print("--------")
-    print(f"  episodes                       : {summary['episodes']}")
-    print(f"  master seed                    : {summary['seed']}")
-    print(f"  mean reward, first 100 episodes: {summary['mean_reward_first_100']:+.4f}")
-    print(f"  mean reward, last 100 episodes : {summary['mean_reward_last_100']:+.4f}")
-    print(f"  exploration rate (all episodes): {summary['exploration_rate']:.1%}")
-    print(f"  final epsilon                  : {summary['final_epsilon']:.4f}")
-    print(f"  visited states                 : {summary['visited_states']} of {summary['n_states']}")
-    print("  policy selections (all episodes):")
+    print(f"Training seed {summary['seed']}")
+    print("-" * (14 + len(str(summary["seed"]))))
+    print(f"  terminal episodes              : {summary['episodes']}")
+    print(f"  mean reward, first 100          : {summary['mean_reward_first_100']:+.4f}")
+    print(f"  mean reward, last 100           : {summary['mean_reward_last_100']:+.4f}")
+    print(f"  mean reward, all episodes       : {summary['mean_reward_all']:+.4f}")
+    print(f"  random-action branch rate       : {summary['random_exploration_episode_rate']:.1%}")
+    print(f"  final epsilon probability       : {summary['final_epsilon']:.4f}")
+    print(f"  states visited                  : {summary['visited_states']} / {summary['n_states']}")
+    print("  selected policies:")
     for name in ACTION_NAMES:
         print(f"    {name:<12}: {summary['action_counts'][name]}")
-    print("  policy selections (greedy only):")
-    for name in ACTION_NAMES:
-        print(f"    {name:<12}: {summary['greedy_action_counts'][name]}")
 
 
 def _report_evaluation(evaluation, summary) -> None:
-    """Print the measured evaluation results."""
+    """Print unique workload, model decision, and aggregate comparison counts."""
+    values = summary["evaluation"]
     print()
-    print("Evaluation (held-out workloads)")
-    print("------------------------------")
+    print("Evaluation")
+    print("----------")
     print(f"  workload conditions            : {', '.join(evaluation.families)}")
+    print(f"  unique workloads               : {values['observed_unique_workloads']}")
     print(f"  repetitions per condition      : {evaluation.repetitions}")
+    print(f"  independent training seeds     : {', '.join(map(str, evaluation.training_seeds))}")
+    print(f"  model decision rows            : {values['selector_decision_rows']}")
     print(f"  evaluation master seed         : {evaluation.evaluation_seed}")
-    print(f"  distinct workloads evaluated   : {evaluation.metrics['workload_fingerprint'].nunique()}")
-    eval_summary = summary["evaluation"]
-    print(
-        f"  distinct states evaluated      : {eval_summary['distinct_states_evaluated']} "
-        f"({eval_summary['evaluated_states_visited_during_training']} visited during "
-        f"training, {eval_summary['evaluated_states_not_visited_during_training']} not)"
-    )
-    print(
-        f"  agreement with the reward-argmax: {eval_summary['oracle_agreement_matches']} of "
-        f"{eval_summary['oracle_agreement_workloads']} held-out workloads "
-        f"({eval_summary['oracle_agreement_rate']:.1%})"
-    )
     print()
-
-    ratios = summary["tables"]["adaptive_ratio_vs_baselines"]
-    print("  Baseline vs adaptive scheduler, workload by workload (mean ratio > 1 means")
-    print("  the baseline is worse for a cost metric such as waiting time):")
+    ratios = summary["tables"]["selector_vs_baselines"]
+    print("Aggregate mean reductions (positive means selector mean is lower):")
     for policy in ACTION_NAMES:
-        for metric in ("avg_waiting_time", "avg_turnaround_time", "avg_response_time", "throughput"):
-            row = next(
-                (
-                    record
-                    for record in ratios
-                    if record["policy"] == policy and record["metric"] == metric
-                ),
-                None,
-            )
-            if row is None:
-                continue
-            print(
-                f"    {policy:<12} {metric:<20} baseline={row['mean_baseline']:.4f} "
-                f"adaptive={row['mean_adaptive']:.4f} ratio={row['mean_ratio']:.4f}"
-            )
-    print()
-
-    print("  Agreement with the reward-argmax, per workload condition:")
-    for record in summary["tables"]["oracle_agreement"]:
-        print(
-            f"    {record['family']:<20} {record['matches']}/{record['workloads']} matched "
-            f"({record['agreement_rate']:.0%}), mean reward gap to the oracle "
-            f"{record['mean_reward_gap_to_oracle']:+.4f}"
+        row = next(
+            record
+            for record in ratios
+            if record["policy"] == policy and record["metric"] == "avg_waiting_time"
         )
+        baseline = float(row["mean_baseline"])
+        selector = float(row["mean_selector"])
+        reduction = 100.0 * (baseline - selector) / baseline if baseline else float("nan")
+        print(f"  vs {policy:<12}: {reduction:+.2f}% waiting-time reduction")
     print()
-
-    print("  Policy selected by the agent, per workload condition:")
+    print("Learned selections by condition (pooled across independent training seeds):")
     for record in summary["tables"]["policy_selection"]:
-        selected = sorted(
-            (
-                (name, record[f"count_{name}"])
-                for name in ACTION_NAMES
-                if record.get(f"count_{name}")
-            ),
-            key=lambda item: (-item[1], item[0]),
-        )
-        chosen = ", ".join(f"{name} x{count}" for name, count in selected) or "none"
+        selected = [
+            f"{name} {record[f'count_{name}']}"
+            for name in ACTION_NAMES
+            if record[f"count_{name}"]
+        ]
         print(
-            f"    {record['family']:<20} {chosen:<40} mean reward "
-            f"{record['mean_reward']:+.4f}"
+            f"  {record['family']:<22} {', '.join(selected):<44} "
+            f"unseen-state fallback rows {record['unseen_state_decisions']}"
         )
-    print()
+    print("\nDetailed generated result report: results/report.md (or --results-dir/report.md).")
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    """Run the command-line interface; returns the process exit code."""
+    """Run the command-line interface and return its exit code."""
     args = _build_parser().parse_args(argv)
     config = build_default_config()
 
     if args.command == "train":
-        result = train(config)
-        _report_training(result.history)
+        for seed in config.training.seeds:
+            model_config = replace(
+                config,
+                training=replace(config.training, seed=seed, replicates=1),
+            )
+            _report_training(train(model_config).history)
         return 0
 
     artifacts = run_experiment(
@@ -193,21 +135,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         figures_dir=args.figures_dir,
         make_figures=not args.no_figures,
     )
-    _report_verification(artifacts.summary)
-    _report_training(artifacts.training.history)
     _report_evaluation(artifacts.evaluation, artifacts.summary)
-
     print()
-    print("Artefacts written")
-    print("----------------")
+    print("Artifacts written")
+    print("-----------------")
     for name, path in artifacts.paths.items():
         if name == "figures":
-            for figure in path:  # type: ignore[union-attr]
+            for figure in path:
                 print(f"  figure: {figure}")
         else:
-            print(f"  {name:<20}: {path}")
-    print()
-    print("Every number above was measured by this run; see README.md for interpretation.")
+            print(f"  {name:<18}: {path}")
     return 0
 
 

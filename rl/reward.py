@@ -1,41 +1,18 @@
-"""Reward function of the policy-selection agent.
+"""One consistent reward for offline single-workload policy selection.
 
-Reward definition
------------------
-The reward expresses the project objective -- improving scheduling performance -- as a
-single scalar.  It is defined *relative to the four conventional policies evaluated on
-the same workload*, so that it is invariant to the overall difficulty of a workload and
-so that the agent cannot be rewarded for a workload being easy.
+On each workload, compute the arithmetic-mean reference of exactly four policies: FCFS,
+SJF, Round Robin, and Priority. For each metric, use the chosen-policy/reference ratio,
+clipped above at ``reference_clip`` (a zero reference maps to ratio 1). Lower is better
+for mean waiting, turnaround and response times and context switches per process; higher
+is better for CPU utilization and throughput. The scalar reward is
 
-For a workload, let ``reference_m`` be the mean of metric ``m`` over the four
-conventional policies and ``chosen_m`` the value of metric ``m`` under the policy the
-agent chose.  Every metric becomes a scale-free term ``term_m = chosen_m / reference_m``,
-so ``term_m = 1`` means "exactly as good as the average conventional policy".  Terms are
-clipped to ``reward.reference_clip`` to bound the influence of any single metric, and a
-term whose reference mean is zero is defined as ``1`` (neutral); this makes the reward of
-an empty workload exactly ``0``.
+``sum(w_cost * (1 - ratio_cost)) + sum(w_benefit * (ratio_benefit - 1))``.
 
-Each metric contributes its *deviation from the average conventional policy*:
-
-``reward = w_util * (util_term - 1) + w_throughput * (throughput_term - 1)
-           + w_waiting * (1 - waiting_term) + w_turnaround * (1 - turnaround_term)
-           + w_response * (1 - response_term) + w_switches * (1 - switches_term)``
-
-so the reward is exactly ``0`` when the chosen policy performs like the average of the
-four conventional policies, positive when it performs better and negative when it
-performs worse.  Ranking policies does not depend on this centring (adding the constant
-``-1`` to every term cannot change an argmax); the deviation form is used because it makes
-the reward readable.  All weights live in :class:`config.RewardConfig` and sum to 1, so a
-cost metric and a benefit metric of equal weight influence the reward equally.  Context
-switches are scaled per process before comparison, because only their count relative to
-the number of processes is comparable across workload sizes.
-
-The reward is deliberately invariant to the workload *set*: it is computed against the
-four conventional policies on the *same* workload, so redesigning the workload classes
-changes where the policies differ, never what "better" means (see
-``docs/DESIGN_AND_CHOICES.md`` §6).
+The six configured weights sum to one. A reward of zero means the selected result matches
+the four-policy arithmetic mean on every metric; a positive reward means the weighted net
+is better under this objective, not that every metric improved. This same function is
+used for training and interpretation of the evaluation outputs.
 """
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -106,9 +83,15 @@ def compute_reward(
             identity is invalid.
     """
     _check_reward_config(config)
-    missing = [action for action in range(len(ACTION_NAMES)) if action not in attempts]
-    if missing:
-        raise ValidationError(f"attempts is missing actions {missing}")
+    expected_actions = set(range(len(ACTION_NAMES)))
+    supplied_actions = set(attempts)
+    if supplied_actions != expected_actions:
+        missing = sorted(expected_actions - supplied_actions)
+        unexpected = sorted(supplied_actions - expected_actions)
+        raise ValidationError(
+            f"attempts must contain exactly the four actions; missing={missing}, "
+            f"unexpected={unexpected}"
+        )
     if chosen_action not in attempts:
         raise ValidationError(f"chosen_action {chosen_action} has no metrics in attempts")
 

@@ -1,215 +1,144 @@
-"""Workload generation: the rules that make the conditions genuinely different.
-
-The generator is the component that decides whether the experiment can show
-workload-aware selection at all, so its rules are tested directly: the batch-head
-arrival pattern (long background jobs released at the head of the window plus a
-stream of short jobs), the configurable long-mode bound, and the burst-aligned
-priority pattern (importance tracks job size).
-"""
+"""Synthetic workload generation for the declared offline experiment conditions."""
 
 from __future__ import annotations
 
 import pytest
 
 from config import WorkloadFamilyConfig
-from errors import ValidationError
+from errors import ConfigurationError, ValidationError
 from workload.generator import WorkloadGenerator
-from workload.models import Workload
 
 
-def _family(**overrides) -> WorkloadFamilyConfig:
-    """A small bimodal family with a batch head, plus overrides."""
-    base = dict(
-        name="f",
-        description="test",
-        num_processes=12,
+def test_staggered_interactive_generates_one_long_job_and_staggered_short_jobs() -> None:
+    family = WorkloadFamilyConfig(
+        name="interactive",
+        description="one long process with staggered short jobs",
+        num_processes=15,
+        burst_distribution="staggered_interactive",
+        burst_time_min=25,
+        burst_time_max=50,
+        short_burst_max=3,
+        arrival_pattern="staggered",
+        staggered_gap_min=4,
+        staggered_gap_max=6,
+        priority_min=1,
+        priority_max=1,
+    )
+    workload = WorkloadGenerator((family,)).generate(family.name, seed=2024)
+
+    assert workload.processes[0].arrival_time == 0
+    assert 25 <= workload.processes[0].burst_time <= 50
+    assert all(1 <= process.burst_time <= 3 for process in workload.processes[1:])
+    arrivals = [process.arrival_time for process in workload.processes]
+    assert arrivals == sorted(arrivals)
+    assert all(4 <= right - left <= 6 for left, right in zip(arrivals, arrivals[1:]))
+
+
+def test_bimodal_bursts_follow_the_declared_short_fraction() -> None:
+    family = WorkloadFamilyConfig(
+        name="short_jobs",
+        description="short-job-heavy mixture",
+        num_processes=1000,
         burst_distribution="bimodal",
         burst_time_min=1,
-        burst_time_max=100,
-        short_burst_max=2,
-        short_burst_fraction=0.75,
-        long_burst_min=60,
-        arrival_pattern="batch_head",
-        arrival_window=40,
-        head_window=3,
-        priority_pattern="uniform",
+        burst_time_max=50,
+        short_burst_max=5,
+        short_burst_fraction=0.8,
     )
-    base.update(overrides)
-    return WorkloadFamilyConfig(**base)
+    generator = WorkloadGenerator((family,))
+    workload = generator.generate(family.name, seed=15)
+    bursts = [process.burst_time for process in workload.processes]
+    short_share = sum(burst <= 5 for burst in bursts) / len(bursts)
+
+    assert all(1 <= burst <= 50 for burst in bursts)
+    assert 0.75 <= short_share <= 0.85
+    assert workload == generator.generate(family.name, seed=15)
 
 
-class TestBatchHeadArrivals:
-    def test_long_jobs_are_released_at_the_head_of_the_window(self) -> None:
-        generator = WorkloadGenerator((_family(),))
-        workload = generator.generate("f", 5)
-        long_jobs = [p for p in workload.processes if p.burst_time >= 60]
-        short_jobs = [p for p in workload.processes if p.burst_time < 60]
-        assert long_jobs and short_jobs
-        assert all(0 <= p.arrival_time <= 3 for p in long_jobs)
-        assert all(0 <= p.arrival_time <= 40 for p in short_jobs)
-        # At least one long job must be released before the short-job stream gets going,
-        # otherwise the workload would not exercise the blocking that distinguishes the
-        # interactive conditions.
-        assert min(p.arrival_time for p in long_jobs) <= max(
-            p.arrival_time for p in short_jobs
-        )
+def test_uniform_and_poisson_families_respect_their_time_ranges() -> None:
+    uniform = WorkloadFamilyConfig(
+        name="uniform",
+        description="uniform bursts and arrivals",
+        num_processes=30,
+        burst_distribution="uniform",
+        burst_time_min=2,
+        burst_time_max=8,
+        arrival_pattern="uniform",
+        arrival_window=12,
+    )
+    poisson = WorkloadFamilyConfig(
+        name="poisson",
+        description="Poisson arrivals",
+        num_processes=30,
+        burst_distribution="uniform",
+        burst_time_min=1,
+        burst_time_max=20,
+        arrival_pattern="poisson",
+        arrival_rate=0.5,
+    )
+    generator = WorkloadGenerator((uniform, poisson))
+    uniform_workload = generator.generate("uniform", seed=10)
+    poisson_workload = generator.generate("poisson", seed=11)
 
-    def test_long_mode_respects_long_burst_min(self) -> None:
-        generator = WorkloadGenerator((_family(),))
-        for seed in range(10):
-            workload = generator.generate("f", seed)
-            for process in workload.processes:
-                if process.burst_time > 2:
-                    assert 60 <= process.burst_time <= 100
-
-    def test_long_burst_min_defaults_to_the_short_mode_bound_plus_one(self) -> None:
-        family = _family(long_burst_min=0)
-        assert family.long_mode_min() == 3
-        assert _family().long_mode_min() == 60
-
-    def test_batch_head_requires_a_bimodal_burst_distribution(self) -> None:
-        with pytest.raises(ValidationError, match="batch_head"):
-            WorkloadFamilyConfig(
-                name="bad",
-                description="x",
-                num_processes=4,
-                burst_distribution="uniform",
-                arrival_pattern="batch_head",
-            )
-
-    def test_head_window_must_not_exceed_the_arrival_window(self) -> None:
-        with pytest.raises(ValidationError, match="head_window"):
-            _family(head_window=100)
-
-    def test_invalid_long_burst_min_is_rejected(self) -> None:
-        with pytest.raises(ValidationError, match="long_burst_min"):
-            _family(long_burst_min=2)  # not above the short mode
-        with pytest.raises(ValidationError, match="long_burst_min"):
-            _family(long_burst_min=101)  # above the burst range
-        with pytest.raises(ValidationError, match="long_burst_min"):
-            _family(long_burst_min=60, burst_distribution="uniform")
+    assert all(2 <= process.burst_time <= 8 for process in uniform_workload.processes)
+    assert all(0 <= process.arrival_time <= 12 for process in uniform_workload.processes)
+    poisson_arrivals = [process.arrival_time for process in poisson_workload.processes]
+    assert poisson_arrivals == sorted(poisson_arrivals)
+    assert poisson_arrivals[0] == 0
+    assert poisson_workload.arrival_span > 0
 
 
-class TestBurstAlignedPriorities:
-    def test_shortest_job_carries_the_highest_priority(self) -> None:
-        family = _family(
-            burst_distribution="uniform",
-            burst_time_min=1,
-            burst_time_max=50,
-            long_burst_min=0,
+def test_priority_skew_uses_the_declared_high_priority_band() -> None:
+    family = WorkloadFamilyConfig(
+        name="priority_skewed",
+        description="high-priority-skewed priorities",
+        num_processes=100,
+        burst_distribution="uniform",
+        burst_time_min=1,
+        burst_time_max=50,
+        arrival_pattern="uniform",
+        priority_pattern="high_priority_skewed",
+        priority_min=1,
+        priority_max=5,
+        high_priority_cutoff=2,
+        high_priority_fraction=0.7,
+    )
+    workload = WorkloadGenerator((family,)).generate(family.name, seed=2)
+    assert sum(process.priority <= 2 for process in workload.processes) > 50
+
+
+def test_family_lookup_and_seeded_generation_are_reproducible() -> None:
+    family = WorkloadFamilyConfig(name="small", description="small", num_processes=8)
+    generator = WorkloadGenerator((family,))
+    assert generator.family("small") is family
+    assert generator.family_names == ("small",)
+    assert generator.generate("small", 4) == generator.generate("small", 4)
+    assert generator.generate("small", 4) != generator.generate("small", 5)
+
+
+def test_invalid_generator_inputs_are_project_validation_errors() -> None:
+    family = WorkloadFamilyConfig(name="small", description="small", num_processes=3)
+    with pytest.raises(ValidationError, match="at least one"):
+        WorkloadGenerator(())
+    with pytest.raises(ValidationError, match="unique"):
+        WorkloadGenerator((family, family))
+    with pytest.raises(ValidationError, match="unknown workload family"):
+        WorkloadGenerator((family,)).generate("missing", 0)
+    with pytest.raises(ValidationError, match="non-negative integer"):
+        WorkloadGenerator((family,)).generate("small", -1)
+    with pytest.raises(ValidationError, match="non-negative integer"):
+        WorkloadGenerator((family,)).generate("small", True)
+
+
+def test_interactive_distribution_requires_staggered_arrivals() -> None:
+    with pytest.raises(ConfigurationError, match="require staggered arrivals"):
+        WorkloadFamilyConfig(
+            name="invalid",
+            description="inconsistent pattern",
+            num_processes=4,
+            burst_distribution="staggered_interactive",
+            burst_time_min=10,
+            burst_time_max=20,
+            short_burst_max=3,
             arrival_pattern="uniform",
-            priority_pattern="burst_aligned",
-            priority_min=1,
-            priority_max=5,
         )
-        generator = WorkloadGenerator((family,))
-        workload = generator.generate("f", 11)
-        by_burst = sorted(workload.processes, key=lambda p: (p.burst_time, p.pid))
-        priorities = [p.priority for p in by_burst]
-        # Priorities never decrease as the burst time grows: importance tracks size.
-        assert priorities == sorted(priorities)
-        assert min(p.priority for p in workload.processes) == 1
-        assert max(p.priority for p in workload.processes) <= 5
-
-    def test_aligned_priorities_are_deterministic_in_the_bursts(self) -> None:
-        family = _family(
-            burst_distribution="uniform",
-            long_burst_min=0,
-            arrival_pattern="uniform",
-            priority_pattern="burst_aligned",
-        )
-        generator = WorkloadGenerator((family,))
-        first = generator.generate("f", 3)
-        second = generator.generate("f", 3)
-        assert first == second
-        assert [p.priority for p in first.processes] == [
-            p.priority for p in second.processes
-        ]
-
-    def test_unknown_priority_pattern_is_rejected(self) -> None:
-        with pytest.raises(ValidationError, match="priority_pattern"):
-            _family(priority_pattern="nope")
-
-
-class TestExistingPatternsStillWork:
-    def test_uniform_batch_release(self) -> None:
-        family = WorkloadFamilyConfig(
-            name="batch", description="x", num_processes=6,
-            burst_distribution="uniform", burst_time_min=1, burst_time_max=4,
-            arrival_pattern="uniform", arrival_window=0,
-        )
-        workload = WorkloadGenerator((family,)).generate("batch", 1)
-        assert all(p.arrival_time == 0 for p in workload.processes)
-
-    def test_uniform_staggered_release(self) -> None:
-        family = WorkloadFamilyConfig(
-            name="stream", description="x", num_processes=6,
-            burst_distribution="uniform", burst_time_min=1, burst_time_max=4,
-            arrival_pattern="uniform", arrival_window=30,
-        )
-        workload = WorkloadGenerator((family,)).generate("stream", 1)
-        assert all(0 <= p.arrival_time <= 30 for p in workload.processes)
-        assert len({p.arrival_time for p in workload.processes}) > 1
-
-    def test_poisson_arrivals_are_spread_over_time(self) -> None:
-        family = WorkloadFamilyConfig(
-            name="poisson", description="x", num_processes=8,
-            burst_distribution="uniform", burst_time_min=1, burst_time_max=20,
-            arrival_pattern="poisson", arrival_rate=0.5,
-        )
-        workload = WorkloadGenerator((family,)).generate("poisson", 4)
-        assert all(p.arrival_time >= 0 for p in workload.processes)
-        assert workload.arrival_span > 0
-        assert len({p.arrival_time for p in workload.processes}) > 1
-        # Workloads are stored in arrival order, independently of generation order.
-        arrivals = [p.arrival_time for p in workload.processes]
-        assert arrivals == sorted(arrivals)
-
-    def test_high_priority_skewed_draws_mostly_from_the_high_band(self) -> None:
-        family = WorkloadFamilyConfig(
-            name="skewed", description="x", num_processes=40,
-            burst_distribution="uniform", burst_time_min=1, burst_time_max=50,
-            arrival_pattern="uniform", arrival_window=20,
-            priority_pattern="high_priority_skewed",
-            high_priority_cutoff=2, high_priority_fraction=0.7,
-        )
-        workload = WorkloadGenerator((family,)).generate("skewed", 2)
-        high = sum(1 for p in workload.processes if p.priority <= 2)
-        assert high > len(workload.processes) // 2
-
-    def test_reproducibility_and_seed_validation(self) -> None:
-        generator = WorkloadGenerator((_family(),))
-        assert generator.generate("f", 9) == generator.generate("f", 9)
-        assert generator.generate("f", 9) != generator.generate("f", 10)
-        with pytest.raises(ValidationError, match="seed"):
-            generator.generate("f", -1)
-
-
-class TestGeneratorValidation:
-    def test_empty_family_list_is_rejected(self) -> None:
-        with pytest.raises(ValidationError, match="at least one"):
-            WorkloadGenerator(())
-
-    def test_duplicate_names_are_rejected(self) -> None:
-        family = _family()
-        with pytest.raises(ValidationError, match="unique"):
-            WorkloadGenerator((family, family))
-
-    def test_unknown_family_is_rejected(self) -> None:
-        generator = WorkloadGenerator((_family(),))
-        with pytest.raises(ValidationError, match="unknown workload family"):
-            generator.generate("nope", 0)
-
-    def test_family_lookup_round_trip(self) -> None:
-        family = _family(name="mine")
-        generator = WorkloadGenerator((family,))
-        assert generator.family("mine") is family
-        assert generator.family_names == ("mine",)
-
-    def test_workload_carries_the_family_metadata(self) -> None:
-        family = _family(name="meta", description="a description")
-        workload = WorkloadGenerator((family,)).generate("meta", 0)
-        assert isinstance(workload, Workload)
-        assert workload.name == "meta"
-        assert workload.description == "a description"
-        assert len(workload.processes) == family.num_processes

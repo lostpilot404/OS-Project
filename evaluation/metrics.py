@@ -23,6 +23,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Dict
 
+from errors import ValidationError
 from workload.models import ScheduleResult
 
 __all__ = ["WorkloadMetrics", "compute_metrics"]
@@ -89,7 +90,7 @@ def compute_metrics(result: ScheduleResult) -> WorkloadMetrics:
         ValidationError: If ``result`` is not a :class:`workload.models.ScheduleResult`.
     """
     if not isinstance(result, ScheduleResult):
-        raise ValueError(f"result must be a ScheduleResult, got {type(result).__name__}")
+        raise ValidationError(f"result must be a ScheduleResult, got {type(result).__name__}")
 
     outcomes = result.outcomes
     num_processes = len(outcomes)

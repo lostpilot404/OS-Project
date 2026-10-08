@@ -134,11 +134,17 @@ class TestActionSelection:
         with pytest.raises(ValidationError, match="epsilon"):
             _agent().select_action(0, epsilon)
 
-    def test_exploration_flag_reports_deviation_from_greedy(self) -> None:
+    def test_zero_epsilon_records_a_greedy_selection_not_exploration(self) -> None:
         agent = _agent()
         agent.update(0, 2, 5.0, next_state=None)
-        assert agent.last_action_was_exploration(0, 2) is False
-        assert agent.last_action_was_exploration(0, 0) is True
+        assert agent.select_action(0, epsilon=0.0) == 2
+        assert agent.last_action_was_random_exploration is False
+
+    def test_random_branch_is_exploration_even_when_it_equals_greedy(self) -> None:
+        agent = _agent(n_actions=1)
+        assert agent.select_action(0, epsilon=1.0) == 0
+        assert agent.greedy_action(0) == 0
+        assert agent.last_action_was_random_exploration is True
 
 
 class TestEpsilonSchedule:

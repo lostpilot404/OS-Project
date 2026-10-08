@@ -4,11 +4,11 @@ Every tunable value used anywhere in the simulator, the Q-learning agent, the
 experiment pipeline and the plots is declared **once**, here.  No module hard-codes an
 experimental value: modules receive their configuration objects explicitly.
 
-Implementation choices that the project brief left unspecified are recorded in
-``docs/DESIGN_AND_CHOICES.md``; the values below are the frozen defaults for the
-reported experiment.  They are arbitrary-but-declared (no tuning against results was
-performed) and every one of them can be overridden by constructing a different
-:class:`ExperimentConfig`.
+Implementation choices that the project brief left unspecified are defined in
+``docs/DESIGN_AND_CHOICES.md``; the values below are the declared defaults for the
+reported experiment. They can be changed by constructing a different
+:class:`ExperimentConfig`, in which case the generated configuration snapshot records the
+changed design.
 
 The module deliberately imports nothing from the rest of the project except the
 project's exception types, so it can never take part in an import cycle.
@@ -29,7 +29,7 @@ __all__ = [
     "ACTION_ROUND_ROBIN",
     "ACTION_PRIORITY",
     "ACTION_NAMES",
-    "ADAPTIVE_LABEL",
+    "SELECTOR_LABEL",
     "KNOWN_STATE_VARIABLES",
     "SchedulerConfig",
     "WorkloadFamilyConfig",
@@ -66,7 +66,6 @@ def derive_seed(base_seed: int, *components: int) -> int:
     digest = hashlib.sha256(payload.encode("ascii")).digest()
     return int.from_bytes(digest[:8], "big") >> 1
 
-
 # --------------------------------------------------------------------------------------
 # Action space (fixed by the project brief)
 # --------------------------------------------------------------------------------------
@@ -79,24 +78,20 @@ ACTION_PRIORITY: int = 3
 #: Human-readable names, indexed by action.  The order is fixed by the project brief.
 ACTION_NAMES: Tuple[str, ...] = ("FCFS", "SJF", "Round Robin", "Priority")
 
-#: Label used for the adaptive (Q-learning) scheduler in tables and plots.
-ADAPTIVE_LABEL: str = "Adaptive (Q-Learning)"
+#: Display label for the learned offline policy selector in tables and plots.
+SELECTOR_LABEL: str = "Offline Policy Selector (Q-Learning)"
 
 #: State variables the encoder knows how to build (see :class:`StateConfig`).
 #:
-#: All seven are *pre-execution* workload characteristics: CPU utilisation, queue
-#: length and waiting time -- named as candidates by the project brief -- are
-#: *measured* quantities, so before a workload runs they are zero, and using values
-#: measured during execution would leak the outcome of the decision being taken.
+#: CPU utilisation, queue length and waiting time -- named as candidates by the project
+#: brief -- are *measured* quantities: before a workload runs they are zero, and using
+#: values measured during execution would leak the outcome of the decision being taken.
 #: Their pre-execution analogues are used instead; see ``docs/DESIGN_AND_CHOICES.md``.
 KNOWN_STATE_VARIABLES: Tuple[str, ...] = (
     "burst_profile",
     "burst_dispersion",
-    "long_job_share",
-    "arrival_concentration",
     "offered_load",
     "priority_spread",
-    "priority_burst_alignment",
 )
 
 
@@ -138,40 +133,35 @@ class SchedulerConfig:
 class WorkloadFamilyConfig:
     """Generation rule set for one workload condition.
 
-    Every family generates exactly ``num_processes`` synthetic processes.  Arrival
-    times, burst times and priorities are drawn as described in
-    ``docs/DESIGN_AND_CHOICES.md``.
+    Every family generates exactly ``num_processes`` synthetic processes. Arrival times,
+    bursts and priorities follow the declared distributions documented in
+    ``docs/DESIGN_AND_CHOICES.md``. ``staggered_interactive`` is a distinct workload
+    condition with one long process and staggered short jobs; it is not a policy rule.
 
     Attributes:
         name: Short identifier used in tables, plots and file names.
         description: Human-readable description of the condition.
         num_processes: Number of processes generated per workload.
-        burst_distribution: ``"uniform"`` for a single burst range, or ``"bimodal"``
-            for a short-job mode and a long-job mode.
+        burst_distribution: ``"uniform"`` for a single burst range, ``"bimodal"`` for
+            a mixture of short and long bursts, or ``"staggered_interactive"`` for one
+            long burst followed by short bursts.
         burst_time_min: Lower bound (inclusive) of the burst-time range.
         burst_time_max: Upper bound (inclusive) of the burst-time range.
-        short_burst_max: Upper bound (inclusive) of the short mode when
-            ``burst_distribution == "bimodal"``.
-        short_burst_fraction: Probability of drawing from the short mode.
-        long_burst_min: Lower bound (inclusive) of the long mode when
-            ``burst_distribution == "bimodal"``.  ``0`` means "unset", in which case the
-            long mode starts at ``short_burst_max + 1``.
+        short_burst_max: Upper bound (inclusive) of the short mode for bimodal or
+            staggered-interactive bursts.
+        short_burst_fraction: Probability of drawing from the short mode in a bimodal family.
         arrival_pattern: ``"uniform"`` for independent arrival times drawn from
             ``[0, arrival_window]``, ``"poisson"`` for a Poisson process with rate
-            ``arrival_rate`` per time unit, or ``"batch_head"`` for a bimodal burst
-            distribution whose long-mode jobs are released at the head of the window
-            (``[0, head_window]``) while the short-mode jobs stream in over
-            ``[0, arrival_window]``.
-        arrival_window: Width of the arrival window for the uniform and batch-head
-            patterns.
-        head_window: Width of the release window of the long-mode jobs when
-            ``arrival_pattern == "batch_head"``.
+            ``arrival_rate``, or ``"staggered"`` for successive arrivals separated by a
+            uniformly drawn integer gap.
+        arrival_window: Width of the arrival window for the uniform pattern.
         arrival_rate: Mean number of arrivals per time unit for the Poisson pattern.
+        staggered_gap_min: Minimum inclusive gap for the staggered arrival pattern.
+        staggered_gap_max: Maximum inclusive gap for the staggered arrival pattern.
         priority_pattern: ``"uniform"`` for priorities drawn from
-            ``[priority_min, priority_max]``, ``"high_priority_skewed"`` for a mixture
-            that draws ``high_priority_fraction`` of the priorities from
-            ``[priority_min, high_priority_cutoff]``, or ``"burst_aligned"`` to assign
-            priorities by burst rank (the shortest jobs receive the highest priority).
+            ``[priority_min, priority_max]``, or ``"high_priority_skewed"`` for a
+            mixture that draws ``high_priority_fraction`` of the priorities from
+            ``[priority_min, high_priority_cutoff]``.
         priority_min: Lowest priority number used.
         priority_max: Highest priority number used.
         high_priority_cutoff: Upper bound (inclusive) of the high-priority band for the
@@ -187,22 +177,16 @@ class WorkloadFamilyConfig:
     burst_time_max: int = 50
     short_burst_max: int = 5
     short_burst_fraction: float = 0.7
-    long_burst_min: int = 0
     arrival_pattern: str = "uniform"
     arrival_window: int = 20
-    head_window: int = 2
     arrival_rate: float = 0.5
+    staggered_gap_min: int = 4
+    staggered_gap_max: int = 6
     priority_pattern: str = "uniform"
     priority_min: int = 1
     priority_max: int = 5
     high_priority_cutoff: int = 2
     high_priority_fraction: float = 0.7
-
-    def long_mode_min(self) -> int:
-        """Lower bound (inclusive) of the long mode of a bimodal burst distribution."""
-        if self.long_burst_min:
-            return self.long_burst_min
-        return self.short_burst_max + 1
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -211,16 +195,16 @@ class WorkloadFamilyConfig:
             raise ConfigurationError(
                 f"family {self.name!r}: num_processes must be >= 1, got {self.num_processes}"
             )
-        if self.burst_distribution not in ("uniform", "bimodal"):
+        if self.burst_distribution not in ("uniform", "bimodal", "staggered_interactive"):
             raise ConfigurationError(
                 f"family {self.name!r}: unknown burst_distribution "
                 f"{self.burst_distribution!r}"
             )
-        if self.arrival_pattern not in ("uniform", "poisson", "batch_head"):
+        if self.arrival_pattern not in ("uniform", "poisson", "staggered"):
             raise ConfigurationError(
                 f"family {self.name!r}: unknown arrival_pattern {self.arrival_pattern!r}"
             )
-        if self.priority_pattern not in ("uniform", "high_priority_skewed", "burst_aligned"):
+        if self.priority_pattern not in ("uniform", "high_priority_skewed"):
             raise ConfigurationError(
                 f"family {self.name!r}: unknown priority_pattern {self.priority_pattern!r}"
             )
@@ -236,36 +220,28 @@ class WorkloadFamilyConfig:
                 f"family {self.name!r}: short_burst_max={self.short_burst_max} must lie in "
                 f"[{self.burst_time_min}, {self.burst_time_max})"
             )
+        if self.burst_distribution == "staggered_interactive" and not (
+            1 <= self.short_burst_max < self.burst_time_min
+        ):
+            raise ConfigurationError(
+                f"family {self.name!r}: interactive short_burst_max must be in "
+                f"[1, {self.burst_time_min})"
+            )
         if not 0.0 <= self.short_burst_fraction <= 1.0:
             raise ConfigurationError(
                 f"family {self.name!r}: short_burst_fraction must lie in [0, 1]"
             )
-        if self.long_burst_min:
-            if self.burst_distribution != "bimodal":
-                raise ConfigurationError(
-                    f"family {self.name!r}: long_burst_min is only meaningful for a "
-                    "bimodal burst distribution"
-                )
-            if not self.short_burst_max < self.long_burst_min <= self.burst_time_max:
-                raise ConfigurationError(
-                    f"family {self.name!r}: long_burst_min={self.long_burst_min} must lie "
-                    f"in ({self.short_burst_max}, {self.burst_time_max}]"
-                )
         if self.arrival_window < 0:
             raise ConfigurationError(f"family {self.name!r}: arrival_window must be >= 0")
-        if self.head_window < 0:
-            raise ConfigurationError(f"family {self.name!r}: head_window must be >= 0")
-        if self.arrival_pattern == "batch_head":
-            if self.burst_distribution != "bimodal":
-                raise ConfigurationError(
-                    f"family {self.name!r}: the batch_head arrival pattern needs a bimodal "
-                    "burst distribution (it releases the long mode at the head of the window)"
-                )
-            if self.head_window > self.arrival_window:
-                raise ConfigurationError(
-                    f"family {self.name!r}: head_window={self.head_window} must not exceed "
-                    f"arrival_window={self.arrival_window}"
-                )
+        if self.staggered_gap_min < 1 or self.staggered_gap_max < self.staggered_gap_min:
+            raise ConfigurationError(
+                f"family {self.name!r}: invalid staggered gap range "
+                f"[{self.staggered_gap_min}, {self.staggered_gap_max}]"
+            )
+        if self.burst_distribution == "staggered_interactive" and self.arrival_pattern != "staggered":
+            raise ConfigurationError(
+                f"family {self.name!r}: staggered_interactive bursts require staggered arrivals"
+            )
         if self.arrival_pattern == "poisson" and self.arrival_rate <= 0.0:
             raise ConfigurationError(f"family {self.name!r}: arrival_rate must be > 0")
         if self.priority_min < 0 or self.priority_max < self.priority_min:
@@ -297,37 +273,21 @@ class StateConfig:
         bins_per_variable: Number of bins per variable (3 -> low / medium / high).
         burst_profile_range: Value range of the median burst time.
         burst_dispersion_range: Value range of the burst-time coefficient of variation.
-        long_job_share_range: Value range of the share of the total burst time that
-            comes from long jobs.
-        arrival_concentration_range: Value range of the fraction of jobs released at
-            the modal arrival time.
         offered_load_range: Value range of the offered-load ratio.
         priority_spread_range: Value range of the priority standard deviation.
-        priority_burst_alignment_range: Value range of the priority/burst correlation.
-        long_burst_threshold: Burst time from which a job counts as *long* when the
-            ``long_job_share`` variable is computed.  The default (16) is four times the
-            configured Round-Robin quantum (4): a job at least this long occupies the
-            CPU for several quanta, which is what makes preemption matter.
     """
 
     state_variables: Tuple[str, ...] = (
         "burst_profile",
         "burst_dispersion",
-        "long_job_share",
-        "arrival_concentration",
         "offered_load",
         "priority_spread",
-        "priority_burst_alignment",
     )
     bins_per_variable: int = 3
-    burst_profile_range: Tuple[float, float] = (1.0, 100.0)
-    burst_dispersion_range: Tuple[float, float] = (0.0, 3.0)
-    long_job_share_range: Tuple[float, float] = (0.0, 1.0)
-    arrival_concentration_range: Tuple[float, float] = (0.0, 1.0)
+    burst_profile_range: Tuple[float, float] = (1.0, 50.0)
+    burst_dispersion_range: Tuple[float, float] = (0.0, 1.5)
     offered_load_range: Tuple[float, float] = (0.5, 60.0)
     priority_spread_range: Tuple[float, float] = (0.0, 2.0)
-    priority_burst_alignment_range: Tuple[float, float] = (-1.0, 1.0)
-    long_burst_threshold: int = 16
 
     def __post_init__(self) -> None:
         if not self.state_variables:
@@ -343,10 +303,6 @@ class StateConfig:
             raise ConfigurationError(
                 f"bins_per_variable must be >= 2, got {self.bins_per_variable}"
             )
-        if not isinstance(self.long_burst_threshold, int) or self.long_burst_threshold < 1:
-            raise ConfigurationError(
-                f"long_burst_threshold must be an integer >= 1, got {self.long_burst_threshold!r}"
-            )
         for name, value_range in self.value_ranges().items():
             low, high = value_range
             if high <= low:
@@ -359,11 +315,8 @@ class StateConfig:
         return {
             "burst_profile": self.burst_profile_range,
             "burst_dispersion": self.burst_dispersion_range,
-            "long_job_share": self.long_job_share_range,
-            "arrival_concentration": self.arrival_concentration_range,
             "offered_load": self.offered_load_range,
             "priority_spread": self.priority_spread_range,
-            "priority_burst_alignment": self.priority_burst_alignment_range,
         }
 
     @property
@@ -374,20 +327,16 @@ class StateConfig:
 
 @dataclass(frozen=True)
 class RewardConfig:
-    """Weights used by the composite reward function.
+    """Weights and ratio clipping for the single workload-relative reward.
 
-    ``reward = sum(weight_i * normalised_benefit_i) - sum(weight_j * normalised_cost_j)``
-
-    where the benefits are CPU utilisation and throughput, and the costs are mean
-    waiting time, mean turnaround time, mean response time and context switches per
-    process.  Every metric is normalised by the mean value produced by the four
-    conventional policies on the *same* workload, so a reward of ``0`` means "exactly
-    as good as the average conventional policy".
-
-    These weights are **identical to the ones declared before the first experiment of
-    this project** and were deliberately *not* changed when the workload classes and
-    the state representation were redesigned (see ``docs/DESIGN_AND_CHOICES.md`` §6):
-    the redesign changed *where* the policies differ, not what "better" means.
+    For each metric, let ``r`` be the chosen-policy value divided by the arithmetic mean
+    across FCFS, SJF, Round Robin and Priority on that same workload. Clip ``r`` to
+    ``[0, reference_clip]`` (a zero reference is assigned ratio 1). The reward is
+    ``sum(w_cost * (1-r_cost)) + sum(w_benefit * (r_benefit-1))``. Cost metrics are mean
+    waiting, turnaround and response time plus context switches per process; benefits
+    are CPU utilization and throughput. The default weights sum to one. A reward of zero
+    matches the four-policy reference mean on each metric; the reward is not guaranteed to
+    be non-positive for every policy or workload.
 
     Attributes:
         weight_waiting_time: Cost weight of mean waiting time.
@@ -441,32 +390,24 @@ class QLearningConfig:
 
     Attributes:
         learning_rate: Step size alpha of the Q-learning update, in (0, 1].
-        discount_factor: Discount gamma applied to the value of the next state.
+        discount_factor: Generic discount gamma. The default experiment has terminal
+            one-step episodes, so its training updates do not use this value.
         epsilon_start: Initial epsilon of the epsilon-greedy exploration.
         epsilon_min: Lower bound epsilon never decays below.
         epsilon_decay_per_episode: Multiplicative epsilon decay applied once per
-            training episode.  The decay is deliberately slow (0.999): with 5400
-            episodes over nine workload classes, a faster decay would drop epsilon to
-            its floor after roughly 70 episodes *per class*, which is too few for the
-            2-12 states each class occupies -- non-greedy actions would then receive so
-            few updates that their Q-values could not resolve near-tied policies (the
-            priority-aligned class contains two policies whose rewards differ by less
-            than one Q-update step).  With 0.999, epsilon stays above 0.1 until episode
-            ~2300 (~256 episodes per class) and still ends at the 0.05 floor, so every
-            action receives a comparable number of updates in every visited state while
-            the final policy is predominantly greedy.
-        initial_value: Value every Q-entry starts at.  Chosen above the reward of a
-            merely average policy (a reward of 0 means "as good as the average
-            conventional policy"), which makes unexplored actions optimistic and spreads
-            early exploration over all four policies.
+            training episode.
+        initial_value: Value every Q-entry starts at. Zero is a neutral initialization;
+            ties use the lowest action index (FCFS) until that state-action value is
+            updated. Epsilon-greedy exploration, not optimistic initialization, explores
+            the other actions.
     """
 
     learning_rate: float = 0.1
     discount_factor: float = 0.9
     epsilon_start: float = 1.0
     epsilon_min: float = 0.05
-    epsilon_decay_per_episode: float = 0.999
-    initial_value: float = 0.05
+    epsilon_decay_per_episode: float = 0.995
+    initial_value: float = 0.0
 
     def __post_init__(self) -> None:
         if not 0.0 < self.learning_rate <= 1.0:
@@ -494,22 +435,17 @@ class QLearningConfig:
 
 @dataclass(frozen=True)
 class TrainingConfig:
-    """Training-loop settings for the policy-selection agent.
+    """Training-loop settings for independent tabular policy-selection agents.
 
-    Attributes:
-        episodes: Number of training episodes.  One episode is one workload.  5400
-            episodes give every one of the nine classes 600 episodes; together with the
-            slow epsilon decay this visits every state the classes occupy (the
-            evaluation reports zero evaluation states that were never visited during
-            training) and gives every action enough updates per state to resolve
-            near-tied policies.
-        seed: Master random seed of the training run.
-        family_cycle: Workload families visited in round-robin order, one family per
-            episode.  Must be a subset of the experiment's families.
+    Each episode presents one complete workload and ends immediately after the selected
+    policy has been run and rewarded. ``replicates`` independent agents use consecutive
+    master seeds beginning at ``seed``. ``family_cycle`` defines the training conditions;
+    any configured family omitted from this cycle is held out from training.
     """
 
-    episodes: int = 5400
+    episodes: int = 1200
     seed: int = 42
+    replicates: int = 5
     family_cycle: Tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -517,6 +453,13 @@ class TrainingConfig:
             raise ConfigurationError(f"episodes must be >= 1, got {self.episodes}")
         if self.seed < 0:
             raise ConfigurationError(f"seed must be >= 0, got {self.seed}")
+        if self.replicates < 1:
+            raise ConfigurationError(f"replicates must be >= 1, got {self.replicates}")
+
+    @property
+    def seeds(self) -> Tuple[int, ...]:
+        """Independent training master seeds used by the default experiment runner."""
+        return tuple(self.seed + offset for offset in range(self.replicates))
 
 
 @dataclass(frozen=True)
@@ -527,34 +470,16 @@ class EvaluationConfig:
         repetitions: Number of independent workloads generated per workload family.
         seed: Master random seed of the evaluation workload stream.  It is deliberately
             different from the training seed, so evaluation workloads are unseen.
-        verification_repetitions: Number of independent workloads per family used by
-            the *pre-training* class verification (see
-            :mod:`experiments.verify_classes`).  The verification answers "which
-            conventional policy does this workload class actually favour?" before the
-            agent is trained, so that the training result can be judged against a
-            measured property of the workload set rather than against an assumption.
-        verification_seed: Master random seed of the verification workload stream.  It
-            is disjoint from both the training and the evaluation streams.
     """
 
-    repetitions: int = 10
+    repetitions: int = 30
     seed: int = 2024
-    verification_repetitions: int = 25
-    verification_seed: int = 777
 
     def __post_init__(self) -> None:
         if self.repetitions < 1:
             raise ConfigurationError(f"repetitions must be >= 1, got {self.repetitions}")
         if self.seed < 0:
             raise ConfigurationError(f"seed must be >= 0, got {self.seed}")
-        if self.verification_repetitions < 1:
-            raise ConfigurationError(
-                f"verification_repetitions must be >= 1, got {self.verification_repetitions}"
-            )
-        if self.verification_seed < 0:
-            raise ConfigurationError(
-                f"verification_seed must be >= 0, got {self.verification_seed}"
-            )
 
 
 @dataclass(frozen=True)
@@ -602,143 +527,59 @@ class ExperimentConfig:
                 "state space larger than 10,000 states; the tabular Q-table would not be "
                 "usable with the configured number of episodes"
             )
-        seeds = {
-            "training": self.training.seed,
-            "evaluation": self.evaluation.seed,
-            "verification": self.evaluation.verification_seed,
-        }
-        if len(set(seeds.values())) != len(seeds):
+        if self.evaluation.seed in self.training.seeds:
             raise ConfigurationError(
-                "training, evaluation and verification seeds must all differ, so that "
-                f"evaluation and verification workloads are unseen: {seeds}"
+                "evaluation seed must differ from every training seed so the random streams "
+                "are independent"
             )
 
 
 def build_default_config() -> ExperimentConfig:
-    """Build the frozen default configuration used for the reported experiment.
-
-    The nine workload classes span the regimes in which the four conventional
-    policies genuinely trade off (see ``docs/DESIGN_AND_CHOICES.md`` §9 and the
-    pre-training verification in ``results/class_verification.json``):
-
-    * batch-like conditions (all jobs released together), where non-preemptive SJF is
-      optimal on the declared reward;
-    * staggered conditions *without* long jobs, where Round Robin degenerates to FCFS
-      and SJF still wins;
-    * interactive conditions (a small batch of long background jobs released at the
-      head of the window plus a stream of very short jobs), where preemption is what
-      keeps the short jobs responsive and Round Robin wins the declared reward;
-    * priority-sensitive conditions, where priority labels alone do not make Priority
-      scheduling optimal under a mean-metric reward.
-
-    Returns:
-        A validated :class:`ExperimentConfig`.
-    """
+    """Build the frozen default configuration for the offline policy-selection study."""
     families = (
         WorkloadFamilyConfig(
-            name="short_batch",
-            description=(
-                "Short-job dominated, batch release: 15 jobs of 1-4 time units, all "
-                "released together."
-            ),
-            num_processes=15,
-            burst_distribution="uniform",
+            name="short_jobs",
+            description="Short-job-heavy: 80% of bursts drawn from 1-5 time units.",
+            burst_distribution="bimodal",
             burst_time_min=1,
-            burst_time_max=4,
-            arrival_pattern="uniform",
-            arrival_window=0,
-            priority_pattern="uniform",
-        ),
-        WorkloadFamilyConfig(
-            name="short_stream",
-            description=(
-                "Short-job dominated, staggered release: 15 jobs of 1-4 time units "
-                "arriving within a 30-unit window (no long jobs)."
-            ),
-            num_processes=15,
-            burst_distribution="uniform",
-            burst_time_min=1,
-            burst_time_max=4,
-            arrival_pattern="uniform",
-            arrival_window=30,
-            priority_pattern="uniform",
-        ),
-        WorkloadFamilyConfig(
-            name="long_batch",
-            description=(
-                "Long-job dominated, batch release: 15 jobs of 20-50 time units, all "
-                "released together."
-            ),
-            num_processes=15,
-            burst_distribution="uniform",
-            burst_time_min=20,
             burst_time_max=50,
+            short_burst_max=5,
+            short_burst_fraction=0.8,
             arrival_pattern="uniform",
-            arrival_window=0,
-            priority_pattern="uniform",
+            arrival_window=20,
         ),
         WorkloadFamilyConfig(
-            name="interactive",
-            description=(
-                "Interactive/response-sensitive: a small batch of long background jobs "
-                "(60-100 units) released at the head of the window plus a stream of 18 "
-                "very short interactive jobs (1-2 units) over 50 time units."
-            ),
-            num_processes=20,
+            name="long_jobs",
+            description="Long-job-heavy: 20% of bursts drawn from 1-5 time units.",
             burst_distribution="bimodal",
             burst_time_min=1,
-            burst_time_max=100,
-            short_burst_max=2,
-            short_burst_fraction=0.90,
-            long_burst_min=60,
-            arrival_pattern="batch_head",
-            arrival_window=50,
-            head_window=2,
-            priority_pattern="uniform",
+            burst_time_max=50,
+            short_burst_max=5,
+            short_burst_fraction=0.2,
+            arrival_pattern="uniform",
+            arrival_window=20,
         ),
         WorkloadFamilyConfig(
-            name="interactive_sparse",
-            description=(
-                "Interactive with a sparser arrival stream: the same job mix as "
-                "'interactive' but the short jobs arrive over 110 time units (lighter "
-                "load, slower interactive traffic)."
-            ),
-            num_processes=20,
-            burst_distribution="bimodal",
-            burst_time_min=1,
-            burst_time_max=100,
-            short_burst_max=2,
-            short_burst_fraction=0.90,
-            long_burst_min=60,
-            arrival_pattern="batch_head",
-            arrival_window=110,
-            head_window=2,
-            priority_pattern="uniform",
-        ),
-        WorkloadFamilyConfig(
-            name="priority_aligned",
-            description=(
-                "Priority-sensitive with importance aligned to job size: uniform bursts "
-                "1-50, and the shortest jobs carry the highest priority (priority "
-                "assigned by burst rank)."
-            ),
-            num_processes=15,
+            name="mixed",
+            description="Uniform mix of bursts over the full 1-50 range.",
             burst_distribution="uniform",
             burst_time_min=1,
             burst_time_max=50,
             arrival_pattern="uniform",
             arrival_window=20,
-            priority_pattern="burst_aligned",
-            priority_min=1,
-            priority_max=5,
+        ),
+        WorkloadFamilyConfig(
+            name="cpu_bursty",
+            description="Long CPU bursts (20-50) with dense uniform arrivals.",
+            burst_distribution="uniform",
+            burst_time_min=20,
+            burst_time_max=50,
+            arrival_pattern="uniform",
+            arrival_window=15,
         ),
         WorkloadFamilyConfig(
             name="priority_skewed",
-            description=(
-                "Priority-sensitive with skewed priority labels uncorrelated with job "
-                "size: uniform bursts 1-50 and 70% of the priorities in the band 1-2."
-            ),
-            num_processes=15,
+            description="Uniform bursts; 70% of priorities lie in the 1-2 band.",
             burst_distribution="uniform",
             burst_time_min=1,
             burst_time_max=50,
@@ -749,49 +590,47 @@ def build_default_config() -> ExperimentConfig:
             high_priority_fraction=0.7,
         ),
         WorkloadFamilyConfig(
-            name="quantum_sensitive",
+            name="staggered_interactive",
             description=(
-                "Quantum-sensitive/preemption-heavy: 20 jobs of 2-12 time units "
-                "straddling the Round-Robin quantum (4), arriving within a 30-unit "
-                "window; preemption is frequent and costly."
+                "One long process at time zero plus 14 short processes arriving at "
+                "integer gaps of 4-6 time units."
             ),
-            num_processes=20,
-            burst_distribution="uniform",
-            burst_time_min=2,
-            burst_time_max=12,
-            arrival_pattern="uniform",
-            arrival_window=30,
-            priority_pattern="uniform",
+            burst_distribution="staggered_interactive",
+            burst_time_min=25,
+            burst_time_max=50,
+            short_burst_max=3,
+            arrival_pattern="staggered",
+            staggered_gap_min=4,
+            staggered_gap_max=6,
+            priority_min=1,
+            priority_max=1,
         ),
         WorkloadFamilyConfig(
-            name="mixed",
+            name="poisson_arrivals",
             description=(
-                "Mixed: 15 jobs with bursts uniform over the full 1-50 range, arriving "
-                "within a 20-unit window."
+                "Held-out evaluation condition: Poisson arrivals (rate 0.5) and "
+                "uniform bursts from 1-20."
             ),
-            num_processes=15,
             burst_distribution="uniform",
             burst_time_min=1,
-            burst_time_max=50,
-            arrival_pattern="uniform",
-            arrival_window=20,
-            priority_pattern="uniform",
+            burst_time_max=20,
+            arrival_pattern="poisson",
+            arrival_rate=0.5,
         ),
     )
+    training_families = tuple(
+        family.name for family in families if family.name != "poisson_arrivals"
+    )
     config = ExperimentConfig(
-        name="workload_aware_q_learning_scheduling",
+        name="offline_workload_aware_policy_selection",
         families=families,
         training=TrainingConfig(
-            episodes=5400,
+            episodes=1200,
             seed=42,
-            family_cycle=tuple(f.name for f in families),
+            replicates=5,
+            family_cycle=training_families,
         ),
-        evaluation=EvaluationConfig(
-            repetitions=10,
-            seed=2024,
-            verification_repetitions=25,
-            verification_seed=777,
-        ),
+        evaluation=EvaluationConfig(repetitions=30, seed=2024),
     )
     config.validate()
     return config

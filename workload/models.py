@@ -12,8 +12,9 @@ No I/O, no blocking, no deadlines and no preemption costs beyond the optional
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import dataclass
-from numbers import Integral
+from numbers import Integral, Real
 from typing import Dict, Iterator, List, Sequence, Tuple
 
 from errors import ValidationError
@@ -185,14 +186,21 @@ class Workload:
 
     @property
     def median_burst_time(self) -> float:
-        """Median burst time, or ``0.0`` for an empty workload."""
-        return self.percentile_burst_time(0.5)
+        """Conventional median burst time (mean of middle values when count is even)."""
+        if not self._processes:
+            return 0.0
+        bursts = sorted(p.burst_time for p in self._processes)
+        middle = len(bursts) // 2
+        if len(bursts) % 2:
+            return float(bursts[middle])
+        return (bursts[middle - 1] + bursts[middle]) / 2.0
 
     def percentile_burst_time(self, fraction: float) -> float:
         """Return the burst time at ``fraction`` of the sorted burst-time list.
 
-        Uses the nearest-rank definition, which keeps the value on the same integer grid
-        as the generated burst times.
+        Uses the nearest-rank definition: for a non-empty list of size ``n`` and fraction
+        ``p``, the zero-based index is ``max(0, ceil(p*n) - 1)``. The result therefore
+        remains on the integer grid of the generated bursts.
 
         Args:
             fraction: Quantile in ``[0, 1]``.
@@ -200,12 +208,17 @@ class Workload:
         Returns:
             The burst time at the requested quantile, or ``0.0`` for an empty workload.
         """
-        if not 0.0 <= fraction <= 1.0:
-            raise ValidationError(f"fraction must lie in [0, 1], got {fraction!r}")
+        if (
+            isinstance(fraction, bool)
+            or not isinstance(fraction, Real)
+            or not math.isfinite(float(fraction))
+            or not 0.0 <= fraction <= 1.0
+        ):
+            raise ValidationError(f"fraction must be a finite number in [0, 1], got {fraction!r}")
         if not self._processes:
             return 0.0
         bursts = sorted(p.burst_time for p in self._processes)
-        index = min(len(bursts) - 1, int(round(fraction * (len(bursts) - 1))))
+        index = max(0, math.ceil(float(fraction) * len(bursts)) - 1)
         return float(bursts[index])
 
     @property

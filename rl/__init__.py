@@ -1,13 +1,13 @@
-"""Tabular Q-learning policy selection: state, reward, agent and adaptive scheduler."""
+"""Offline tabular Q-learning policy selection: state, reward, agent and selector."""
 
-from rl.adaptive import AdaptiveDecision, AdaptiveScheduler
+from rl.adaptive import PolicySelectionDecision, OfflinePolicySelector
 from rl.q_learning import EpsilonSchedule, QLearningAgent
 from rl.reward import compute_reward
 from rl.state import StateEncoder, StateSnapshot, observe_workload_state
 
 __all__ = [
-    "AdaptiveScheduler",
-    "AdaptiveDecision",
+    "OfflinePolicySelector",
+    "PolicySelectionDecision",
     "QLearningAgent",
     "EpsilonSchedule",
     "StateEncoder",

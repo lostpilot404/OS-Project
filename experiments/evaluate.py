@@ -1,23 +1,9 @@
-"""Evaluation of the trained adaptive scheduler against the four conventional policies.
+"""Read-only evaluation of each trained offline selector.
 
-Protocol
---------
-For every workload condition and every repetition, one workload is generated from the
-evaluation seed stream, and **all** schedulers -- FCFS, SJF, Round Robin, Priority and the
-adaptive scheduler -- are evaluated on that same workload object.  The workload
-fingerprint is carried into every result row, which makes "the baselines saw identical
-workloads" a checkable property rather than an assumption.
-
-Three guarantees are enforced while evaluating, and the run fails loudly if any of them is
-violated:
-
-1. no evaluation workload was used during training (fingerprints are disjoint);
-2. evaluation never writes to the Q-table (the table is compared before and after);
-3. every decision of the adaptive scheduler is made greedily (``learned`` is ``False``).
-
-The evaluation is a held-out measurement: the workloads come from the evaluation master
-seed, which :meth:`config.ExperimentConfig.validate` requires to differ from both the
-training seed and the pre-training verification seed.
+For every unique ``(family, repetition)`` workload, the four conventional schedulers and
+the greedy learned selector receive the identical workload object. Workload fingerprints
+make this pairing auditable. Evaluation workload fingerprints are checked against the
+training history, and the policy-agent Q-table is compared before and after evaluation.
 """
 
 from __future__ import annotations
@@ -28,12 +14,10 @@ from typing import Dict, List, Tuple
 import numpy as np
 import pandas as pd
 
-from config import ACTION_NAMES, ADAPTIVE_LABEL, ExperimentConfig, derive_seed
+from config import ACTION_NAMES, SELECTOR_LABEL, ExperimentConfig, derive_seed
 from errors import ValidationError
-from evaluation.metrics import WorkloadMetrics, compute_metrics
-from rl.reward import compute_reward
+from evaluation.metrics import WorkloadMetrics
 from experiments.train import TrainingResult
-from scheduler import POLICY_CLASSES
 from workload.generator import WorkloadGenerator
 from workload.models import Workload
 
@@ -42,28 +26,18 @@ __all__ = [
     "EvaluationResult",
     "build_evaluation_workloads",
     "evaluate",
-    "ADAPTIVE_REGIME",
     "BASELINE_REGIME",
+    "SELECTOR_REGIME",
 ]
 
-#: Regime label of the conventional policies.
 BASELINE_REGIME = "baseline"
-#: Regime label of the adaptive scheduler (the single regime: the greedy Q-table policy).
-ADAPTIVE_REGIME = "adaptive"
-
-#: Seed-derivation tag of the evaluation workload stream.
+SELECTOR_REGIME = "selector"
 _WORKLOAD_STREAM_TAG = 0
 
 
 @dataclass(frozen=True)
 class EvaluationWorkload:
-    """One workload of the evaluation set.
-
-    Attributes:
-        family: Workload condition the workload belongs to.
-        repetition: 0-based repetition index within the condition.
-        workload: The generated workload.
-    """
+    """One unique evaluation workload and its design coordinates."""
 
     family: str
     repetition: int
@@ -71,90 +45,57 @@ class EvaluationWorkload:
 
     @property
     def fingerprint(self) -> str:
-        """Fingerprint of the workload."""
+        """Stable content fingerprint used to verify pairing and data separation."""
         return self.workload.fingerprint
 
 
 @dataclass(frozen=True)
 class EvaluationResult:
-    """Measurements of one evaluation run.
-
-    Attributes:
-        metrics: One row per ``(family, repetition, policy, regime)``.
-        decisions: One row per adaptive decision.
-        families: Workload conditions evaluated, in configuration order.
-        repetitions: Repetitions per condition.
-        evaluation_seed: Master seed of the evaluation workload stream.
-        training_seed: Master seed the agent was trained with.
-    """
+    """Paired metrics and decisions for one independent trained model."""
 
     metrics: pd.DataFrame
     decisions: pd.DataFrame
     families: Tuple[str, ...]
     repetitions: int
     evaluation_seed: int
-    training_seed: int
+    training_seeds: Tuple[int, ...]
 
     def regime(self, regime: str) -> pd.DataFrame:
-        """Return the metric rows of one regime.
-
-        Raises:
-            ValidationError: If the regime is not present in the results.
-        """
+        """Return rows for ``baseline`` or ``selector``."""
         subset = self.metrics[self.metrics["regime"] == regime]
         if subset.empty:
             raise ValidationError(f"no rows for regime {regime!r}")
         return subset
 
     def summary(self) -> Dict[str, object]:
-        """Return a JSON-serialisable summary of the run."""
-        states = self.decisions["state_index"]
-        visited = self.decisions["state_visit_count"] > 0
-        distinct_states = int(states.nunique())
-        visited_states = int(states[visited].nunique())
+        """Return counts distinguishing unique workloads from repeated model rows."""
+        unique = self.metrics.drop_duplicates(
+            ["family", "repetition", "workload_fingerprint"]
+        )
         return {
             "families": list(self.families),
-            "repetitions": self.repetitions,
+            "repetitions_per_family": self.repetitions,
             "evaluation_seed": self.evaluation_seed,
-            "training_seed": self.training_seed,
-            "rows": int(len(self.metrics)),
+            "training_seeds": list(self.training_seeds),
+            "training_models": len(self.training_seeds),
+            "metric_rows": int(len(self.metrics)),
+            "metric_rows_per_model": int(len(self.metrics) / max(1, len(self.training_seeds))),
+            "selector_decision_rows": int(len(self.decisions)),
+            "unique_workloads": int(len(unique)),
+            "unique_workload_fingerprints": int(unique["workload_fingerprint"].nunique()),
             "regimes": sorted(self.metrics["regime"].unique().tolist()),
             "policies": sorted(self.metrics["policy"].unique().tolist()),
-            "distinct_workloads": int(self.metrics["workload_fingerprint"].nunique()),
-            "distinct_states_evaluated": distinct_states,
-            "evaluated_states_visited_during_training": visited_states,
-            "evaluated_states_not_visited_during_training": distinct_states - visited_states,
-            "decisions_in_unvisited_states": int((~visited).sum()),
-            "oracle_agreement_workloads": int(len(self.decisions)),
-            "oracle_agreement_matches": int(self.decisions["matches_oracle"].sum()),
-            "oracle_agreement_rate": float(self.decisions["matches_oracle"].mean()),
-            "mean_chosen_minus_oracle_reward": float(
-                self.decisions["chosen_minus_oracle_reward"].mean()
-            ),
         }
 
 
 def build_evaluation_workloads(
     config: ExperimentConfig, generator: WorkloadGenerator
 ) -> List[EvaluationWorkload]:
-    """Generate the evaluation workloads.
-
-    Workloads are generated from the *evaluation* seed, which
-    :meth:`config.ExperimentConfig.validate` requires to differ from the training seed.
-
-    Args:
-        config: The experiment configuration.
-        generator: The workload generator.
-
-    Returns:
-        One workload per ``(family, repetition)``, in configuration order.
-    """
+    """Generate one reproducible workload per configured family and repetition."""
     workloads: List[EvaluationWorkload] = []
     for family_index, family in enumerate(config.families):
         for repetition in range(config.evaluation.repetitions):
-            seed = derive_seed(
-                config.evaluation.seed, _WORKLOAD_STREAM_TAG, family_index, repetition
-            )
+            seed = derive_seed(config.evaluation.seed, _WORKLOAD_STREAM_TAG, family_index, repetition)
             workloads.append(
                 EvaluationWorkload(
                     family=family.name,
@@ -170,47 +111,41 @@ def evaluate(
     training: TrainingResult,
     generator: WorkloadGenerator | None = None,
 ) -> EvaluationResult:
-    """Evaluate the four conventional policies and the trained adaptive scheduler.
+    """Evaluate one trained model with the four fixed baselines and greedy selector.
 
-    Args:
-        config: The experiment configuration the agent was trained with.
-        training: The training result (trained agent and scheduler).
-        generator: Optional pre-built workload generator.
-
-    Returns:
-        The evaluation result, with one metric row per scheduler and workload.
-
-    Raises:
-        ValidationError: If any of the three guarantees documented in the module
-            docstring is violated.
+    Baseline outputs are intentionally repeated for each independent training seed so
+    every model's selector decisions have explicitly paired reference rows. The unique
+    workloads are deduplicated only for workload-count summaries and ``workloads.csv``.
     """
-    if training.config is not config and training.config != config:
+    if training.config != config:
         raise ValidationError("the training result was produced with a different configuration")
+    if training.history.seed != config.training.seed:
+        raise ValidationError("training history seed differs from the requested model seed")
     generator = generator or WorkloadGenerator(config.families)
     workloads = build_evaluation_workloads(config, generator)
 
     training_fingerprints = training.training_fingerprints
-    leaked = sorted({w.fingerprint for w in workloads} & training_fingerprints)
+    leaked = sorted({item.fingerprint for item in workloads} & training_fingerprints)
     if leaked:
         raise ValidationError(
             f"{len(leaked)} evaluation workloads were already used during training: {leaked[:3]}"
         )
 
-    policies = {cls.action_index: cls(config.scheduler) for cls in POLICY_CLASSES}
     rows: List[Dict[str, object]] = []
     decision_rows: List[Dict[str, object]] = []
-
     q_before = np.array(training.agent.q_table, copy=True)
-    visits_before = np.array(training.agent.visit_counts, copy=True)
 
     for item in workloads:
         workload = item.workload
-        attempts: Dict[int, WorkloadMetrics] = {}
-        for action_index in sorted(policies):
-            metrics = compute_metrics(policies[action_index].run(workload))
-            attempts[action_index] = metrics
+        decision = training.scheduler.run_evaluation(workload)
+        if decision.learned or decision.explored or decision.epsilon != 0.0:
+            raise ValidationError("evaluation must be deterministic, greedy, and read-only")
+        if set(decision.reference_metrics) != set(range(len(ACTION_NAMES))):
+            raise ValidationError("evaluation did not run exactly the four reference policies")
+        for action_index, metrics in sorted(decision.reference_metrics.items()):
             rows.append(
                 _metrics_row(
+                    training_seed=training.history.seed,
                     family=item.family,
                     repetition=item.repetition,
                     policy=ACTION_NAMES[action_index],
@@ -218,45 +153,27 @@ def evaluate(
                     metrics=metrics,
                 )
             )
-
-        # The reward-argmax over the four conventional policies on this very workload:
-        # the best any single-decision policy could achieve under the declared reward.
-        # Ties are broken towards the lowest action index, exactly like the agent's
-        # greedy tie-break, so the comparison is apples-to-apples.
-        rewards = [
-            compute_reward(config.reward, attempts, action).reward
-            for action in range(len(ACTION_NAMES))
-        ]
-        oracle_action = max(range(len(ACTION_NAMES)), key=lambda a: (rewards[a], -a))
-
-        decision = training.scheduler.run_evaluation(workload)
-        _check_greedy(decision.learned)
         rows.append(
             _metrics_row(
+                training_seed=training.history.seed,
                 family=item.family,
                 repetition=item.repetition,
-                policy=ADAPTIVE_LABEL,
-                regime=ADAPTIVE_REGIME,
+                policy=SELECTOR_LABEL,
+                regime=SELECTOR_REGIME,
                 metrics=decision.metrics,
             )
         )
         decision_rows.append(
             {
                 **decision.as_row(),
+                "training_seed": training.history.seed,
                 "family": item.family,
                 "repetition": item.repetition,
-                "regime": ADAPTIVE_REGIME,
-                "oracle_action": oracle_action,
-                "oracle_policy_name": ACTION_NAMES[oracle_action],
-                "oracle_reward": rewards[oracle_action],
-                "chosen_minus_oracle_reward": decision.reward - rewards[oracle_action],
-                "matches_oracle": decision.action == oracle_action,
+                "regime": SELECTOR_REGIME,
             }
         )
 
-    _check_q_table_untouched(q_before, np.array(training.agent.q_table))
-    _check_visit_counts_untouched(visits_before, np.array(training.agent.visit_counts))
-
+    _check_q_table_untouched(q_before, np.array(training.agent.q_table), "policy agent")
     metrics_frame = pd.DataFrame(rows)
     decisions_frame = pd.DataFrame(decision_rows)
     _check_identical_workloads(metrics_frame)
@@ -267,11 +184,12 @@ def evaluate(
         families=tuple(family.name for family in config.families),
         repetitions=config.evaluation.repetitions,
         evaluation_seed=config.evaluation.seed,
-        training_seed=config.training.seed,
+        training_seeds=(training.history.seed,),
     )
 
 
 def _metrics_row(
+    training_seed: int,
     family: str,
     repetition: int,
     policy: str,
@@ -283,6 +201,7 @@ def _metrics_row(
     row.pop("policy_name")
     row.pop("workload_name")
     return {
+        "training_seed": training_seed,
         "family": family,
         "repetition": repetition,
         "policy": policy,
@@ -291,30 +210,25 @@ def _metrics_row(
     }
 
 
-def _check_greedy(learned: bool) -> None:
-    """Raise if an evaluation decision reported that it updated the Q-table."""
-    if learned:
-        raise ValidationError("evaluation updated the Q-table; evaluation must be greedy only")
-
-
-def _check_q_table_untouched(before: np.ndarray, after: np.ndarray) -> None:
-    """Raise if the Q-table changed during evaluation."""
+def _check_q_table_untouched(before: np.ndarray, after: np.ndarray, name: str) -> None:
+    """Raise if a Q-table changed during evaluation."""
     if not np.array_equal(before, after):
-        raise ValidationError("the Q-table changed during evaluation")
-
-
-def _check_visit_counts_untouched(before: np.ndarray, after: np.ndarray) -> None:
-    """Raise if the visit counts changed during evaluation."""
-    if not np.array_equal(before, after):
-        raise ValidationError("the state visit counts changed during evaluation")
+        raise ValidationError(f"the {name} Q-table changed during evaluation")
 
 
 def _check_identical_workloads(metrics: pd.DataFrame) -> None:
-    """Raise if the schedulers of one workload did not all see the same workload."""
-    grouped = metrics.groupby(["family", "repetition"], sort=False)["workload_fingerprint"].nunique()
-    inconsistent = grouped[grouped > 1]
-    if not inconsistent.empty:
+    """Require one shared workload fingerprint across exactly five methods per pair."""
+    keys = ["training_seed", "family", "repetition"]
+    grouped = metrics.groupby(keys, sort=False)
+    fingerprint_counts = grouped["workload_fingerprint"].nunique()
+    row_counts = grouped.size()
+    invalid = fingerprint_counts[(fingerprint_counts != 1) | (row_counts != 5)]
+    if not invalid.empty:
         raise ValidationError(
-            "some schedulers were evaluated on different workloads: "
-            f"{inconsistent.to_dict()}"
+            "each model/workload must have five policy rows with one identical fingerprint: "
+            f"{invalid.to_dict()}"
         )
+    expected = set(ACTION_NAMES) | {SELECTOR_LABEL}
+    for key, frame in grouped:
+        if set(frame["policy"]) != expected:
+            raise ValidationError(f"unexpected policy set for workload {key}: {set(frame['policy'])}")

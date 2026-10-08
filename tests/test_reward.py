@@ -108,7 +108,7 @@ class TestArithmetic:
 
 class TestValidation:
     def test_missing_actions_are_rejected(self) -> None:
-        with pytest.raises(ValidationError, match="missing actions"):
+        with pytest.raises(ValidationError, match="exactly the four actions"):
             compute_reward(RewardConfig(), {0: metrics_stub()}, ACTION_FCFS)
 
     def test_unknown_chosen_action_is_rejected(self) -> None:

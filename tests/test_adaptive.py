@@ -1,4 +1,4 @@
-"""The adaptive scheduler: learning, greedy evaluation and reproducibility."""
+"""Offline single-workload policy selection and read-only evaluation behavior."""
 
 from __future__ import annotations
 
@@ -11,18 +11,17 @@ from config import (
     ACTION_FCFS,
     ACTION_NAMES,
     ACTION_ROUND_ROBIN,
+    EvaluationConfig,
     ExperimentConfig,
     QLearningConfig,
     RewardConfig,
     SchedulerConfig,
     StateConfig,
     TrainingConfig,
-    EvaluationConfig,
     WorkloadFamilyConfig,
-    derive_seed,
 )
 from errors import ValidationError
-from rl.adaptive import AdaptiveScheduler
+from rl.adaptive import OfflinePolicySelector
 from rl.q_learning import QLearningAgent
 from rl.state import StateEncoder
 from scheduler import POLICY_CLASSES
@@ -31,22 +30,24 @@ from workload.models import Workload
 
 
 def _config() -> ExperimentConfig:
-    """A small, fast, fully specified experiment configuration for the tests."""
+    """A small, validated test configuration with one model seed."""
     family = WorkloadFamilyConfig(name="tiny", description="test family", num_processes=4)
-    return ExperimentConfig(
+    config = ExperimentConfig(
         name="test",
         scheduler=SchedulerConfig(),
         families=(family,),
         state=StateConfig(),
         reward=RewardConfig(),
         q_learning=QLearningConfig(),
-        training=TrainingConfig(episodes=3, seed=7, family_cycle=("tiny",)),
+        training=TrainingConfig(episodes=3, seed=7, replicates=1, family_cycle=("tiny",)),
         evaluation=EvaluationConfig(repetitions=1, seed=11),
     )
+    config.validate()
+    return config
 
 
 def _workload(name: str = "tiny", rows=None) -> Workload:
-    """A deterministic workload for the tests."""
+    """Deterministic workload with nontrivial queueing and preemption opportunities."""
     rows = rows or [(1, 0, 5, 2), (2, 0, 3, 1), (3, 1, 7, 3), (4, 4, 2, 2)]
     return workload_from_rows(name, rows)
 
@@ -56,76 +57,68 @@ def _scheduler(
     *,
     learning_rate: float = 0.1,
     agent_seed: int = 0,
-) -> AdaptiveScheduler:
-    """Build an adaptive scheduler with a fixed agent."""
+) -> OfflinePolicySelector:
+    """Build the four-policy offline selector."""
     config = config or _config()
     encoder = StateEncoder(config.state)
     agent = QLearningAgent(
         encoder.n_states,
         len(ACTION_NAMES),
-        QLearningConfig(learning_rate=learning_rate, initial_value=config.q_learning.initial_value),
+        replace(config.q_learning, learning_rate=learning_rate),
         seed=agent_seed,
         initial_value=config.q_learning.initial_value,
     )
     policies = [policy_class(config.scheduler) for policy_class in POLICY_CLASSES]
-    return AdaptiveScheduler(config, encoder, agent, policies)
+    return OfflinePolicySelector(config, encoder, agent, policies)
 
 
 class TestConstruction:
-    def test_policies_must_cover_the_four_actions(self) -> None:
+    def test_policies_must_cover_exactly_four_action_indices(self) -> None:
         config = _config()
         encoder = StateEncoder(config.state)
         agent = QLearningAgent(encoder.n_states, 4, config.q_learning, seed=0)
         policies = [POLICY_CLASSES[0](config.scheduler), POLICY_CLASSES[1](config.scheduler)]
-        with pytest.raises(ValidationError, match="four actions"):
-            AdaptiveScheduler(config, encoder, agent, policies)
+        with pytest.raises(ValidationError, match="cover actions"):
+            OfflinePolicySelector(config, encoder, agent, policies)
 
-    def test_agent_and_encoder_must_agree_on_the_state_space(self) -> None:
+    def test_agent_table_dimensions_must_match_state_and_action_spaces(self) -> None:
+        config = _config()
+        encoder = StateEncoder(config.state)
+        agent = QLearningAgent(encoder.n_states - 1, 4, config.q_learning, seed=0)
+        policies = [cls(config.scheduler) for cls in POLICY_CLASSES]
+        with pytest.raises(ValidationError, match="table dimensions"):
+            OfflinePolicySelector(config, encoder, agent, policies)
+
+    def test_encoder_must_match_the_configured_discretization(self) -> None:
         config = _config()
         encoder = StateEncoder(StateConfig(state_variables=("burst_profile",)))
-        agent = QLearningAgent(StateEncoder(StateConfig()).n_states, 4, config.q_learning, seed=0)
-        policies = [cls(config.scheduler) for cls in POLICY_CLASSES]
-        with pytest.raises(ValidationError, match="states but the encoder"):
-            AdaptiveScheduler(config, encoder, agent, policies)
-
-    def test_agent_must_have_four_actions(self) -> None:
-        config = _config()
-        encoder = StateEncoder(config.state)
-        agent = QLearningAgent(encoder.n_states, 3, config.q_learning, seed=0)
-        policies = [cls(config.scheduler) for cls in POLICY_CLASSES]
-        with pytest.raises(ValidationError, match="actions but the project defines"):
-            AdaptiveScheduler(config, encoder, agent, policies)
-
-    def test_bad_argument_types_are_rejected(self) -> None:
-        config = _config()
-        encoder = StateEncoder(config.state)
         agent = QLearningAgent(encoder.n_states, 4, config.q_learning, seed=0)
         policies = [cls(config.scheduler) for cls in POLICY_CLASSES]
-        with pytest.raises(ValidationError, match="ExperimentConfig"):
-            AdaptiveScheduler("not a config", encoder, agent, policies)  # type: ignore[arg-type]
-        with pytest.raises(ValidationError, match="QLearningAgent"):
-            AdaptiveScheduler(config, encoder, "not an agent", policies)  # type: ignore[arg-type]
-        with pytest.raises(ValidationError, match="StateEncoder"):
-            AdaptiveScheduler(config, "not an encoder", agent, policies)  # type: ignore[arg-type]
+        with pytest.raises(ValidationError, match="encoder configuration"):
+            OfflinePolicySelector(config, encoder, agent, policies)
 
 
 class TestTrainingEpisode:
-    def test_training_updates_the_q_table(self) -> None:
+    def test_one_terminal_episode_updates_only_the_selected_state_action(self) -> None:
         scheduler = _scheduler()
         before = np.array(scheduler.agent.q_table, copy=True)
         decision = scheduler.run_training_episode(_workload(), episode=0)
+        after = np.array(scheduler.agent.q_table)
         assert decision.learned is True
-        assert not np.array_equal(before, np.array(scheduler.agent.q_table))
+        assert decision.state_seen_in_training is False
         assert scheduler.agent.visit_counts[decision.state_index] == 1
+        changed = np.argwhere(before != after)
+        assert changed.tolist() == [[decision.state_index, decision.action]]
 
-    def test_decision_reports_the_chosen_policy_and_its_metrics(self) -> None:
+    def test_decision_reports_greedy_action_and_selected_policy_metrics(self) -> None:
         scheduler = _scheduler()
         decision = scheduler.run_training_episode(_workload(), episode=0)
         assert decision.policy_name == ACTION_NAMES[decision.action]
+        assert decision.greedy_policy_name == ACTION_NAMES[decision.greedy_action]
         assert 0 <= decision.state_index < scheduler.encoder.n_states
         assert decision.metrics.policy_name == ACTION_NAMES[decision.action]
 
-    def test_every_conventional_policy_was_run_on_the_same_workload(self) -> None:
+    def test_all_four_references_use_the_same_workload_fingerprint(self) -> None:
         scheduler = _scheduler()
         decision = scheduler.run_training_episode(_workload(), episode=0)
         assert sorted(decision.reference_metrics) == [0, 1, 2, 3]
@@ -135,75 +128,65 @@ class TestTrainingEpisode:
             for metrics in decision.reference_metrics.values()
         )
 
-    def test_exploration_flag_follows_the_epsilon_schedule(self) -> None:
+    def test_explored_means_the_random_branch_was_used(self) -> None:
         scheduler = _scheduler()
-        # With epsilon = 1.0 every episode explores, so the flag reflects the draw.
         decision = scheduler.run_training_episode(_workload(), episode=0)
         assert decision.epsilon == pytest.approx(1.0)
-        greedy = scheduler.agent.greedy_action(decision.state_index)
-        assert decision.explored == (decision.action != greedy)
+        assert decision.explored is True
+        assert scheduler.agent.last_action_was_random_exploration is True
 
-    def test_state_visit_count_is_captured_before_the_update(self) -> None:
-        scheduler = _scheduler()
-        workload = _workload()
-        first = scheduler.run_training_episode(workload, episode=0)
-        assert first.state_visit_count == 0
-        assert scheduler.agent.visit_counts[first.state_index] == 1
-        second = scheduler.run_training_episode(workload, episode=1)
-        assert second.state_visit_count == 1
+    def test_invalid_episode_index_is_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="episode"):
+            _scheduler().run_training_episode(_workload(), episode=-1)
 
 
 class TestEvaluationEpisode:
-    def test_evaluation_never_updates_the_q_table(self) -> None:
+    def test_evaluation_never_updates_q_values_or_visit_counts(self) -> None:
         scheduler = _scheduler()
         scheduler.run_training_episode(_workload(), episode=0)
-        before = np.array(scheduler.agent.q_table, copy=True)
-        visits_before = np.array(scheduler.agent.visit_counts, copy=True)
+        before_q = np.array(scheduler.agent.q_table, copy=True)
+        before_visits = np.array(scheduler.agent.visit_counts, copy=True)
         decision = scheduler.run_evaluation(_workload())
         assert decision.learned is False
-        assert np.array_equal(before, np.array(scheduler.agent.q_table))
-        assert np.array_equal(visits_before, np.array(scheduler.agent.visit_counts))
+        assert np.array_equal(before_q, np.array(scheduler.agent.q_table))
+        assert np.array_equal(before_visits, np.array(scheduler.agent.visit_counts))
+        assert decision.state_seen_in_training is True
 
-    def test_evaluation_is_greedy_and_reports_no_exploration(self) -> None:
-        scheduler = _scheduler()
-        decision = scheduler.run_evaluation(_workload())
-        assert decision.epsilon == 0.0
-        assert decision.explored is False
-        assert decision.action == scheduler.agent.greedy_action(decision.state_index)
-
-    def test_evaluation_action_comes_from_the_q_table(self) -> None:
-        # With an untouched table every action has the same value, so the tie-break gives
-        # action 0; after rewarding action 2 for this state, the choice must change.
-        scheduler = _scheduler()
-        untrained = scheduler.run_evaluation(_workload())
-        assert untrained.action == ACTION_FCFS
-        scheduler.agent.update(untrained.state_index, ACTION_ROUND_ROBIN, 5.0, next_state=None)
-        retrained = scheduler.run_evaluation(_workload())
-        assert retrained.action == ACTION_ROUND_ROBIN
-
-    def test_repeated_evaluation_gives_identical_results(self) -> None:
+    def test_evaluation_is_greedy_deterministic_and_reports_no_exploration(self) -> None:
         scheduler = _scheduler()
         first = scheduler.run_evaluation(_workload())
         second = scheduler.run_evaluation(_workload())
         assert first == second
+        assert first.epsilon == 0.0
+        assert first.explored is False
+        assert first.action == scheduler.agent.greedy_action(first.state_index)
+        assert first.state_seen_in_training is False
 
-    def test_unvisited_states_fall_back_to_the_greedy_tie_break(self) -> None:
-        # An untrained table is uniform, so the greedy tie-break (lowest action index)
-        # selects FCFS; the visit count of such a state is reported as zero.
-        scheduler = _scheduler()
-        decision = scheduler.run_evaluation(_workload())
-        assert decision.state_visit_count == 0
+    def test_unseen_zero_initialized_state_has_documented_lowest_index_fallback(self) -> None:
+        decision = _scheduler().run_evaluation(_workload())
         assert decision.action == ACTION_FCFS
+        assert decision.greedy_action == ACTION_FCFS
+        assert decision.state_seen_in_training is False
 
-
-class TestChosenPolicyMetrics:
-    def test_the_adaptive_result_equals_the_chosen_baseline_result(self) -> None:
+    def test_trained_q_values_determine_the_evaluation_action(self) -> None:
         scheduler = _scheduler()
-        decision = scheduler.run_evaluation(_workload())
-        chosen = decision.reference_metrics[decision.action]
-        assert decision.metrics == chosen
+        initial = scheduler.run_evaluation(_workload())
+        scheduler.agent.update(initial.state_index, ACTION_ROUND_ROBIN, 5.0, next_state=None)
+        learned = scheduler.run_evaluation(_workload())
+        assert learned.action == ACTION_ROUND_ROBIN
+        assert learned.state_seen_in_training is True
 
-    def test_reward_matches_the_reward_of_the_chosen_action(self) -> None:
+    def test_evaluation_rejects_non_workload_input(self) -> None:
+        with pytest.raises(ValidationError, match="Workload"):
+            _scheduler().run_evaluation("not a workload")  # type: ignore[arg-type]
+
+
+class TestRewardAndMetrics:
+    def test_selected_result_is_one_of_the_four_baseline_results(self) -> None:
+        decision = _scheduler().run_evaluation(_workload())
+        assert decision.metrics == decision.reference_metrics[decision.action]
+
+    def test_decision_reward_matches_the_shared_four_policy_reward(self) -> None:
         from rl.reward import compute_reward
 
         scheduler = _scheduler()
@@ -213,19 +196,34 @@ class TestChosenPolicyMetrics:
         ).reward
         assert decision.reward == pytest.approx(expected)
 
+    def test_decision_row_exposes_unseen_state_and_offline_action_metadata(self) -> None:
+        row = _scheduler().run_evaluation(_workload()).as_row()
+        assert "state_seen_in_training" in row
+        assert "greedy_policy_name" in row
 
-class TestReproducibilityOfDecisions:
-    def test_identical_seeds_give_identical_training_runs(self) -> None:
-        first = _scheduler()
-        second = _scheduler()
+
+class TestReproducibility:
+    def test_same_exploration_seed_gives_identical_training_decisions(self) -> None:
+        first = _scheduler(agent_seed=12)
+        second = _scheduler(agent_seed=12)
         workload = _workload()
         for episode in range(3):
             d1 = first.run_training_episode(workload, episode)
             d2 = second.run_training_episode(workload, episode)
-            assert (d1.action, d1.reward, d1.state_index) == (d2.action, d2.reward, d2.state_index)
+            assert (d1.action, d1.reward, d1.state_index, d1.explored) == (
+                d2.action,
+                d2.reward,
+                d2.state_index,
+                d2.explored,
+            )
         assert np.array_equal(np.array(first.agent.q_table), np.array(second.agent.q_table))
 
-    def test_the_agent_seed_is_derived_deterministically(self) -> None:
-        assert derive_seed(42, 1) == derive_seed(42, 1)
-        assert derive_seed(42, 1) != derive_seed(42, 2)
-        assert derive_seed(42, 1) != derive_seed(43, 1)
+    def test_two_training_seeds_are_independent_streams(self) -> None:
+        first = _scheduler(agent_seed=1)
+        second = _scheduler(agent_seed=2)
+        workload = _workload()
+        first_actions = [first.run_training_episode(workload, i).action for i in range(3)]
+        second_actions = [second.run_training_episode(workload, i).action for i in range(3)]
+        assert first_actions != second_actions or not np.array_equal(
+            first.agent.q_table, second.agent.q_table
+        )

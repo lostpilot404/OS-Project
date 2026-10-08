@@ -108,6 +108,21 @@ class TestWorkloadProperties:
         with pytest.raises(ValidationError):
             workload.percentile_burst_time(fraction)
 
+    @pytest.mark.parametrize(
+        "fraction, expected", [(0.0, 1.0), (0.25, 1.0), (0.5, 2.0), (0.75, 3.0), (1.0, 4.0)]
+    )
+    def test_percentile_uses_documented_nearest_rank_definition(
+        self, fraction: float, expected: float
+    ) -> None:
+        workload = workload_from_rows(
+            "p", [(1, 0, 4, 1), (2, 0, 1, 1), (3, 0, 3, 1), (4, 0, 2, 1)]
+        )
+        assert workload.percentile_burst_time(fraction) == pytest.approx(expected)
+
+    def test_median_is_conventional_for_even_process_counts(self) -> None:
+        workload = workload_from_rows("median", [(1, 0, 4, 1), (2, 0, 2, 1)])
+        assert workload.median_burst_time == pytest.approx(3.0)
+
     def test_empty_aggregates_are_zero(self) -> None:
         workload = workload_from_rows("empty", [], allow_empty=True)
         assert workload.total_burst_time == 0

@@ -1,18 +1,11 @@
-"""Tabular Q-learning.
+"""Tabular Q-learning for offline single-workload policy selection.
 
-The agent learns a value for every ``(state, action)`` pair, where a state is a
-discretised workload profile (see :mod:`rl.state`) and an action is one of the four
-conventional scheduling policies.  The update rule is the standard tabular Q-learning
-rule
-
-``Q(s, a) <- Q(s, a) + alpha * (reward + gamma * max_a' Q(s', a') - Q(s, a))``
-
-with the discounted term dropped for terminal transitions (the single-step quantum
-controller and the final step of the policy-selection episode).
-
-Exploration is epsilon-greedy with a multiplicative per-episode decay, as configured in
-:class:`config.QLearningConfig`.  When ``epsilon = 0`` the agent picks the greedy action
-and breaks ties towards the lowest action index, so evaluation is deterministic.
+Each episode has one state, one selected conventional policy, one scalar reward, and an
+immediate terminal transition. The project's update is therefore
+``Q(s, a) <- Q(s, a) + alpha * (reward - Q(s, a))``; the configured discount factor has no
+effect because training passes ``next_state=None``. Epsilon-greedy exploration uses a
+multiplicative per-episode decay. At epsilon zero, ties resolve to the lowest action index
+and evaluation is deterministic.
 """
 
 from __future__ import annotations
@@ -97,9 +90,9 @@ class QLearningAgent:
             n_actions: Size of the discrete action space.
             config: Learning-rate, discount-factor and exploration settings.
             seed: Seed of the agent's exploration random number generator.
-            initial_value: Value every Q-entry starts at.  A value above the expected
-                reward makes unvisited actions optimistic, which spreads early
-                exploration across all states and all four policies.
+            initial_value: Neutral starting value for every Q-entry. The default is zero;
+                epsilon-greedy exploration, rather than optimistic initialization, samples
+                other actions.
 
         Raises:
             ValidationError: If the table shape or the configuration is invalid.
@@ -121,6 +114,7 @@ class QLearningAgent:
         self._epsilon = EpsilonSchedule(
             config.epsilon_start, config.epsilon_min, config.epsilon_decay_per_episode
         )
+        self._last_action_was_random_exploration = False
 
     # -- introspection ---------------------------------------------------------------
     @property
@@ -190,17 +184,20 @@ class QLearningAgent:
         self._check_state(state)
         if not 0.0 <= epsilon <= 1.0:
             raise ValidationError(f"epsilon must lie in [0, 1], got {epsilon}")
-        if self._rng.random() < epsilon:
+        if epsilon > 0.0 and self._rng.random() < epsilon:
+            self._last_action_was_random_exploration = True
             return int(self._rng.integers(0, self._n_actions))
+        self._last_action_was_random_exploration = False
         return self.greedy_action(state)
 
-    def last_action_was_exploration(self, state: int, action: int) -> bool:
-        """Report whether ``action`` differs from the greedy action for ``state``.
+    @property
+    def last_action_was_random_exploration(self) -> bool:
+        """Whether the most recent selection used epsilon's random-action branch.
 
-        Used only for bookkeeping: it identifies decisions that were not the greedy
-        choice, so that the training history can report exploration honestly.
+        A random draw can happen to equal the greedy action; it still counts as
+        exploration because the action was sampled uniformly rather than selected greedily.
         """
-        return action != self.greedy_action(state)
+        return self._last_action_was_random_exploration
 
     def epsilon_for_episode(self, episode: int) -> float:
         """Exploration rate of the given training episode (0-based)."""

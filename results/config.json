@@ -1,270 +1,310 @@
 {
-  "name": "workload_aware_q_learning_scheduling",
-  "scheduler": {
-    "round_robin_quantum": 4,
-    "switching_cost": 0,
-    "lower_priority_number_is_higher_priority": true
-  },
-  "workload_families": [
-    {
-      "name": "short_batch",
-      "description": "Short-job dominated, batch release: 15 jobs of 1-4 time units, all released together.",
-      "num_processes": 15,
-      "burst_distribution": "uniform",
-      "burst_time_min": 1,
-      "burst_time_max": 4,
-      "short_burst_max": 5,
-      "short_burst_fraction": 0.7,
-      "long_burst_min": 0,
-      "arrival_pattern": "uniform",
-      "arrival_window": 0,
-      "head_window": 2,
-      "arrival_rate": 0.5,
-      "priority_pattern": "uniform",
-      "priority_min": 1,
-      "priority_max": 5,
-      "high_priority_cutoff": 2,
-      "high_priority_fraction": 0.7
+  "configuration": {
+    "name": "offline_workload_aware_policy_selection",
+    "decision_scope": "offline single-workload batch policy selection; no runtime switching",
+    "scheduler": {
+      "round_robin_quantum": 4,
+      "switching_cost": 0,
+      "lower_priority_number_is_higher_priority": true
     },
-    {
-      "name": "short_stream",
-      "description": "Short-job dominated, staggered release: 15 jobs of 1-4 time units arriving within a 30-unit window (no long jobs).",
-      "num_processes": 15,
-      "burst_distribution": "uniform",
-      "burst_time_min": 1,
-      "burst_time_max": 4,
-      "short_burst_max": 5,
-      "short_burst_fraction": 0.7,
-      "long_burst_min": 0,
-      "arrival_pattern": "uniform",
-      "arrival_window": 30,
-      "head_window": 2,
-      "arrival_rate": 0.5,
-      "priority_pattern": "uniform",
-      "priority_min": 1,
-      "priority_max": 5,
-      "high_priority_cutoff": 2,
-      "high_priority_fraction": 0.7
+    "policy_actions": [
+      "FCFS",
+      "SJF",
+      "Round Robin",
+      "Priority"
+    ],
+    "workload_families": [
+      {
+        "name": "short_jobs",
+        "description": "Short-job-heavy: 80% of bursts drawn from 1-5 time units.",
+        "num_processes": 15,
+        "burst_distribution": "bimodal",
+        "burst_time_min": 1,
+        "burst_time_max": 50,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.8,
+        "arrival_pattern": "uniform",
+        "arrival_window": 20,
+        "arrival_rate": 0.5,
+        "staggered_gap_min": 4,
+        "staggered_gap_max": 6,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "long_jobs",
+        "description": "Long-job-heavy: 20% of bursts drawn from 1-5 time units.",
+        "num_processes": 15,
+        "burst_distribution": "bimodal",
+        "burst_time_min": 1,
+        "burst_time_max": 50,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.2,
+        "arrival_pattern": "uniform",
+        "arrival_window": 20,
+        "arrival_rate": 0.5,
+        "staggered_gap_min": 4,
+        "staggered_gap_max": 6,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "mixed",
+        "description": "Uniform mix of bursts over the full 1-50 range.",
+        "num_processes": 15,
+        "burst_distribution": "uniform",
+        "burst_time_min": 1,
+        "burst_time_max": 50,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.7,
+        "arrival_pattern": "uniform",
+        "arrival_window": 20,
+        "arrival_rate": 0.5,
+        "staggered_gap_min": 4,
+        "staggered_gap_max": 6,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "cpu_bursty",
+        "description": "Long CPU bursts (20-50) with dense uniform arrivals.",
+        "num_processes": 15,
+        "burst_distribution": "uniform",
+        "burst_time_min": 20,
+        "burst_time_max": 50,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.7,
+        "arrival_pattern": "uniform",
+        "arrival_window": 15,
+        "arrival_rate": 0.5,
+        "staggered_gap_min": 4,
+        "staggered_gap_max": 6,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "priority_skewed",
+        "description": "Uniform bursts; 70% of priorities lie in the 1-2 band.",
+        "num_processes": 15,
+        "burst_distribution": "uniform",
+        "burst_time_min": 1,
+        "burst_time_max": 50,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.7,
+        "arrival_pattern": "uniform",
+        "arrival_window": 20,
+        "arrival_rate": 0.5,
+        "staggered_gap_min": 4,
+        "staggered_gap_max": 6,
+        "priority_pattern": "high_priority_skewed",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "staggered_interactive",
+        "description": "One long process at time zero plus 14 short processes arriving at integer gaps of 4-6 time units.",
+        "num_processes": 15,
+        "burst_distribution": "staggered_interactive",
+        "burst_time_min": 25,
+        "burst_time_max": 50,
+        "short_burst_max": 3,
+        "short_burst_fraction": 0.7,
+        "arrival_pattern": "staggered",
+        "arrival_window": 20,
+        "arrival_rate": 0.5,
+        "staggered_gap_min": 4,
+        "staggered_gap_max": 6,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 1,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "poisson_arrivals",
+        "description": "Held-out evaluation condition: Poisson arrivals (rate 0.5) and uniform bursts from 1-20.",
+        "num_processes": 15,
+        "burst_distribution": "uniform",
+        "burst_time_min": 1,
+        "burst_time_max": 20,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.7,
+        "arrival_pattern": "poisson",
+        "arrival_window": 20,
+        "arrival_rate": 0.5,
+        "staggered_gap_min": 4,
+        "staggered_gap_max": 6,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      }
+    ],
+    "state": {
+      "state_variables_in_mixed_radix_order": [
+        "burst_profile",
+        "burst_dispersion",
+        "offered_load",
+        "priority_spread"
+      ],
+      "bins_per_variable": 3,
+      "q_table_shape": [
+        81,
+        4
+      ],
+      "n_discrete_states": 81,
+      "n_state_action_values": 324,
+      "ranges": {
+        "burst_profile": [
+          1.0,
+          50.0
+        ],
+        "burst_dispersion": [
+          0.0,
+          1.5
+        ],
+        "offered_load": [
+          0.5,
+          60.0
+        ],
+        "priority_spread": [
+          0.0,
+          2.0
+        ]
+      },
+      "binning_scale": {
+        "burst_profile": "logarithmic",
+        "burst_dispersion": "linear",
+        "offered_load": "logarithmic",
+        "priority_spread": "linear"
+      },
+      "exact_interior_edges": {
+        "burst_profile": [
+          3.6840314986403864,
+          13.572088082974531
+        ],
+        "burst_dispersion": [
+          0.5,
+          1.0
+        ],
+        "offered_load": [
+          2.46621207433047,
+          12.164403991146798
+        ],
+        "priority_spread": [
+          0.6666666666666666,
+          1.3333333333333333
+        ]
+      },
+      "overflow_behavior": "clamp into lowest or highest open-ended bin",
+      "index_order": "first listed variable is most significant; mixed-radix flattening"
     },
-    {
-      "name": "long_batch",
-      "description": "Long-job dominated, batch release: 15 jobs of 20-50 time units, all released together.",
-      "num_processes": 15,
-      "burst_distribution": "uniform",
-      "burst_time_min": 20,
-      "burst_time_max": 50,
-      "short_burst_max": 5,
-      "short_burst_fraction": 0.7,
-      "long_burst_min": 0,
-      "arrival_pattern": "uniform",
-      "arrival_window": 0,
-      "head_window": 2,
-      "arrival_rate": 0.5,
-      "priority_pattern": "uniform",
-      "priority_min": 1,
-      "priority_max": 5,
-      "high_priority_cutoff": 2,
-      "high_priority_fraction": 0.7
+    "reward": {
+      "formula": "sum(w_cost * (1 - clipped(candidate/reference))) + sum(w_benefit * (clipped(candidate/reference) - 1))",
+      "reference_policies": [
+        "FCFS",
+        "SJF",
+        "Round Robin",
+        "Priority"
+      ],
+      "reference": "arithmetic mean across the four policies on the identical workload",
+      "cost_metrics": [
+        "avg_waiting_time",
+        "avg_turnaround_time",
+        "avg_response_time",
+        "context_switches_per_process"
+      ],
+      "benefit_metrics": [
+        "cpu_utilization",
+        "throughput"
+      ],
+      "weight_waiting_time": 0.3,
+      "weight_turnaround_time": 0.25,
+      "weight_response_time": 0.2,
+      "weight_context_switches": 0.1,
+      "weight_cpu_utilization": 0.075,
+      "weight_throughput": 0.075,
+      "reference_clip_upper_bound": 2.0,
+      "zero_reference_ratio": 1.0
     },
-    {
-      "name": "interactive",
-      "description": "Interactive/response-sensitive: a small batch of long background jobs (60-100 units) released at the head of the window plus a stream of 18 very short interactive jobs (1-2 units) over 50 time units.",
-      "num_processes": 20,
-      "burst_distribution": "bimodal",
-      "burst_time_min": 1,
-      "burst_time_max": 100,
-      "short_burst_max": 2,
-      "short_burst_fraction": 0.9,
-      "long_burst_min": 60,
-      "arrival_pattern": "batch_head",
-      "arrival_window": 50,
-      "head_window": 2,
-      "arrival_rate": 0.5,
-      "priority_pattern": "uniform",
-      "priority_min": 1,
-      "priority_max": 5,
-      "high_priority_cutoff": 2,
-      "high_priority_fraction": 0.7
+    "q_learning": {
+      "learning_rate_alpha": 0.1,
+      "discount_factor_gamma": 0.9,
+      "gamma_effect_in_project": "none: every workload episode is terminal",
+      "initial_q_value": 0.0,
+      "initialization_interpretation": "neutral zero; not optimistic",
+      "unseen_state_behavior": "all actions tie initially; np.argmax deterministically selects action 0 (FCFS); reported as an untrained fallback",
+      "action_selection": "epsilon-greedy; training samples uniformly from four actions with probability epsilon",
+      "epsilon_start": 1.0,
+      "epsilon_min": 0.05,
+      "epsilon_decay_per_episode": 0.995,
+      "epsilon_schedule": "max(epsilon_min, epsilon_start * decay ** episode)",
+      "training_update": "Q(s,a) <- Q(s,a) + alpha * (reward - Q(s,a))",
+      "evaluation": "greedy, deterministic, no Q-table or visit-count updates"
     },
-    {
-      "name": "interactive_sparse",
-      "description": "Interactive with a sparser arrival stream: the same job mix as 'interactive' but the short jobs arrive over 110 time units (lighter load, slower interactive traffic).",
-      "num_processes": 20,
-      "burst_distribution": "bimodal",
-      "burst_time_min": 1,
-      "burst_time_max": 100,
-      "short_burst_max": 2,
-      "short_burst_fraction": 0.9,
-      "long_burst_min": 60,
-      "arrival_pattern": "batch_head",
-      "arrival_window": 110,
-      "head_window": 2,
-      "arrival_rate": 0.5,
-      "priority_pattern": "uniform",
-      "priority_min": 1,
-      "priority_max": 5,
-      "high_priority_cutoff": 2,
-      "high_priority_fraction": 0.7
+    "training": {
+      "episodes_per_independent_model": 1200,
+      "base_seed": 42,
+      "independent_seeds": [
+        42,
+        43,
+        44,
+        45,
+        46
+      ],
+      "replicates": 5,
+      "family_cycle": [
+        "short_jobs",
+        "long_jobs",
+        "mixed",
+        "cpu_bursty",
+        "priority_skewed",
+        "staggered_interactive"
+      ],
+      "training_families": [
+        "short_jobs",
+        "long_jobs",
+        "mixed",
+        "cpu_bursty",
+        "priority_skewed",
+        "staggered_interactive"
+      ],
+      "held_out_families": [
+        "poisson_arrivals"
+      ]
     },
-    {
-      "name": "priority_aligned",
-      "description": "Priority-sensitive with importance aligned to job size: uniform bursts 1-50, and the shortest jobs carry the highest priority (priority assigned by burst rank).",
-      "num_processes": 15,
-      "burst_distribution": "uniform",
-      "burst_time_min": 1,
-      "burst_time_max": 50,
-      "short_burst_max": 5,
-      "short_burst_fraction": 0.7,
-      "long_burst_min": 0,
-      "arrival_pattern": "uniform",
-      "arrival_window": 20,
-      "head_window": 2,
-      "arrival_rate": 0.5,
-      "priority_pattern": "burst_aligned",
-      "priority_min": 1,
-      "priority_max": 5,
-      "high_priority_cutoff": 2,
-      "high_priority_fraction": 0.7
-    },
-    {
-      "name": "priority_skewed",
-      "description": "Priority-sensitive with skewed priority labels uncorrelated with job size: uniform bursts 1-50 and 70% of the priorities in the band 1-2.",
-      "num_processes": 15,
-      "burst_distribution": "uniform",
-      "burst_time_min": 1,
-      "burst_time_max": 50,
-      "short_burst_max": 5,
-      "short_burst_fraction": 0.7,
-      "long_burst_min": 0,
-      "arrival_pattern": "uniform",
-      "arrival_window": 20,
-      "head_window": 2,
-      "arrival_rate": 0.5,
-      "priority_pattern": "high_priority_skewed",
-      "priority_min": 1,
-      "priority_max": 5,
-      "high_priority_cutoff": 2,
-      "high_priority_fraction": 0.7
-    },
-    {
-      "name": "quantum_sensitive",
-      "description": "Quantum-sensitive/preemption-heavy: 20 jobs of 2-12 time units straddling the Round-Robin quantum (4), arriving within a 30-unit window; preemption is frequent and costly.",
-      "num_processes": 20,
-      "burst_distribution": "uniform",
-      "burst_time_min": 2,
-      "burst_time_max": 12,
-      "short_burst_max": 5,
-      "short_burst_fraction": 0.7,
-      "long_burst_min": 0,
-      "arrival_pattern": "uniform",
-      "arrival_window": 30,
-      "head_window": 2,
-      "arrival_rate": 0.5,
-      "priority_pattern": "uniform",
-      "priority_min": 1,
-      "priority_max": 5,
-      "high_priority_cutoff": 2,
-      "high_priority_fraction": 0.7
-    },
-    {
-      "name": "mixed",
-      "description": "Mixed: 15 jobs with bursts uniform over the full 1-50 range, arriving within a 20-unit window.",
-      "num_processes": 15,
-      "burst_distribution": "uniform",
-      "burst_time_min": 1,
-      "burst_time_max": 50,
-      "short_burst_max": 5,
-      "short_burst_fraction": 0.7,
-      "long_burst_min": 0,
-      "arrival_pattern": "uniform",
-      "arrival_window": 20,
-      "head_window": 2,
-      "arrival_rate": 0.5,
-      "priority_pattern": "uniform",
-      "priority_min": 1,
-      "priority_max": 5,
-      "high_priority_cutoff": 2,
-      "high_priority_fraction": 0.7
+    "evaluation": {
+      "unique_repetitions_per_family": 30,
+      "evaluation_seed": 2024,
+      "training_evaluation_fingerprint_overlap_allowed": false,
+      "metric_rows_per_unique_workload_per_training_seed": 5
     }
-  ],
-  "state": {
-    "state_variables": [
-      "burst_profile",
-      "burst_dispersion",
-      "long_job_share",
-      "arrival_concentration",
-      "offered_load",
-      "priority_spread",
-      "priority_burst_alignment"
-    ],
-    "bins_per_variable": 3,
-    "n_states": 2187,
-    "burst_profile_range": [
-      1.0,
-      100.0
-    ],
-    "burst_dispersion_range": [
-      0.0,
-      3.0
-    ],
-    "long_job_share_range": [
-      0.0,
-      1.0
-    ],
-    "arrival_concentration_range": [
-      0.0,
-      1.0
-    ],
-    "offered_load_range": [
-      0.5,
-      60.0
-    ],
-    "priority_spread_range": [
-      0.0,
-      2.0
-    ],
-    "priority_burst_alignment_range": [
-      -1.0,
-      1.0
-    ],
-    "long_burst_threshold": 16
   },
-  "reward": {
-    "weight_waiting_time": 0.3,
-    "weight_turnaround_time": 0.25,
-    "weight_response_time": 0.2,
-    "weight_context_switches": 0.1,
-    "weight_cpu_utilization": 0.075,
-    "weight_throughput": 0.075,
-    "reference_clip": 2.0
-  },
-  "q_learning": {
-    "learning_rate": 0.1,
-    "discount_factor": 0.9,
-    "epsilon_start": 1.0,
-    "epsilon_min": 0.05,
-    "epsilon_decay_per_episode": 0.999,
-    "initial_value": 0.05
-  },
-  "training": {
-    "episodes": 5400,
-    "seed": 42,
-    "family_cycle": [
-      "short_batch",
-      "short_stream",
-      "long_batch",
-      "interactive",
-      "interactive_sparse",
-      "priority_aligned",
-      "priority_skewed",
-      "quantum_sensitive",
-      "mixed"
-    ]
-  },
-  "evaluation": {
-    "repetitions": 10,
-    "seed": 2024,
-    "verification_repetitions": 25,
-    "verification_seed": 777
+  "software": {
+    "python_version": "3.11.2",
+    "python_implementation": "CPython",
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+    "packages": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "matplotlib": "3.11.2",
+      "pytest": "9.1.1"
+    },
+    "requirements_lock_sha256": "9b059d7a455a846c437068a7b0a018579cee02be4dac6778addb8cf543572772"
   }
 }

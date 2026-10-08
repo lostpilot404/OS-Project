@@ -7,73 +7,46 @@ waiting-time characteristics as candidate state information.  Because the agent 
 *before* a workload runs (one decision per workload -- see ``docs/DESIGN_AND_CHOICES.md``),
 utilisation, queue length and waiting time are all zero or trivial at the decision point,
 and values measured during execution would leak the outcome of the very decision being
-taken.  The state therefore uses seven pre-execution workload characteristics that
-correspond to those candidates and that separate the regimes in which the four
-conventional policies trade off:
+taken.  The state therefore uses four pre-execution workload characteristics that
+correspond to those candidates and that demonstrably separate the configured workload
+conditions:
 
-===================================  ==================================================
-Variable                             Definition (see :func:`observe_workload_state`)
-===================================  ==================================================
-``burst_profile``                    Median burst time: the scale of the jobs relative to
-                                     the Round-Robin quantum.
-``burst_dispersion``                 Coefficient of variation of the burst times
-                                     (standard deviation / mean): whether jobs are of
-                                     similar size or a mixture of short and long jobs.
-``long_job_share``                   Share of the *total burst time* contributed by long
-                                     jobs (burst at least
-                                     :attr:`config.StateConfig.long_burst_threshold`):
-                                     how much of the demand is concentrated in jobs
-                                     that occupy the CPU for several quanta, which is
-                                     what makes preemption pay off or not.
-``arrival_concentration``            Fraction of jobs released at the modal arrival time:
-                                     1 for a batch release, small for a staggered
-                                     (interactive) stream.  This is the variable that
-                                     separates "all jobs available at once" -- where
-                                     non-preemptive SJF is optimal -- from "jobs keep
-                                     arriving while long jobs run" -- where Round
-                                     Robin's preemption is what keeps short jobs
-                                     responsive.
-``offered_load``                     Total burst time divided by the arrival span: the
-                                     sustained service demand per unit of arrival span,
-                                     i.e. the anticipated CPU utilisation pressure.
-``priority_spread``                  Standard deviation of the process priorities: how
-                                     strongly the workload distinguishes priorities.
-``priority_burst_alignment``         Pearson correlation between the priority number and
-                                     the burst time: +1 means the priority order agrees
-                                     with the shortest-job-first order (importance
-                                     tracks size), -1 means it is inverted, 0 means the
-                                     labels are uninformative about size.
-===================================  ==================================================
-
-The first four variables were chosen from the *declared generation rules* of the
-workload classes (before any experiment was run) because they are the dimensions along
-which the classes differ and along which the reward-optimal policy changes; the
-pre-training verification (``experiments/verify_classes.py``) then measures, on
-held-out workloads, that the reward-optimal action is indeed a consistent function of
-the encoded state (see ``results/class_verification.json``).
+============================  ============================================================
+Variable                      Definition (see :func:`observe_workload_state`)
+============================  ============================================================
+``burst_profile``             Median burst time: the scale of the jobs.
+``burst_dispersion``          Coefficient of variation of the burst times (standard
+                              deviation / mean): whether jobs are of similar size or a
+                              mixture of short and long jobs.
+``offered_load``              Total burst time divided by the arrival span: the sustained
+                              service demand per unit of arrival span, i.e. the
+                              anticipated CPU utilisation pressure.
+``priority_spread``           Standard deviation of the process priorities: how strongly
+                              the workload distinguishes priorities, i.e. how much a
+                              priority-based policy can act on.
+============================  ============================================================
 
 Discretisation
 --------------
 Every variable is discretised into ``bins_per_variable`` bins.  Quantities whose
 interesting variation is proportional (burst times, load ratios) are binned on a
 logarithmic scale, where each bin spans the same *factor*; bounded dimensionless
-quantities (dispersion, shares, concentrations, correlations) are binned linearly.  The
-lowest bin is open at the bottom and the highest bin is open at the top, so no value can
-ever fall outside the state space.
+quantities (dispersion, priority spread) are binned linearly.  The lowest bin is open at
+the bottom and the highest bin is open at the top, so no value can ever fall outside the
+state space.
 
 The state space is the Cartesian product of the per-variable bins, flattened with the
 first configured variable as the most significant digit of a mixed-radix index.
 
 No scheduling outcome ever enters the state: :func:`observe_workload_state` accepts a
-workload (and, optionally, the state configuration) and nothing else.
+workload and nothing else.
 """
 
 from __future__ import annotations
 
 from bisect import bisect_right
-from collections import Counter
 from dataclasses import asdict, dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 from config import KNOWN_STATE_VARIABLES, StateConfig
 from errors import ValidationError
@@ -89,20 +62,14 @@ class StateSnapshot:
     Attributes:
         burst_profile: Median burst time of the workload.
         burst_dispersion: Coefficient of variation of the burst times.
-        long_job_share: Share of the total burst time contributed by long jobs.
-        arrival_concentration: Fraction of jobs released at the modal arrival time.
         offered_load: Total burst time per unit of arrival span.
         priority_spread: Standard deviation of the process priorities.
-        priority_burst_alignment: Correlation between priority number and burst time.
     """
 
     burst_profile: float
     burst_dispersion: float
-    long_job_share: float
-    arrival_concentration: float
     offered_load: float
     priority_spread: float
-    priority_burst_alignment: float
 
     def as_dict(self) -> Dict[str, float]:
         """Return the variable values keyed by variable name."""
@@ -212,11 +179,8 @@ class LinearBinner(_Binner):
 _VARIABLE_SCALES = {
     "burst_profile": "log",
     "burst_dispersion": "linear",
-    "long_job_share": "linear",
-    "arrival_concentration": "linear",
     "offered_load": "log",
     "priority_spread": "linear",
-    "priority_burst_alignment": "linear",
 }
 
 
@@ -330,55 +294,34 @@ class StateEncoder:
         )
 
 
-def observe_workload_state(
-    workload: Workload, state_config: Optional[StateConfig] = None
-) -> StateSnapshot:
+def observe_workload_state(workload: Workload) -> StateSnapshot:
     """Compute the pre-execution state of a workload.
 
-    The snapshot is a pure function of the workload description and of the state
-    configuration: it uses no scheduling result, no metric and no policy, so it cannot
-    leak information about the outcome of a scheduling decision.
+    The snapshot is a pure function of the workload description: it uses no scheduling
+    result, no metric and no policy, so it cannot leak information about the outcome of a
+    scheduling decision.
 
     Args:
         workload: The workload the agent must choose a policy for.
-        state_config: State configuration supplying the long-job threshold.  ``None``
-            uses the default :class:`config.StateConfig`.
 
     Returns:
         The raw state values.
 
     Raises:
-        ValidationError: If ``workload`` is not a :class:`workload.models.Workload` or
-            the state configuration is invalid.
+        ValidationError: If ``workload`` is not a :class:`workload.models.Workload`.
     """
     if not isinstance(workload, Workload):
         raise ValidationError(f"workload must be a Workload, got {type(workload).__name__}")
-    if state_config is None:
-        state_config = StateConfig()
-    if not isinstance(state_config, StateConfig):
-        raise ValidationError(
-            f"state_config must be a StateConfig, got {type(state_config).__name__}"
-        )
-    threshold = state_config.long_burst_threshold
 
     if workload.size:
         bursts = [process.burst_time for process in workload.processes]
-        arrivals = [process.arrival_time for process in workload.processes]
-        priorities = [process.priority for process in workload.processes]
         mean_burst = workload.mean_burst_time
         burst_dispersion = float(_population_std(bursts) / mean_burst) if mean_burst else 0.0
-        total_burst = workload.total_burst_time
-        long_burst = sum(burst for burst in bursts if burst >= threshold)
-        long_job_share = float(long_burst / total_burst) if total_burst else 0.0
-        arrival_concentration = float(max(Counter(arrivals).values()) / len(arrivals))
+        priorities = [process.priority for process in workload.processes]
         priority_spread = float(_population_std(priorities))
-        alignment = float(_pearson_correlation(priorities, bursts))
     else:
         burst_dispersion = 0.0
-        long_job_share = 0.0
-        arrival_concentration = 0.0
         priority_spread = 0.0
-        alignment = 0.0
 
     # A span of zero means every process arrived together; a span of one unit keeps the
     # ratio finite and makes the batch case the maximum-load case, as documented.
@@ -387,11 +330,8 @@ def observe_workload_state(
     return StateSnapshot(
         burst_profile=float(workload.median_burst_time),
         burst_dispersion=burst_dispersion,
-        long_job_share=long_job_share,
-        arrival_concentration=arrival_concentration,
         offered_load=float(workload.total_burst_time / span),
         priority_spread=priority_spread,
-        priority_burst_alignment=alignment,
     )
 
 
@@ -403,23 +343,3 @@ def _population_std(values: Sequence[float]) -> float:
     mean = sum(values) / count
     variance = sum((value - mean) ** 2 for value in values) / count
     return variance**0.5
-
-
-def _pearson_correlation(xs: Sequence[float], ys: Sequence[float]) -> float:
-    """Return the Pearson correlation of two equally long sequences.
-
-    The correlation is ``0.0`` when either sequence has zero variance (a constant
-    priority list or a constant burst list carries no alignment information), which is
-    the documented convention for the ``priority_burst_alignment`` state variable.
-    """
-    count = len(xs)
-    if count == 0:
-        return 0.0
-    mean_x = sum(xs) / count
-    mean_y = sum(ys) / count
-    covariance = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, ys)) / count
-    variance_x = sum((x - mean_x) ** 2 for x in xs) / count
-    variance_y = sum((y - mean_y) ** 2 for y in ys) / count
-    if variance_x <= 0.0 or variance_y <= 0.0:
-        return 0.0
-    return covariance / (variance_x * variance_y) ** 0.5

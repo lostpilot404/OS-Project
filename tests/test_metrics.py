@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from config import SchedulerConfig
+from errors import ValidationError
 from scheduler.fcfs import FCFS
 from scheduler.round_robin import RoundRobin
 from tests.helpers import DEFAULT_SCHEDULER_CONFIG, workload_from_rows
@@ -92,6 +93,20 @@ class TestSystemMetrics:
 
 
 class TestEmptyAndIdentity:
+    def test_all_six_required_metrics_match_independent_hand_calculation(self) -> None:
+        # P1 runs 0-4; the CPU is idle 4-6; P2 runs 6-8. Both begin at arrival.
+        # Per-process waits are (0, 0), turns are (4, 2), responses are (0, 0).
+        # Busy=6, makespan=8, completed=2, and there is one process change.
+        metrics = _run_fcfs([(1, 0, 4, 1), (2, 6, 2, 1)])
+        assert metrics.avg_waiting_time == pytest.approx(0.0)
+        assert metrics.avg_turnaround_time == pytest.approx(3.0)
+        assert metrics.avg_response_time == pytest.approx(0.0)
+        assert metrics.cpu_utilization == pytest.approx(75.0)
+        assert metrics.throughput == pytest.approx(0.25)
+        assert metrics.context_switches == 1
+        # Per-process switches are a derived reward input, not an additional required metric.
+        assert metrics.context_switches_per_process == pytest.approx(0.5)
+
     def test_empty_workload_metrics_are_zero(self) -> None:
         metrics = compute_metrics(
             FCFS(DEFAULT_SCHEDULER_CONFIG).run(
@@ -122,5 +137,5 @@ class TestEmptyAndIdentity:
         assert set(row) == set(WorkloadMetrics.__dataclass_fields__)
 
     def test_invalid_argument_is_rejected(self) -> None:
-        with pytest.raises(ValueError, match="must be a ScheduleResult"):
+        with pytest.raises(ValidationError, match="must be a ScheduleResult"):
             compute_metrics({"avg_waiting_time": 1.0})  # type: ignore[arg-type]

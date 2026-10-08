@@ -1,7 +1,8 @@
-"""Training, evaluation, end-to-end pipeline and reproducibility."""
+"""Workload generation, independent training, paired evaluation, and reports."""
 
 from __future__ import annotations
 
+import builtins
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -11,7 +12,7 @@ import pytest
 
 from config import (
     ACTION_NAMES,
-    ADAPTIVE_LABEL,
+    SELECTOR_LABEL,
     EvaluationConfig,
     ExperimentConfig,
     SchedulerConfig,
@@ -21,47 +22,73 @@ from config import (
     build_default_config,
     derive_seed,
 )
-from errors import ConfigurationError, ValidationError
+from errors import ValidationError
 from evaluation.comparison import (
     ALL_METRICS,
-    adaptive_ratio_table,
+    selector_ratio_table,
     best_policy_per_family,
     family_summary,
-    oracle_agreement_table,
     policy_selection_table,
     policy_summary,
     state_occupancy_table,
 )
-from experiments.evaluate import (
-    ADAPTIVE_REGIME,
-    BASELINE_REGIME,
-    build_evaluation_workloads,
-    evaluate,
-)
-from experiments.run_experiment import run_experiment
+from experiments.evaluate import SELECTOR_REGIME, BASELINE_REGIME, build_evaluation_workloads, evaluate
+from experiments.run_experiment import config_snapshot, run_experiment
 from experiments.train import train
-from experiments.verify_classes import verify_classes
 from main import main as cli_main
 from workload.generator import WorkloadGenerator
 
 
 def _small_config() -> ExperimentConfig:
-    """A small but complete configuration, used to keep the suite fast."""
+    """Fast, fully specified training/evaluation design with one held-out condition."""
     families = (
-        WorkloadFamilyConfig(name="few_short", description="short jobs", num_processes=4,
-                             burst_distribution="bimodal", short_burst_fraction=0.9),
-        WorkloadFamilyConfig(name="few_long", description="long jobs", num_processes=4,
-                             burst_distribution="uniform", burst_time_min=20, burst_time_max=40,
-                             arrival_window=8),
+        WorkloadFamilyConfig(
+            name="few_short",
+            description="short-job mixture",
+            num_processes=4,
+            burst_distribution="bimodal",
+            burst_time_min=1,
+            burst_time_max=50,
+            short_burst_max=5,
+            short_burst_fraction=0.9,
+        ),
+        WorkloadFamilyConfig(
+            name="interactive",
+            description="one long process plus staggered short jobs",
+            num_processes=4,
+            burst_distribution="staggered_interactive",
+            burst_time_min=25,
+            burst_time_max=40,
+            short_burst_max=3,
+            arrival_pattern="staggered",
+            staggered_gap_min=3,
+            staggered_gap_max=5,
+            priority_min=1,
+            priority_max=1,
+        ),
+        WorkloadFamilyConfig(
+            name="held_out_poisson",
+            description="held-out Poisson condition",
+            num_processes=4,
+            burst_distribution="uniform",
+            burst_time_min=1,
+            burst_time_max=20,
+            arrival_pattern="poisson",
+            arrival_rate=0.5,
+        ),
     )
     config = ExperimentConfig(
-        name="test_small",
+        name="test_small_offline_selector",
         scheduler=SchedulerConfig(round_robin_quantum=4),
         families=families,
         state=StateConfig(),
-        training=TrainingConfig(episodes=12, seed=5, family_cycle=("few_short", "few_long")),
-        evaluation=EvaluationConfig(repetitions=2, seed=99, verification_repetitions=3,
-                                    verification_seed=123),
+        training=TrainingConfig(
+            episodes=24,
+            seed=5,
+            replicates=2,
+            family_cycle=("few_short", "interactive"),
+        ),
+        evaluation=EvaluationConfig(repetitions=2, seed=99),
     )
     config.validate()
     return config
@@ -69,8 +96,7 @@ def _small_config() -> ExperimentConfig:
 
 class TestWorkloadGeneration:
     def test_same_seed_same_workload(self) -> None:
-        config = _small_config()
-        generator = WorkloadGenerator(config.families)
+        generator = WorkloadGenerator(_small_config().families)
         first = generator.generate("few_short", 1234)
         second = generator.generate("few_short", 1234)
         assert first == second
@@ -78,324 +104,281 @@ class TestWorkloadGeneration:
 
     def test_different_seeds_give_different_workloads(self) -> None:
         generator = WorkloadGenerator(_small_config().families)
-        assert (
-            generator.generate("few_short", 1).fingerprint
-            != generator.generate("few_short", 2).fingerprint
-        )
+        assert generator.generate("few_short", 1).fingerprint != generator.generate("few_short", 2).fingerprint
 
-    def test_process_count_and_attribute_ranges(self) -> None:
+    def test_default_family_sizes_and_burst_ranges(self) -> None:
         config = build_default_config()
         generator = WorkloadGenerator(config.families)
         for family in config.families:
             workload = generator.generate(family.name, 0)
             assert len(workload) == family.num_processes
-            assert all(family.burst_time_min <= p.burst_time <= family.burst_time_max
-                       for p in workload.processes)
-            assert all(family.priority_min <= p.priority <= family.priority_max
-                       for p in workload.processes)
             assert all(p.arrival_time >= 0 for p in workload.processes)
-            if family.arrival_pattern in ("uniform", "batch_head"):
+            assert all(family.priority_min <= p.priority <= family.priority_max for p in workload.processes)
+            if family.burst_distribution == "staggered_interactive":
+                assert family.burst_time_min <= workload.processes[0].burst_time <= family.burst_time_max
+                assert all(1 <= p.burst_time <= family.short_burst_max for p in workload.processes[1:])
+            else:
+                assert all(family.burst_time_min <= p.burst_time <= family.burst_time_max for p in workload.processes)
+            if family.arrival_pattern == "uniform":
                 assert all(p.arrival_time <= family.arrival_window for p in workload.processes)
+            if family.arrival_pattern == "staggered":
+                arrivals = [p.arrival_time for p in workload.processes]
+                gaps = [b - a for a, b in zip(arrivals, arrivals[1:])]
+                assert arrivals[0] == 0
+                assert all(family.staggered_gap_min <= gap <= family.staggered_gap_max for gap in gaps)
 
-    def test_pids_are_one_based_and_unique(self) -> None:
-        generator = WorkloadGenerator(_small_config().families)
-        workload = generator.generate("few_long", 7)
-        assert sorted(p.pid for p in workload.processes) == list(range(1, len(workload) + 1))
+    def test_interactive_distribution_is_not_a_policy_choice(self) -> None:
+        family = next(
+            family for family in build_default_config().families
+            if family.name == "staggered_interactive"
+        )
+        workload = WorkloadGenerator((family,)).generate(family.name, 15)
+        assert len(workload) == 15
+        assert workload.processes[0].arrival_time == 0
+        assert workload.processes[0].burst_time >= 25
+        assert all(p.burst_time <= 3 for p in workload.processes[1:])
+        assert all(4 <= b.arrival_time - a.arrival_time <= 6 for a, b in zip(workload.processes, workload.processes[1:]))
 
-    def test_short_job_family_has_lower_median_burst(self) -> None:
-        generator = WorkloadGenerator(build_default_config().families)
-        short = generator.generate("short_batch", 3)
-        long = generator.generate("long_batch", 3)
-        assert short.median_burst_time < long.median_burst_time
-
-    def test_skewed_family_has_lower_priority_spread(self) -> None:
+    def test_priority_and_burst_conditions_have_distinct_profiles(self) -> None:
         from rl.state import observe_workload_state
 
         generator = WorkloadGenerator(build_default_config().families)
         skewed = observe_workload_state(generator.generate("priority_skewed", 1))
         uniform = observe_workload_state(generator.generate("mixed", 1))
+        short = observe_workload_state(generator.generate("short_jobs", 3))
+        cpu = observe_workload_state(generator.generate("cpu_bursty", 3))
         assert skewed.priority_spread < uniform.priority_spread
+        assert short.burst_dispersion > cpu.burst_dispersion
 
-    def test_interactive_family_has_higher_burst_dispersion(self) -> None:
-        from rl.state import observe_workload_state
-
+    def test_poisson_arrivals_are_sorted_and_spread_over_time(self) -> None:
         generator = WorkloadGenerator(build_default_config().families)
-        interactive = observe_workload_state(generator.generate("interactive", 3))
-        homogeneous = observe_workload_state(generator.generate("mixed", 3))
-        assert interactive.burst_dispersion > homogeneous.burst_dispersion
+        workload = generator.generate("poisson_arrivals", 4)
+        arrivals = [process.arrival_time for process in workload.processes]
+        assert arrivals == sorted(arrivals)
+        assert workload.arrival_span > 0
+        assert len(set(arrivals)) > 1
 
-    def test_interactive_family_has_a_batch_head_of_long_jobs(self) -> None:
-        generator = WorkloadGenerator(build_default_config().families)
-        family = generator.family("interactive")
-        workload = generator.generate("interactive", 4)
-        long_jobs = [p for p in workload.processes if p.burst_time >= family.long_mode_min()]
-        short_jobs = [p for p in workload.processes if p.burst_time < family.long_mode_min()]
-        assert long_jobs and short_jobs
-        assert all(p.arrival_time <= family.head_window for p in long_jobs)
-        assert all(p.arrival_time <= family.arrival_window for p in short_jobs)
-
-    def test_batch_families_release_everything_together(self) -> None:
-        generator = WorkloadGenerator(build_default_config().families)
-        for name in ("short_batch", "long_batch"):
-            workload = generator.generate(name, 4)
-            assert all(p.arrival_time == 0 for p in workload.processes)
-
-    def test_aligned_family_tracks_burst_rank(self) -> None:
-        generator = WorkloadGenerator(build_default_config().families)
-        workload = generator.generate("priority_aligned", 2)
-        by_burst = sorted(workload.processes, key=lambda p: (p.burst_time, p.pid))
-        priorities = [p.priority for p in by_burst]
-        assert priorities == sorted(priorities)
-
-    def test_unknown_family_and_bad_seed_are_rejected(self) -> None:
+    def test_unknown_family_bad_seed_and_duplicate_family_are_rejected(self) -> None:
         generator = WorkloadGenerator(_small_config().families)
         with pytest.raises(ValidationError, match="unknown workload family"):
             generator.generate("nope", 0)
         with pytest.raises(ValidationError, match="seed"):
             generator.generate("few_short", -1)
-
-    def test_duplicate_family_names_are_rejected(self) -> None:
         family = WorkloadFamilyConfig(name="dup", description="x", num_processes=3)
         with pytest.raises(ValidationError, match="unique"):
             WorkloadGenerator((family, family))
 
 
 class TestTraining:
-    def test_records_one_episode_per_episode(self) -> None:
+    def test_records_one_terminal_episode_and_cycles_only_training_families(self) -> None:
         config = _small_config()
         result = train(config)
         assert result.history.episodes == config.training.episodes
         assert len(result.history.rewards) == config.training.episodes
-        assert len(result.history.family_names) == config.training.episodes
+        assert result.history.family_names[:4] == ("few_short", "interactive") * 2
+        assert "held_out_poisson" not in result.history.family_names
+        assert result.agent.visit_counts.sum() == config.training.episodes
 
-    def test_families_cycle_in_configuration_order(self) -> None:
+    def test_training_is_reproducible_with_a_fixed_seed(self) -> None:
         config = _small_config()
-        result = train(config)
-        assert result.history.family_names[:4] == ("few_short", "few_long", "few_short", "few_long")
-
-    def test_training_is_reproducible(self) -> None:
-        config = _small_config()
-        first = train(config)
-        second = train(config)
+        first, second = train(config), train(config)
         assert first.history.rewards == second.history.rewards
         assert first.history.workload_fingerprints == second.history.workload_fingerprints
         assert first.agent.q_table.tolist() == second.agent.q_table.tolist()
 
-    def test_agent_learns_something(self) -> None:
-        # With optimistic initialisation and a reward that is positive for good policies,
-        # the table must move away from its initial value.
+    def test_training_updates_q_values_from_neutral_initialization(self) -> None:
         config = _small_config()
+        assert config.q_learning.initial_value == 0.0
         result = train(config)
-        assert not (result.agent.q_table == config.q_learning.initial_value).all()
+        assert not (result.agent.q_table == 0.0).all()
         assert result.history.visited_states > 0
 
-    def test_workload_stream_matches_derived_seeds(self) -> None:
+    def test_training_stream_matches_the_documented_seed_derivation(self) -> None:
         config = _small_config()
         result = train(config)
         generator = WorkloadGenerator(config.families)
         expected = generator.generate("few_short", derive_seed(config.training.seed, 0, 0))
         assert result.history.workload_fingerprints[0] == expected.fingerprint
 
-    def test_training_result_exposes_the_q_table_with_state_bins(self) -> None:
-        result = train(_small_config())
-        rows = result.q_table_rows()
-        assert len(rows) == result.agent.n_states
-        for row in rows:
-            assert set(row["state_bins"]) == set(result.encoder.variables)
-            assert row["greedy_action"] in ACTION_NAMES
+    def test_training_history_distinguishes_random_branch_from_greedy_match(self) -> None:
+        summary = train(_small_config()).history.summary()
+        assert 0.0 <= summary["random_exploration_episode_rate"] <= 1.0
+        assert 0.0 <= summary["greedy_action_match_rate"] <= 1.0
+        assert "exploration_rate" not in summary
 
-
-class TestClassVerification:
-    def test_verification_runs_before_training_and_is_deterministic(self) -> None:
-        config = _small_config()
-        generator = WorkloadGenerator(config.families)
-        first = verify_classes(config, generator=generator)
-        second = verify_classes(config, generator=generator)
-        assert first.summary() == second.summary()
-        assert first.workloads_total == len(config.families) * 3
-
-    def test_verification_does_not_train(self) -> None:
-        config = _small_config()
-        result = verify_classes(config)
-        # A verification result carries no agent and no Q-table.
-        assert not hasattr(result, "agent")
-
-    def test_verification_reports_a_modal_winner_per_class(self) -> None:
-        config = _small_config()
-        result = verify_classes(config)
-        for entry in result.classes:
-            assert entry.modal_winner in ACTION_NAMES
-            assert entry.winner_shares[entry.modal_winner] > 0.0
+    def test_training_seeds_are_multiple_and_independent_by_default(self) -> None:
+        config = build_default_config()
+        assert len(config.training.seeds) >= 2
+        assert len(set(config.training.seeds)) == config.training.replicates
+        assert config.evaluation.seed not in config.training.seeds
 
 
 class TestEvaluation:
-    def test_every_scheduler_sees_the_same_workloads(self) -> None:
+    def test_every_policy_receives_the_same_workload(self) -> None:
         config = _small_config()
         result = evaluate(config, train(config))
-        grouped = result.metrics.groupby(["family", "repetition"])["workload_fingerprint"].nunique()
-        assert (grouped == 1).all()
+        for _, group in result.metrics.groupby(["training_seed", "family", "repetition"]):
+            assert group["workload_fingerprint"].nunique() == 1
+            assert len(group) == 5
+            assert set(group["policy"]) == set(ACTION_NAMES) | {SELECTOR_LABEL}
 
-    def test_all_policies_and_regimes_are_measured(self) -> None:
+    def test_only_four_baselines_and_one_selector_regime_are_reported(self) -> None:
         config = _small_config()
         result = evaluate(config, train(config))
-        assert set(result.metrics["policy"]) == set(ACTION_NAMES) | {ADAPTIVE_LABEL}
-        assert set(result.metrics["regime"]) == {BASELINE_REGIME, ADAPTIVE_REGIME}
+        assert set(result.metrics["policy"]) == set(ACTION_NAMES) | {SELECTOR_LABEL}
+        assert set(result.metrics["regime"]) == {BASELINE_REGIME, SELECTOR_REGIME}
+        assert "Round Robin (learned quantum)" not in set(result.metrics["policy"])
 
-    def test_row_count_matches_the_protocol(self) -> None:
+    def test_row_counts_distinguish_unique_workloads_from_model_decisions(self) -> None:
         config = _small_config()
         result = evaluate(config, train(config))
-        workloads = len(config.families) * config.evaluation.repetitions
-        # four baselines + the adaptive scheduler
-        assert len(result.metrics) == workloads * 5
-        assert len(result.decisions) == workloads
+        unique = len(config.families) * config.evaluation.repetitions
+        assert len(result.metrics) == unique * 5
+        assert len(result.decisions) == unique
+        assert result.summary()["unique_workloads"] == unique
 
     def test_evaluation_workloads_are_disjoint_from_training(self) -> None:
         config = _small_config()
         training = train(config)
-        generator = WorkloadGenerator(config.families)
-        workloads = build_evaluation_workloads(config, generator)
-        assert not ({w.fingerprint for w in workloads} & training.training_fingerprints)
+        workloads = build_evaluation_workloads(config, WorkloadGenerator(config.families))
+        assert not ({item.fingerprint for item in workloads} & training.training_fingerprints)
 
-    def test_evaluation_never_learns(self) -> None:
+    def test_evaluation_is_greedy_and_does_not_mutate_the_q_table(self) -> None:
         config = _small_config()
         training = train(config)
+        before_q = training.agent.q_table.copy()
+        before_visits = training.agent.visit_counts.copy()
         result = evaluate(config, training)
         assert not result.decisions["learned"].any()
+        assert not result.decisions["explored"].any()
         assert (result.decisions["epsilon"] == 0.0).all()
+        assert (result.decisions["action"] == result.decisions["greedy_action"]).all()
+        assert (before_q == training.agent.q_table).all()
+        assert (before_visits == training.agent.visit_counts).all()
 
-    def test_decision_actions_are_the_greedy_actions(self) -> None:
+    def test_selector_metrics_equal_the_chosen_baseline_on_each_input(self) -> None:
         config = _small_config()
-        training = train(config)
-        result = evaluate(config, training)
-        for row in result.decisions.itertuples():
-            assert row.action == training.agent.greedy_action(row.state_index)
-
-    def test_adaptive_rows_equal_the_chosen_baseline(self) -> None:
-        config = _small_config()
-        training = train(config)
-        result = evaluate(config, training)
+        result = evaluate(config, train(config))
         baselines = result.metrics[result.metrics["regime"] == BASELINE_REGIME]
-        adaptive_decisions = result.decisions[result.decisions["regime"] == ADAPTIVE_REGIME]
-        assert not adaptive_decisions.empty
-        for decision in adaptive_decisions.itertuples():
-            chosen = ACTION_NAMES[decision.action]
-            baseline_row = baselines[
+        for decision in result.decisions.itertuples():
+            baseline = baselines[
                 (baselines["family"] == decision.family)
                 & (baselines["repetition"] == decision.repetition)
-                & (baselines["policy"] == chosen)
+                & (baselines["policy"] == decision.policy_name)
             ].iloc[0]
-            assert decision.adaptive_avg_waiting_time == pytest.approx(baseline_row["avg_waiting_time"])
+            for metric in ALL_METRICS:
+                assert getattr(decision, f"selector_{metric}") == pytest.approx(baseline[metric])
+            assert decision.selector_context_switches_per_process == pytest.approx(
+                baseline["context_switches_per_process"]
+            )
 
-    def test_decisions_carry_the_reward_argmax_comparison(self) -> None:
-        config = _small_config()
-        result = evaluate(config, train(config))
-        for column in ("oracle_action", "oracle_policy_name", "oracle_reward",
-                       "chosen_minus_oracle_reward", "matches_oracle"):
-            assert column in result.decisions.columns
-        assert set(result.decisions["oracle_policy_name"]).issubset(set(ACTION_NAMES))
-        # The oracle action is the reward-argmax over the four baselines measured on the
-        # same workload, so the chosen action's reward can never exceed the oracle's by
-        # more than numerical noise.
-        gaps = result.decisions["chosen_minus_oracle_reward"]
-        assert (gaps <= 1e-9).all()
-
-    def test_state_coverage_is_reported(self) -> None:
-        config = _small_config()
-        result = evaluate(config, train(config))
-        summary = result.summary()
-        assert summary["distinct_states_evaluated"] >= 1
-        assert summary["evaluated_states_visited_during_training"] <= (
-            summary["distinct_states_evaluated"]
-        )
-        assert "state_visit_count" in result.decisions.columns
-
-    def test_zero_repetitions_is_rejected_by_configuration(self) -> None:
-        with pytest.raises(ConfigurationError):
-            EvaluationConfig(repetitions=0)
-
-    def test_equal_seeds_are_rejected_by_the_configuration(self) -> None:
-        config = _small_config()
-        broken = replace(config, evaluation=replace(config.evaluation, seed=config.training.seed))
-        with pytest.raises(ConfigurationError, match="seeds must all differ"):
-            broken.validate()
-
-    def test_leaked_training_workloads_are_detected(self) -> None:
+    def test_leakage_is_detected(self) -> None:
         config = _small_config()
         training = train(config)
-        generator = WorkloadGenerator(config.families)
-        leaked = build_evaluation_workloads(config, generator)[0].fingerprint
+        leaked = build_evaluation_workloads(config, WorkloadGenerator(config.families))[0].fingerprint
         poisoned_history = replace(
             training.history,
             workload_fingerprints=training.history.workload_fingerprints + (leaked,),
         )
-        poisoned = replace(training, history=poisoned_history)
         with pytest.raises(ValidationError, match="already used during training"):
-            evaluate(config, poisoned)
+            evaluate(config, replace(training, history=poisoned_history))
+
+    def test_all_independent_training_seeds_are_evaluated_on_same_unique_inputs(self, tmp_path) -> None:
+        config = _small_config()
+        artifacts = run_experiment(config, tmp_path / "r", tmp_path / "f", make_figures=False)
+        assert tuple(run.history.seed for run in artifacts.training_runs) == config.training.seeds
+        assert artifacts.evaluation.training_seeds == config.training.seeds
+        assert artifacts.evaluation.metrics["workload_fingerprint"].nunique() == (
+            len(config.families) * config.evaluation.repetitions
+        )
+        assert len(artifacts.evaluation.decisions) == (
+            len(config.families) * config.evaluation.repetitions * config.training.replicates
+        )
+
+    def test_default_experiment_learns_distinct_policies_across_conditions(self, tmp_path) -> None:
+        # Independent verification: every seed should choose SJF on the long CPU-bursty
+        # condition and Round Robin on the disjoint staggered-interactive condition.
+        config = build_default_config()
+        artifacts = run_experiment(config, tmp_path / "results", tmp_path / "figures", make_figures=False)
+        assert len(artifacts.training_runs) == config.training.replicates >= 2
+        decisions = artifacts.evaluation.decisions
+        for seed in config.training.seeds:
+            cpu = decisions[
+                (decisions["training_seed"] == seed)
+                & (decisions["family"] == "cpu_bursty")
+            ]
+            interactive = decisions[
+                (decisions["training_seed"] == seed)
+                & (decisions["family"] == "staggered_interactive")
+            ]
+            assert set(cpu["policy_name"]) == {"SJF"}
+            assert set(interactive["policy_name"]) == {"Round Robin"}
+            assert cpu["state_seen_in_training"].all()
+            assert interactive["state_seen_in_training"].all()
+        assert set(decisions[decisions["family"] == "poisson_arrivals"]["policy_name"]).issubset(
+            set(ACTION_NAMES)
+        )
 
 
 class TestComparisonTables:
-    def test_tables_have_the_expected_shape(self) -> None:
+    def test_tables_report_means_variability_and_unambiguous_counts(self, tmp_path: Path) -> None:
         config = _small_config()
-        result = evaluate(config, train(config))
-        baselines = policy_summary(result.metrics, BASELINE_REGIME)
-        assert set(baselines.index) == set(ACTION_NAMES)
-        assert set(baselines.columns) == set(ALL_METRICS)
+        artifacts = run_experiment(
+            config, tmp_path / "results", tmp_path / "figures", make_figures=False
+        )
+        metrics = artifacts.evaluation.metrics
+        summary = policy_summary(metrics, BASELINE_REGIME)
+        assert set(summary.index) == set(ACTION_NAMES)
+        assert {f"{metric}_mean" for metric in ALL_METRICS}.issubset(summary.columns)
+        assert {f"{metric}_sd" for metric in ALL_METRICS}.issubset(summary.columns)
 
-        adaptive = policy_summary(result.metrics, ADAPTIVE_REGIME)
-        assert list(adaptive.index) == [ADAPTIVE_LABEL]
-
-        ratios = adaptive_ratio_table(result.metrics)
+        ratios = selector_ratio_table(metrics)
         assert len(ratios) == len(ACTION_NAMES) * len(ALL_METRICS)
-        assert ratios["workloads"].eq(len(config.families) * config.evaluation.repetitions).all()
-        assert (ratios["ratio_workloads"] <= ratios["workloads"]).all()
+        expected_unique = len(config.families) * config.evaluation.repetitions
+        assert ratios["unique_workloads"].eq(expected_unique).all()
+        assert ratios["model_workload_pairs"].eq(expected_unique * config.training.replicates).all()
+        assert (ratios["ratio_pairs"] <= ratios["model_workload_pairs"]).all()
 
-        families = family_summary(result.metrics)
+        families = family_summary(metrics, BASELINE_REGIME)
         assert isinstance(families, pd.DataFrame)
-
-        selection = policy_selection_table(result.decisions)
-        assert "workloads" in selection.columns
+        selection = policy_selection_table(artifacts.evaluation.decisions)
+        assert (selection["unique_workloads"] == config.evaluation.repetitions).all()
+        assert (selection["model_decisions"] == config.evaluation.repetitions * config.training.replicates).all()
         assert selection[[f"count_{name}" for name in ACTION_NAMES]].sum(axis=1).eq(
-            selection["workloads"]
+            selection["model_decisions"]
         ).all()
-
-        occupancy = state_occupancy_table(result.decisions)
+        occupancy = state_occupancy_table(artifacts.evaluation.decisions)
         assert (occupancy["distinct_states"] >= 1).all()
-        assert (occupancy["states_visited_in_training"] <= occupancy["distinct_states"]).all()
-
-        oracle = oracle_agreement_table(result.decisions)
-        assert (oracle["workloads"] == config.evaluation.repetitions).all()
-        assert len(oracle) == len(config.families)
-        assert ((oracle["matches"] >= 0) & (oracle["matches"] <= oracle["workloads"])).all()
-        assert ((oracle["agreement_rate"] >= 0.0) & (oracle["agreement_rate"] <= 1.0)).all()
-
-        best = best_policy_per_family(result.metrics)
+        best = best_policy_per_family(metrics)
         assert set(best["best_policy"]).issubset(set(ACTION_NAMES))
 
-    def test_ratio_table_matches_an_independent_pairwise_computation(self) -> None:
+    def test_paired_ratio_matches_independent_calculation(self, tmp_path: Path) -> None:
         config = _small_config()
-        result = evaluate(config, train(config))
-        ratios = adaptive_ratio_table(result.metrics)
-        metric = "avg_waiting_time"
-        row = ratios.loc[("SJF", metric)]
-
-        baseline = result.metrics[
-            (result.metrics["regime"] == BASELINE_REGIME) & (result.metrics["policy"] == "SJF")
-        ].set_index(["family", "repetition"])[metric]
-        adaptive = result.metrics[
-            result.metrics["regime"] == ADAPTIVE_REGIME
-        ].set_index(["family", "repetition"])[metric]
-        paired = baseline.to_frame("baseline").join(adaptive.to_frame("adaptive"))
-        usable = paired[paired["adaptive"] != 0.0]
-        expected_ratio = float((usable["baseline"] / usable["adaptive"]).mean())
-
-        assert row["workloads"] == len(paired)
-        assert row["ratio_workloads"] == len(usable)
-        assert row["mean_ratio"] == pytest.approx(expected_ratio, rel=1e-9)
+        artifacts = run_experiment(
+            config, tmp_path / "results", tmp_path / "figures", make_figures=False
+        )
+        metrics = artifacts.evaluation.metrics
+        ratios = selector_ratio_table(metrics)
+        row = ratios.loc[("SJF", "avg_waiting_time")]
+        baseline = metrics[
+            (metrics["regime"] == BASELINE_REGIME) & (metrics["policy"] == "SJF")
+        ].set_index(["training_seed", "family", "repetition"])["avg_waiting_time"]
+        selector = metrics[metrics["regime"] == SELECTOR_REGIME].set_index(
+            ["training_seed", "family", "repetition"]
+        )["avg_waiting_time"]
+        paired = baseline.to_frame("baseline").join(selector.to_frame("selector"))
+        usable = paired[paired["selector"] != 0.0]
+        assert row["model_workload_pairs"] == len(paired)
+        assert row["unique_workloads"] == len(config.families) * config.evaluation.repetitions
+        assert row["ratio_pairs"] == len(usable)
+        assert row["mean_ratio"] == pytest.approx(
+            float((usable["baseline"] / usable["selector"]).mean()), rel=1e-9
+        )
         assert row["mean_difference"] == pytest.approx(
-            float((paired["baseline"] - paired["adaptive"]).mean()), rel=1e-9
+            float((paired["baseline"] - paired["selector"]).mean()), rel=1e-9
         )
 
-    def test_empty_frames_are_rejected(self) -> None:
+    def test_unknown_or_empty_frames_are_rejected(self) -> None:
         with pytest.raises(ValidationError):
             policy_selection_table(pd.DataFrame())
         with pytest.raises(ValidationError):
@@ -403,7 +386,7 @@ class TestComparisonTables:
 
 
 class TestEndToEnd:
-    def test_run_experiment_writes_every_artefact(self, tmp_path: Path) -> None:
+    def test_writes_generated_artifacts_and_six_core_figures(self, tmp_path: Path) -> None:
         config = _small_config()
         artifacts = run_experiment(
             config,
@@ -411,103 +394,91 @@ class TestEndToEnd:
             figures_dir=tmp_path / "figures",
             make_figures=True,
         )
-        for name in ("config", "class_verification", "training_history", "q_table", "workloads",
-                     "metrics", "decisions", "summary"):
-            assert artifacts.paths[name].exists(), name
-        assert len(artifacts.paths["figures"]) == 6
-        assert all(path.exists() for path in artifacts.paths["figures"])
+        for name in (
+            "config",
+            "training_history",
+            "q_table",
+            "workloads",
+            "metrics",
+            "decisions",
+            "summary",
+            "report",
+            "figures",
+        ):
+            if name == "figures":
+                assert len(artifacts.paths[name]) == 6
+                assert all(path.exists() for path in artifacts.paths[name])
+            else:
+                assert artifacts.paths[name].exists(), name
+        assert not (tmp_path / "figures" / "round_robin_quantum.png").exists()
 
-        payload = json.loads((tmp_path / "results" / "summary.json").read_text())
-        assert payload["configuration"]["training"]["episodes"] == config.training.episodes
-        assert payload["evaluation"]["distinct_workloads"] == (
-            len(config.families) * config.evaluation.repetitions
-        )
-        # The verification section is part of the summary and precedes training.
-        assert payload["verification"]["repetitions_per_family"] == 3
-        assert payload["verification"]["workloads_total"] == len(config.families) * 3
+        summary = json.loads((tmp_path / "results" / "summary.json").read_text())
+        workloads = pd.read_csv(tmp_path / "results" / "workloads.csv")
+        metrics = pd.read_csv(tmp_path / "results" / "metrics.csv")
+        decisions = pd.read_csv(tmp_path / "results" / "decisions.csv")
+        report = (tmp_path / "results" / "report.md").read_text()
+        assert summary["evaluation"]["observed_unique_workloads"] == len(workloads)
+        assert summary["evaluation"]["selector_decision_rows"] == len(decisions)
+        assert len(metrics) == summary["evaluation"]["metric_rows"]
+        assert "Unique workloads" in report
+        assert str(len(workloads)) in report
+        assert summary["software"]["requirements_lock_sha256"]
+        assert config_snapshot(config)["state"]["q_table_shape"] == [81, 4]
 
-        verification_payload = json.loads(
-            (tmp_path / "results" / "class_verification.json").read_text()
-        )
-        assert len(verification_payload["classes"]) == len(config.families)
-
-    def test_config_snapshot_has_no_quantum_controller(self, tmp_path: Path) -> None:
+    def test_repeated_runs_are_byte_deterministic_for_data_artifacts(self, tmp_path: Path) -> None:
         config = _small_config()
-        run_experiment(
-            config, results_dir=tmp_path / "results", figures_dir=tmp_path / "figures",
-            make_figures=False,
-        )
-        payload = json.loads((tmp_path / "results" / "config.json").read_text())
-        assert "quantum_controller" not in payload
-        assert "quantum_controller" not in payload["q_learning"]
-        assert payload["scheduler"]["round_robin_quantum"] == 4
-        assert payload["state"]["long_burst_threshold"] == 16
-        assert payload["evaluation"]["verification_seed"] == 123
+        for letter in ("a", "b"):
+            run_experiment(
+                config,
+                results_dir=tmp_path / letter,
+                figures_dir=tmp_path / f"f{letter}",
+                make_figures=False,
+            )
+        for filename in (
+            "config.json",
+            "training_history.json",
+            "q_table.json",
+            "workloads.csv",
+            "metrics.csv",
+            "decisions.csv",
+            "summary.json",
+            "report.md",
+        ):
+            assert (tmp_path / "a" / filename).read_bytes() == (tmp_path / "b" / filename).read_bytes()
 
-    def test_rerun_reproduces_identical_results(self, tmp_path: Path) -> None:
-        config = _small_config()
-        first = run_experiment(
-            config,
-            results_dir=tmp_path / "a",
-            figures_dir=tmp_path / "fa",
-            make_figures=False,
-        )
-        second = run_experiment(
-            config,
-            results_dir=tmp_path / "b",
-            figures_dir=tmp_path / "fb",
-            make_figures=False,
-        )
-        assert (tmp_path / "a" / "metrics.csv").read_text() == (
-            tmp_path / "b" / "metrics.csv"
-        ).read_text()
-        assert (tmp_path / "a" / "decisions.csv").read_text() == (
-            tmp_path / "b" / "decisions.csv"
-        ).read_text()
-        assert (tmp_path / "a" / "q_table.json").read_text() == (
-            tmp_path / "b" / "q_table.json"
-        ).read_text()
-        assert (tmp_path / "a" / "class_verification.json").read_text() == (
-            tmp_path / "b" / "class_verification.json"
-        ).read_text()
-        assert first.summary["training"] == second.summary["training"]
-        assert first.summary["verification"] == second.summary["verification"]
+    def test_no_figures_path_does_not_import_plotting_or_matplotlib(self, tmp_path: Path, monkeypatch) -> None:
+        original_import = builtins.__import__
 
-    def test_every_policy_ran_on_every_evaluated_workload(self, tmp_path: Path) -> None:
-        config = _small_config()
+        def guarded_import(name, *args, **kwargs):
+            if name == "visualization.plots" or name.startswith("matplotlib"):
+                raise AssertionError(f"plotting import occurred on --no-figures path: {name}")
+            return original_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", guarded_import)
         artifacts = run_experiment(
-            config,
-            results_dir=tmp_path / "r",
-            figures_dir=tmp_path / "f",
-            make_figures=False,
+            _small_config(), tmp_path / "results", tmp_path / "figures", make_figures=False
         )
-        metrics = artifacts.evaluation.metrics
-        counts = metrics[metrics["regime"] == BASELINE_REGIME].groupby("policy").size()
-        assert counts.nunique() == 1
-        assert set(counts.index) == set(ACTION_NAMES)
+        assert "figures" not in artifacts.paths
 
-    def test_cli_train_command(self, capsys: pytest.CaptureFixture) -> None:
-        assert cli_main(["train"]) == 0
-        captured = capsys.readouterr().out
-        assert "Training" in captured
-        assert "episodes" in captured
-        assert "SJF" in captured  # the default run selects SJF at least once
+    def test_cli_no_figures_and_training_use_offline_language(self, tmp_path, monkeypatch, capsys) -> None:
+        import main as main_module
 
-    def test_cli_experiment_command_writes_figures(self, tmp_path: Path, capsys) -> None:
-        exit_code = cli_main(
-            [
-                "experiment",
-                "--results-dir",
-                str(tmp_path / "results"),
-                "--figures-dir",
-                str(tmp_path / "figures"),
-            ]
-        )
-        assert exit_code == 0
+        monkeypatch.setattr(main_module, "build_default_config", _small_config)
+        assert cli_main(
+            ["experiment", "--no-figures", "--results-dir", str(tmp_path / "r")]
+        ) == 0
         output = capsys.readouterr().out
-        assert "Pre-training class verification" in output
-        assert "Evaluation" in output
-        assert "Policy selected by the agent" in output
-        assert (tmp_path / "results" / "metrics.csv").exists()
-        assert (tmp_path / "results" / "class_verification.json").exists()
-        assert (tmp_path / "figures" / "metric_comparison.png").exists()
+        assert "unique workloads" in output
+        assert (tmp_path / "r" / "report.md").exists()
+        assert cli_main(["train"]) == 0
+        assert "random-action branch rate" in capsys.readouterr().out
+
+    def test_report_uses_generated_summary_values_not_manual_transcription(self, tmp_path) -> None:
+        artifacts = run_experiment(
+            _small_config(), tmp_path / "results", tmp_path / "figures", make_figures=False
+        )
+        report = Path(artifacts.paths["report"]).read_text()
+        summary = artifacts.summary
+        assert str(summary["evaluation"]["observed_unique_workloads"]) in report
+        for row in summary["tables"]["policy_selection"]:
+            assert str(row["model_decisions"]) in report

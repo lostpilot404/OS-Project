@@ -7,24 +7,6 @@ by :meth:`WorkloadGenerator.generate`.
 All randomness flows through a ``numpy.random.Generator`` seeded with
 :func:`config.derive_seed`, so a workload is reproducible from its family name and seed
 alone and nothing about the process ordering depends on the platform.
-
-Generation rules (all declared in the family configuration, never hard-coded here):
-
-* bursts -- ``uniform`` draws from ``[burst_time_min, burst_time_max]``; ``bimodal``
-  draws from the short mode ``[burst_time_min, short_burst_max]`` with probability
-  ``short_burst_fraction`` and from the long mode
-  ``[long_burst_min (or short_burst_max + 1), burst_time_max]`` otherwise;
-* arrivals -- ``uniform`` draws independent arrival times from ``[0, arrival_window]``
-  (a window of 0 releases the whole workload at time 0, i.e. a batch);
-  ``poisson`` builds a Poisson process with mean rate ``arrival_rate``; ``batch_head``
-  releases the long-mode jobs within ``[0, head_window]`` and streams the short-mode
-  jobs over ``[0, arrival_window]`` (an interactive workload: a batch of background
-  jobs plus a stream of short jobs);
-* priorities -- ``uniform`` draws from ``[priority_min, priority_max]``;
-  ``high_priority_skewed`` draws from ``[priority_min, high_priority_cutoff]`` with
-  probability ``high_priority_fraction`` and from the full range otherwise;
-  ``burst_aligned`` assigns priorities by burst rank, so the shortest jobs carry the
-  highest priority (a priority-sensitive workload in which importance tracks size).
 """
 
 from __future__ import annotations
@@ -95,8 +77,8 @@ class WorkloadGenerator:
         rng = np.random.default_rng(seed)
         count = family.num_processes
         bursts = self._draw_burst_times(family, rng)
-        arrivals = self._draw_arrival_times(family, rng, bursts)
-        priorities = self._draw_priorities(family, rng, bursts)
+        arrivals = self._draw_arrival_times(family, rng)
+        priorities = self._draw_priorities(family, rng)
         processes = [
             Process(
                 pid=index + 1,
@@ -117,84 +99,72 @@ class WorkloadGenerator:
     def _draw_burst_times(family: WorkloadFamilyConfig, rng: np.random.Generator) -> np.ndarray:
         """Draw one burst time per process.
 
-        ``uniform`` draws from ``[burst_time_min, burst_time_max]``.  ``bimodal`` draws
-        from the short mode ``[burst_time_min, short_burst_max]`` with probability
-        ``short_burst_fraction`` and from the long mode
-        ``[long_burst_min, burst_time_max]`` otherwise (``long_burst_min`` defaults to
-        ``short_burst_max + 1``, so the two modes are disjoint).
+        ``uniform`` draws from ``[burst_time_min, burst_time_max]``. ``bimodal`` draws
+        independently from the configured short and long modes. ``staggered_interactive``
+        draws one long burst first and short bursts for the remaining processes.
         """
         count = family.num_processes
         if family.burst_distribution == "uniform":
             return rng.integers(family.burst_time_min, family.burst_time_max + 1, size=count)
+        if family.burst_distribution == "staggered_interactive":
+            bursts = np.empty(count, dtype=np.int64)
+            bursts[0] = rng.integers(family.burst_time_min, family.burst_time_max + 1)
+            if count > 1:
+                bursts[1:] = rng.integers(1, family.short_burst_max + 1, size=count - 1)
+            return bursts
         short = rng.random(count) < family.short_burst_fraction
-        bursts = rng.integers(family.long_mode_min(), family.burst_time_max + 1, size=count)
+        bursts = rng.integers(
+            family.short_burst_max + 1, family.burst_time_max + 1, size=count
+        )
         bursts[short] = rng.integers(
             family.burst_time_min, family.short_burst_max + 1, size=int(short.sum())
         )
         return bursts
 
     @staticmethod
-    def _draw_arrival_times(
-        family: WorkloadFamilyConfig, rng: np.random.Generator, bursts: np.ndarray
-    ) -> np.ndarray:
+    def _draw_arrival_times(family: WorkloadFamilyConfig, rng: np.random.Generator) -> np.ndarray:
         """Draw one arrival time per process.
 
-        ``uniform`` draws independent arrival times from ``[0, arrival_window]``, so
-        simultaneous arrivals occur naturally (and a window of 0 releases the whole
-        workload at time 0 -- a batch).  ``poisson`` builds a Poisson process with mean
-        rate ``arrival_rate``: the first arrival is at time 0 and each following
-        inter-arrival time is exponential; the (real-valued) arrival times are floored
-        to whole time units.  ``batch_head`` releases the long-mode jobs (burst at
-        least ``long_mode_min()``) within ``[0, head_window]`` and streams the
-        short-mode jobs over ``[0, arrival_window]``.
+        ``uniform`` draws independent arrival times from ``[0, arrival_window]``;
+        simultaneous arrivals can occur. ``poisson`` builds a Poisson process with mean
+        rate ``arrival_rate``: the first arrival is at time 0 and following exponential
+        inter-arrival times are floored to whole units. ``staggered`` starts at time 0 and
+        draws each subsequent integer gap uniformly from the inclusive configured range.
         """
         count = family.num_processes
         if family.arrival_pattern == "uniform":
             return rng.integers(0, family.arrival_window + 1, size=count)
-        if family.arrival_pattern == "poisson":
-            inter_arrivals = rng.exponential(1.0 / family.arrival_rate, size=count)
-            cumulative = np.concatenate(([0.0], np.cumsum(inter_arrivals)[:-1]))
-            return np.floor(cumulative).astype(np.int64)
-        # batch_head: long-mode jobs at the head of the window, short-mode jobs spread.
-        long_mask = bursts >= family.long_mode_min()
-        arrivals = rng.integers(0, family.arrival_window + 1, size=count)
-        arrivals[long_mask] = rng.integers(
-            0, family.head_window + 1, size=int(long_mask.sum())
-        )
-        return arrivals
+        if family.arrival_pattern == "staggered":
+            if count == 1:
+                return np.array([0], dtype=np.int64)
+            gaps = rng.integers(
+                family.staggered_gap_min,
+                family.staggered_gap_max + 1,
+                size=count - 1,
+            )
+            return np.concatenate((np.array([0], dtype=np.int64), np.cumsum(gaps)))
+        inter_arrivals = rng.exponential(1.0 / family.arrival_rate, size=count)
+        cumulative = np.concatenate(([0.0], np.cumsum(inter_arrivals)[:-1]))
+        return np.floor(cumulative).astype(np.int64)
 
     @staticmethod
-    def _draw_priorities(
-        family: WorkloadFamilyConfig, rng: np.random.Generator, bursts: np.ndarray
-    ) -> np.ndarray:
+    def _draw_priorities(family: WorkloadFamilyConfig, rng: np.random.Generator) -> np.ndarray:
         """Draw one priority per process.
 
         ``uniform`` draws from ``[priority_min, priority_max]``.  ``high_priority_skewed``
         draws from ``[priority_min, high_priority_cutoff]`` with probability
-        ``high_priority_fraction`` and from the full range otherwise.  ``burst_aligned``
-        does not draw at all: it assigns priorities by burst rank (ties broken by
-        process order), so the shortest jobs receive ``priority_min`` (the highest
-        priority) and the longest jobs receive the largest priority number.
+        ``high_priority_fraction`` and from the full range otherwise.
         """
         count = family.num_processes
         if family.priority_pattern == "uniform":
             return rng.integers(family.priority_min, family.priority_max + 1, size=count)
-        if family.priority_pattern == "high_priority_skewed":
-            high = rng.random(count) < family.high_priority_fraction
-            priorities = rng.integers(
-                family.priority_min, family.priority_max + 1, size=count
-            )
-            priorities[high] = rng.integers(
-                family.priority_min, family.high_priority_cutoff + 1, size=int(high.sum())
-            )
-            return priorities
-        # burst_aligned: priority by burst rank, shortest job first.
-        levels = family.priority_max - family.priority_min + 1
-        order = np.argsort(bursts, kind="stable")
-        priorities = np.empty(count, dtype=np.int64)
-        for rank, index in enumerate(order):
-            level = min(levels - 1, rank * levels // count)
-            priorities[index] = family.priority_min + level
+        high = rng.random(count) < family.high_priority_fraction
+        priorities = rng.integers(
+            family.priority_min, family.priority_max + 1, size=count
+        )
+        priorities[high] = rng.integers(
+            family.priority_min, family.high_priority_cutoff + 1, size=int(high.sum())
+        )
         return priorities
 
     def __repr__(self) -> str:
