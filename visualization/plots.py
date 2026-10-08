@@ -15,9 +15,7 @@ The figures are:
   where the learned policy is above or below the four-policy average;
 * ``training_curve.png`` -- per-episode reward and exploration rate during training;
 * ``state_space.png`` -- which discretised states occurred and which action is greedy
-  there;
-* ``round_robin_quantum.png`` -- classic Round Robin against Round Robin with the learned
-  quantum multiplier (the direct measurement of the quantum controller).
+  there.
 """
 
 from __future__ import annotations
@@ -36,16 +34,10 @@ import pandas as pd  # noqa: E402
 from config import ACTION_NAMES, ADAPTIVE_LABEL  # noqa: E402
 from errors import ValidationError  # noqa: E402
 from evaluation.comparison import METRIC_LABELS, policy_selection_table  # noqa: E402
-from experiments.evaluate import (  # noqa: E402
-    ADAPTIVE_CLASSIC_REGIME,
-    BASELINE_REGIME,
-    ROUND_ROBIN_LEARNED_QUANTUM_LABEL,
-    ROUND_ROBIN_LEARNED_QUANTUM_REGIME,
-)
+from experiments.evaluate import ADAPTIVE_REGIME, BASELINE_REGIME  # noqa: E402
 
 __all__ = [
     "create_all_figures",
-    "plot_round_robin_quantum",
     "plot_metric_comparison",
     "plot_metric_by_family",
     "plot_policy_selection",
@@ -308,53 +300,6 @@ def plot_state_space(q_table_rows: Sequence[Dict[str, object]], path: Path) -> P
     return _finish(fig, path)
 
 
-def plot_round_robin_quantum(metrics: pd.DataFrame, path: Path) -> Path:
-    """Plot classic Round Robin against Round Robin with the learned quantum.
-
-    This is the direct measurement of the quantum controller: both variants schedule the
-    same workloads, and only the quantum differs.
-
-    Args:
-        metrics: Metric rows covering the baseline regime and the learned-quantum regime.
-        path: Output file path.
-
-    Returns:
-        The written path.
-    """
-    panels = (
-        ("avg_waiting_time", "Mean waiting time"),
-        ("avg_turnaround_time", "Mean turnaround time"),
-        ("avg_response_time", "Mean response time"),
-        ("context_switches", "Context switches per workload"),
-    )
-    _require_columns(metrics, ["policy", *[metric for metric, _ in panels]], "metrics frame")
-    variants = ["Round Robin", ROUND_ROBIN_LEARNED_QUANTUM_LABEL]
-    available = [name for name in variants if name in set(metrics["policy"])]
-    if len(available) < 2:
-        raise ValidationError(
-            "the learned-quantum comparison needs both Round Robin variants; found "
-            f"{available}"
-        )
-    means = metrics[metrics["policy"].isin(available)].groupby("policy")[
-        [metric for metric, _ in panels]
-    ].mean().reindex(available)
-
-    fig, axes = plt.subplots(1, len(panels), figsize=(3.4 * len(panels), 3.8))
-    for axis, (metric, title) in zip(np.atleast_1d(axes), panels):
-        values = means[metric]
-        axis.bar(
-            range(len(values)),
-            values.to_numpy(),
-            color=["#2c3e50", "#16a085"],
-        )
-        axis.set_xticks(range(len(values)))
-        axis.set_xticklabels(["classic", "learned"], fontsize=9)
-        axis.set_title(f"{title}\n(mean over all workloads)", fontsize=10)
-        axis.grid(axis="y", alpha=0.3)
-    fig.suptitle("Round Robin: classic quantum vs learned quantum multiplier", fontsize=12)
-    return _finish(fig, path)
-
-
 def create_all_figures(
     metrics: pd.DataFrame,
     decisions: pd.DataFrame,
@@ -364,9 +309,8 @@ def create_all_figures(
 ) -> List[Path]:
     """Create every figure of the study.
 
-    The main comparison figures use the baseline regime and the adaptive regime that
-    keeps classic Round Robin; the quantum controller has its own figure so that the
-    extension never mixes into the headline comparison.
+    Every figure is built from the two regimes of the evaluation: the four conventional
+    baselines and the adaptive scheduler.
 
     Args:
         metrics: The tidy metric frame of the evaluation run.
@@ -379,9 +323,7 @@ def create_all_figures(
         The list of written paths, in creation order.
     """
     figures_dir = Path(figures_dir)
-    headline = metrics[
-        metrics["regime"].isin([BASELINE_REGIME, ADAPTIVE_CLASSIC_REGIME])
-    ]
+    headline = metrics[metrics["regime"].isin([BASELINE_REGIME, ADAPTIVE_REGIME])]
     written = [
         plot_metric_comparison(headline, figures_dir / "metric_comparison.png"),
         plot_metric_by_family(headline, figures_dir / "metric_by_family.png"),
@@ -390,12 +332,4 @@ def create_all_figures(
         plot_training_curve(history, figures_dir / "training_curve.png"),
         plot_state_space(q_table_rows, figures_dir / "state_space.png"),
     ]
-    if ROUND_ROBIN_LEARNED_QUANTUM_REGIME in set(metrics["regime"]):
-        quantum_rows = metrics[
-            metrics["regime"].isin([BASELINE_REGIME, ROUND_ROBIN_LEARNED_QUANTUM_REGIME])
-            & metrics["policy"].isin(["Round Robin", ROUND_ROBIN_LEARNED_QUANTUM_LABEL])
-        ]
-        written.append(
-            plot_round_robin_quantum(quantum_rows, figures_dir / "round_robin_quantum.png")
-        )
     return written

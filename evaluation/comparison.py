@@ -22,7 +22,7 @@ import pandas as pd
 
 from config import ACTION_NAMES
 from errors import ValidationError
-from experiments.evaluate import ADAPTIVE_CLASSIC_REGIME, BASELINE_REGIME
+from experiments.evaluate import ADAPTIVE_REGIME, BASELINE_REGIME
 
 __all__ = [
     "COST_METRICS",
@@ -34,6 +34,7 @@ __all__ = [
     "adaptive_ratio_table",
     "policy_selection_table",
     "state_occupancy_table",
+    "oracle_agreement_table",
 ]
 
 #: Metrics where lower is better.
@@ -120,7 +121,7 @@ def family_summary(
 
 def adaptive_ratio_table(
     metrics: pd.DataFrame,
-    adaptive_regime: str = ADAPTIVE_CLASSIC_REGIME,
+    adaptive_regime: str = ADAPTIVE_REGIME,
     baselines: Iterable[str] = tuple(ACTION_NAMES),
     metrics_to_show: Sequence[str] = ALL_METRICS,
 ) -> pd.DataFrame:
@@ -183,6 +184,39 @@ def adaptive_ratio_table(
     return pd.DataFrame(rows).set_index(["policy", "metric"])
 
 
+def oracle_agreement_table(decisions: pd.DataFrame) -> pd.DataFrame:
+    """Return how often the agent's choice matched the reward-argmax, per condition.
+
+    The "oracle" is the reward-argmax over the four conventional policies measured on
+    the very same workload: the best any single-decision policy could have achieved
+    under the declared reward.  Agreement with it is the sharpest available measure of
+    how well the learned Q-table reproduces the workload-conditional optimum.
+
+    Args:
+        decisions: The decision rows of an evaluation run.
+
+    Returns:
+        A frame indexed by ``family`` with ``workloads``, ``matches``, ``agreement_rate``
+        and the mean reward gap between the chosen and the oracle policy.
+    """
+    if not isinstance(decisions, pd.DataFrame) or decisions.empty:
+        raise ValidationError("decisions frame is empty")
+    for column in ("matches_oracle", "chosen_minus_oracle_reward", "policy_name",
+                   "oracle_policy_name"):
+        if column not in decisions.columns:
+            raise ValidationError(f"decisions frame is missing the column {column!r}")
+    grouped = decisions.groupby("family")
+    table = pd.DataFrame(
+        {
+            "workloads": grouped.size(),
+            "matches": grouped["matches_oracle"].sum(),
+            "agreement_rate": grouped["matches_oracle"].mean(),
+            "mean_reward_gap_to_oracle": grouped["chosen_minus_oracle_reward"].mean(),
+        }
+    )
+    return table
+
+
 def policy_selection_table(decisions: pd.DataFrame) -> pd.DataFrame:
     """Summarise which policy the agent selected, per workload condition.
 
@@ -224,20 +258,32 @@ def state_occupancy_table(decisions: pd.DataFrame) -> pd.DataFrame:
         decisions: The decision rows of an evaluation result.
 
     Returns:
-        A frame indexed by ``family`` with ``workloads``, ``distinct_states`` and the mean
-        observed state values.
+        A frame indexed by ``family`` with ``workloads``, ``distinct_states``, how many of
+        those states the agent had visited during training (state coverage), the mean
+        observed state values and the mean reward.
     """
     if not isinstance(decisions, pd.DataFrame) or decisions.empty:
         raise ValidationError("decisions frame is empty")
+    for column in ("state_index", "state_visit_count", "reward"):
+        if column not in decisions.columns:
+            raise ValidationError(f"decisions frame is missing the column {column!r}")
     grouped = decisions.groupby("family")
+    visited = decisions.assign(_visited=decisions["state_visit_count"] > 0).groupby("family")
     table = pd.DataFrame(
         {
             "workloads": grouped.size(),
             "distinct_states": grouped["state_index"].nunique(),
+            "states_visited_in_training": visited["state_index"].nunique(),
+            "workloads_in_unvisited_states": grouped["state_visit_count"].apply(
+                lambda counts: int((counts == 0).sum())
+            ),
             "mean_burst_profile": grouped["state_burst_profile"].mean(),
             "mean_burst_dispersion": grouped["state_burst_dispersion"].mean(),
+            "mean_long_job_share": grouped["state_long_job_share"].mean(),
+            "mean_arrival_concentration": grouped["state_arrival_concentration"].mean(),
             "mean_offered_load": grouped["state_offered_load"].mean(),
             "mean_priority_spread": grouped["state_priority_spread"].mean(),
+            "mean_priority_burst_alignment": grouped["state_priority_burst_alignment"].mean(),
             "mean_reward": grouped["reward"].mean(),
         }
     )

@@ -1,11 +1,11 @@
-"""The full experiment: train, evaluate, tabulate, plot and save.
+"""The full experiment: verify the classes, train, evaluate, tabulate, plot and save.
 
 This module is the single entry point used by ``main.py experiment``.  It performs the
-complete study in a fixed order and writes every artefact (configuration, training
-history, Q-table, per-workload results, summary tables and figures) to disk, so that a
-result can always be traced back to the run that produced it:
+complete study in a fixed order and writes every artefact to disk, so that a result can
+always be traced back to the run that produced it:
 
 ``results/config.json``              the exact configuration of the run
+``results/class_verification.json``  the pre-training verification of the workload classes
 ``results/training_history.json``    per-episode training record
 ``results/q_table.json``             the learned Q-table with its state bins
 ``results/workloads.csv``            every evaluated workload and its fingerprint
@@ -14,8 +14,12 @@ result can always be traced back to the run that produced it:
 ``results/summary.json``             the tables and headline numbers
 ``figures/*.png``                    the figures
 
-Nothing is written by hand: every number in every artefact is computed from the
-scheduling runs of this execution.
+The order matters and is part of the experimental design: the workload classes are
+**verified first** (which conventional policy does each class actually favour, and is
+the reward-optimal action a consistent function of the encoded state?), then the agent is
+**trained** on the training stream, and finally it is **evaluated** on held-out
+workloads from a different master seed.  Nothing is written by hand: every number in
+every artefact is computed from the scheduling runs of this execution.
 """
 
 from __future__ import annotations
@@ -33,18 +37,15 @@ from evaluation.comparison import (
     adaptive_ratio_table,
     best_policy_per_family,
     family_summary,
+    oracle_agreement_table,
     policy_selection_table,
     policy_summary,
     state_occupancy_table,
 )
-from experiments.evaluate import (
-    ADAPTIVE_CLASSIC_REGIME,
-    ADAPTIVE_LEARNED_REGIME,
-    ROUND_ROBIN_LEARNED_QUANTUM_REGIME,
-    EvaluationResult,
-    evaluate,
-)
+from experiments.evaluate import ADAPTIVE_REGIME, BASELINE_REGIME, EvaluationResult, evaluate
 from experiments.train import TrainingResult, train
+from experiments.verify_classes import VerificationResult, verify_classes
+from rl.state import StateEncoder
 from visualization.plots import create_all_figures
 from workload.generator import WorkloadGenerator
 
@@ -56,12 +57,14 @@ class ExperimentArtifacts:
     """Paths and tables produced by a full experiment run.
 
     Attributes:
+        verification: The pre-training verification of the workload classes.
         training: The training result.
         evaluation: The evaluation result.
         summary: The headline numbers and tables, ready for JSON serialisation.
         paths: Written artefact paths keyed by artefact name.
     """
 
+    verification: VerificationResult
     training: TrainingResult
     evaluation: EvaluationResult
     summary: Dict[str, object]
@@ -83,7 +86,8 @@ def run_experiment(
         make_figures: Whether to create the Matplotlib figures.
 
     Returns:
-        The training and evaluation results, the summary and the written paths.
+        The verification, training and evaluation results, the summary and the written
+        paths.
     """
     config = config or build_default_config()
     config.validate()
@@ -91,11 +95,20 @@ def run_experiment(
     figures_dir = Path(figures_dir or config.figures_dir)
 
     generator = WorkloadGenerator(config.families)
-    training = train(config, generator=generator)
+    encoder = StateEncoder(config.state)
+
+    # 1. Verify the workload classes before anything is trained: which policy does each
+    #    class favour, and is the reward-optimal action a function of the state?
+    verification = verify_classes(config, generator=generator, encoder=encoder)
+    # 2. Train on the training stream.
+    training = train(config, generator=generator, encoder=encoder)
+    # 3. Evaluate on held-out workloads from a different master seed.
     evaluation = evaluate(config, training, generator=generator)
 
-    summary = _build_summary(config, training, evaluation)
-    paths = _write_artifacts(config, training, evaluation, summary, results_dir)
+    summary = _build_summary(config, verification, training, evaluation)
+    paths = _write_artifacts(
+        config, verification, training, evaluation, summary, results_dir
+    )
     if make_figures:
         figures = create_all_figures(
             metrics=evaluation.metrics,
@@ -106,25 +119,32 @@ def run_experiment(
         )
         paths["figures"] = figures
     return ExperimentArtifacts(
-        training=training, evaluation=evaluation, summary=summary, paths=paths
+        verification=verification,
+        training=training,
+        evaluation=evaluation,
+        summary=summary,
+        paths=paths,
     )
 
 
 def _build_summary(
-    config: ExperimentConfig, training: TrainingResult, evaluation: EvaluationResult
+    config: ExperimentConfig,
+    verification: VerificationResult,
+    training: TrainingResult,
+    evaluation: EvaluationResult,
 ) -> Dict[str, object]:
     """Assemble every reported table and headline number."""
-    baseline_regime = "baseline"
     summary: Dict[str, object] = {
         "configuration": config_snapshot(config),
+        "verification": verification.summary(),
         "training": training.history.summary(),
         "evaluation": evaluation.summary(),
         "tables": {
             "policy_summary_baselines": _frame_records(
-                policy_summary(evaluation.metrics, baseline_regime)
+                policy_summary(evaluation.metrics, BASELINE_REGIME)
             ),
-            "policy_summary_adaptive_classic": _frame_records(
-                policy_summary(evaluation.metrics, ADAPTIVE_CLASSIC_REGIME)
+            "policy_summary_adaptive": _frame_records(
+                policy_summary(evaluation.metrics, ADAPTIVE_REGIME)
             ),
             "adaptive_ratio_vs_baselines": _frame_records(
                 adaptive_ratio_table(evaluation.metrics)
@@ -133,34 +153,11 @@ def _build_summary(
             "family_policy_means": _frame_records(family_summary(evaluation.metrics)),
             "policy_selection": _frame_records(policy_selection_table(evaluation.decisions)),
             "state_occupancy": _frame_records(state_occupancy_table(evaluation.decisions)),
+            "oracle_agreement": _frame_records(oracle_agreement_table(evaluation.decisions)),
         },
         "metrics_compared": list(ALL_METRICS),
         "actions": list(ACTION_NAMES),
     }
-    regimes = set(evaluation.metrics["regime"])
-    if ADAPTIVE_LEARNED_REGIME in regimes:
-        summary["tables"]["policy_summary_adaptive_learned_quantum"] = _frame_records(
-            policy_summary(evaluation.metrics, ADAPTIVE_LEARNED_REGIME)
-        )
-    if ROUND_ROBIN_LEARNED_QUANTUM_REGIME in regimes:
-        summary["tables"]["policy_summary_round_robin_learned_quantum"] = _frame_records(
-            policy_summary(evaluation.metrics, ROUND_ROBIN_LEARNED_QUANTUM_REGIME)
-        )
-        summary["tables"]["round_robin_classic_vs_learned_quantum"] = _frame_records(
-            adaptive_ratio_table(
-                evaluation.metrics,
-                adaptive_regime=ROUND_ROBIN_LEARNED_QUANTUM_REGIME,
-                baselines=["Round Robin"],
-            )
-        )
-        multiplier_counts = (
-            evaluation.metrics.loc[
-                evaluation.metrics["regime"] == ROUND_ROBIN_LEARNED_QUANTUM_REGIME
-            ]
-            .groupby("family")
-            .size()
-        )
-        summary["round_robin_learned_quantum_workloads"] = int(multiplier_counts.sum())
     return summary
 
 
@@ -168,7 +165,8 @@ def config_snapshot(config: ExperimentConfig) -> Dict[str, object]:
     """Return a JSON-serialisable snapshot of the configuration.
 
     This is what makes a run reproducible: it records every hyperparameter, the quantum,
-    the workload-generation rules, both master seeds and the number of episodes.
+    the workload-generation rules, the state variables and ranges, all three master
+    seeds and the number of episodes.
     """
     return {
         "name": config.name,
@@ -189,8 +187,10 @@ def config_snapshot(config: ExperimentConfig) -> Dict[str, object]:
                 "burst_time_max": family.burst_time_max,
                 "short_burst_max": family.short_burst_max,
                 "short_burst_fraction": family.short_burst_fraction,
+                "long_burst_min": family.long_burst_min,
                 "arrival_pattern": family.arrival_pattern,
                 "arrival_window": family.arrival_window,
+                "head_window": family.head_window,
                 "arrival_rate": family.arrival_rate,
                 "priority_pattern": family.priority_pattern,
                 "priority_min": family.priority_min,
@@ -206,8 +206,12 @@ def config_snapshot(config: ExperimentConfig) -> Dict[str, object]:
             "n_states": config.state.n_states,
             "burst_profile_range": list(config.state.burst_profile_range),
             "burst_dispersion_range": list(config.state.burst_dispersion_range),
+            "long_job_share_range": list(config.state.long_job_share_range),
+            "arrival_concentration_range": list(config.state.arrival_concentration_range),
             "offered_load_range": list(config.state.offered_load_range),
             "priority_spread_range": list(config.state.priority_spread_range),
+            "priority_burst_alignment_range": list(config.state.priority_burst_alignment_range),
+            "long_burst_threshold": config.state.long_burst_threshold,
         },
         "reward": {
             "weight_waiting_time": config.reward.weight_waiting_time,
@@ -226,16 +230,6 @@ def config_snapshot(config: ExperimentConfig) -> Dict[str, object]:
             "epsilon_decay_per_episode": config.q_learning.epsilon_decay_per_episode,
             "initial_value": config.q_learning.initial_value,
         },
-        "quantum_controller": {
-            "enabled": config.quantum_controller.enabled,
-            "use_during_evaluation": config.quantum_controller.use_during_evaluation,
-            "multipliers": list(config.quantum_controller.multipliers),
-            "learning_rate": config.quantum_controller.learning_rate,
-            "discount_factor": config.quantum_controller.discount_factor,
-            "epsilon_start": config.quantum_controller.epsilon_start,
-            "epsilon_min": config.quantum_controller.epsilon_min,
-            "epsilon_decay_per_episode": config.quantum_controller.epsilon_decay_per_episode,
-        },
         "training": {
             "episodes": config.training.episodes,
             "seed": config.training.seed,
@@ -244,6 +238,8 @@ def config_snapshot(config: ExperimentConfig) -> Dict[str, object]:
         "evaluation": {
             "repetitions": config.evaluation.repetitions,
             "seed": config.evaluation.seed,
+            "verification_repetitions": config.evaluation.verification_repetitions,
+            "verification_seed": config.evaluation.verification_seed,
         },
     }
 
@@ -257,6 +253,7 @@ def _frame_records(frame: pd.DataFrame) -> List[Dict[str, object]]:
 
 def _write_artifacts(
     config: ExperimentConfig,
+    verification: VerificationResult,
     training: TrainingResult,
     evaluation: EvaluationResult,
     summary: Dict[str, object],
@@ -267,6 +264,9 @@ def _write_artifacts(
     paths: Dict[str, Path] = {}
 
     paths["config"] = _write_json(results_dir / "config.json", config_snapshot(config))
+    paths["class_verification"] = verification.to_json(
+        results_dir / "class_verification.json"
+    )
     paths["training_history"] = training.history.to_json(results_dir / "training_history.json")
     paths["q_table"] = _write_json(
         results_dir / "q_table.json",

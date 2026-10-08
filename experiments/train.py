@@ -7,7 +7,10 @@ configured workload families in round-robin order.  Every draw is seeded through
 
 Training is deliberately separated from evaluation (:mod:`experiments.evaluate`): the
 Q-table is written here and only here, and the evaluation workloads come from a different
-master seed, so no evaluation workload is ever trained on.
+master seed, so no evaluation workload is ever trained on.  The pre-training class
+verification (:mod:`experiments.verify_classes`) is likewise separate: it measures which
+policy each workload class favours *before* the agent is trained, and it never touches
+the agent.
 """
 
 from __future__ import annotations
@@ -21,7 +24,6 @@ from typing import Dict, List, Optional, Sequence, Tuple
 from config import ACTION_NAMES, ExperimentConfig, derive_seed
 from rl.adaptive import AdaptiveScheduler
 from rl.q_learning import QLearningAgent
-from rl.quantum_controller import QuantumController
 from rl.state import StateEncoder
 from scheduler import POLICY_CLASSES
 from workload.generator import WorkloadGenerator
@@ -32,7 +34,6 @@ __all__ = ["TrainingHistory", "TrainingResult", "train"]
 #: can never collide (see :func:`config.derive_seed`).
 _WORKLOAD_STREAM_TAG = 0
 _AGENT_STREAM_TAG = 1
-_CONTROLLER_STREAM_TAG = 2
 
 #: Window used for the "recent reward" summary statistics.
 _SUMMARY_WINDOW = 100
@@ -52,8 +53,6 @@ class TrainingHistory:
         rewards: Reward received in every episode.
         epsilons: Exploration rate in force in every episode.
         explored: Whether the chosen action differed from the greedy action.
-        controller_multipliers: Quantum multiplier chosen by the controller in every
-            episode (``1.0`` when the controller is disabled).
         visit_counts: Final per-state update counts (length = number of states).
     """
 
@@ -66,7 +65,6 @@ class TrainingHistory:
     rewards: Tuple[float, ...]
     epsilons: Tuple[float, ...]
     explored: Tuple[bool, ...]
-    controller_multipliers: Tuple[float, ...]
     visit_counts: Tuple[int, ...]
 
     @property
@@ -130,10 +128,6 @@ class TrainingHistory:
             "visited_states": self.visited_states,
             "n_states": self.n_states,
             "final_epsilon": self.epsilons[-1] if self.epsilons else 0.0,
-            "controller_multiplier_counts": {
-                f"{multiplier:g}": count
-                for multiplier, count in sorted(Counter(self.controller_multipliers).items())
-            },
         }
 
     def to_json(self, path: Path) -> Path:
@@ -149,7 +143,6 @@ class TrainingHistory:
                 "reward": list(self.rewards),
                 "epsilon": list(self.epsilons),
                 "explored": list(self.explored),
-                "controller_multiplier": list(self.controller_multipliers),
             },
         }
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -164,15 +157,13 @@ class TrainingResult:
     Attributes:
         config: The configuration the run was made with.
         agent: The trained policy-selection agent.
-        controller: The trained quantum controller, or ``None`` when disabled.
         history: The per-episode record.
-        encoder: The state encoder shared by agent and controller.
+        encoder: The state encoder shared by agent and scheduler.
         scheduler: The adaptive scheduler used for training (kept for inspection).
     """
 
     config: ExperimentConfig
     agent: QLearningAgent
-    controller: Optional[QuantumController]
     history: TrainingHistory
     encoder: StateEncoder
     scheduler: AdaptiveScheduler
@@ -210,26 +201,14 @@ def build_agent(config: ExperimentConfig, encoder: StateEncoder) -> QLearningAge
     )
 
 
-def build_controller(config: ExperimentConfig, encoder: StateEncoder) -> Optional[QuantumController]:
-    """Build the quantum controller, or return ``None`` when it is disabled."""
-    if not config.quantum_controller.enabled:
-        return None
-    return QuantumController(
-        encoder=encoder,
-        config=config.quantum_controller,
-        seed=derive_seed(config.training.seed, _CONTROLLER_STREAM_TAG),
-    )
-
-
 def build_scheduler(
     config: ExperimentConfig,
     encoder: StateEncoder,
     agent: QLearningAgent,
-    controller: Optional[QuantumController],
 ) -> AdaptiveScheduler:
     """Build the adaptive scheduler from the configured conventional policies."""
     policies = [policy_class(config.scheduler) for policy_class in POLICY_CLASSES]
-    return AdaptiveScheduler(config, encoder, agent, policies, controller)
+    return AdaptiveScheduler(config, encoder, agent, policies)
 
 
 def train(
@@ -245,7 +224,7 @@ def train(
         encoder: Optional pre-built state encoder (one is created if omitted).
 
     Returns:
-        The trained agent, controller, history and the objects they were built with.
+        The trained agent, history and the objects it was built with.
 
     Raises:
         ConfigurationError: If the configuration is inconsistent.
@@ -254,8 +233,7 @@ def train(
     generator = generator or WorkloadGenerator(config.families)
     encoder = encoder or StateEncoder(config.state)
     agent = build_agent(config, encoder)
-    controller = build_controller(config, encoder)
-    scheduler = build_scheduler(config, encoder, agent, controller)
+    scheduler = build_scheduler(config, encoder, agent)
 
     cycle: Sequence[str] = config.training.family_cycle or generator.family_names
     if not cycle:
@@ -268,7 +246,6 @@ def train(
     rewards: List[float] = []
     epsilons: List[float] = []
     explored: List[bool] = []
-    multipliers: List[float] = []
 
     for episode in range(config.training.episodes):
         family = cycle[episode % len(cycle)]
@@ -284,9 +261,6 @@ def train(
         rewards.append(decision.reward)
         epsilons.append(decision.epsilon)
         explored.append(decision.explored)
-        multipliers.append(
-            decision.controller_multiplier if decision.controller_multiplier is not None else 1.0
-        )
 
     history = TrainingHistory(
         episodes=config.training.episodes,
@@ -298,13 +272,11 @@ def train(
         rewards=tuple(rewards),
         epsilons=tuple(epsilons),
         explored=tuple(explored),
-        controller_multipliers=tuple(multipliers),
         visit_counts=tuple(int(count) for count in agent.visit_counts),
     )
     return TrainingResult(
         config=config,
         agent=agent,
-        controller=controller,
         history=history,
         encoder=encoder,
         scheduler=scheduler,

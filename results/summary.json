@@ -8,16 +8,18 @@
     },
     "workload_families": [
       {
-        "name": "short_jobs",
-        "description": "Short-job-heavy: 80% of bursts drawn from 1-5 time units.",
+        "name": "short_batch",
+        "description": "Short-job dominated, batch release: 15 jobs of 1-4 time units, all released together.",
         "num_processes": 15,
-        "burst_distribution": "bimodal",
+        "burst_distribution": "uniform",
         "burst_time_min": 1,
-        "burst_time_max": 50,
+        "burst_time_max": 4,
         "short_burst_max": 5,
-        "short_burst_fraction": 0.8,
+        "short_burst_fraction": 0.7,
+        "long_burst_min": 0,
         "arrival_pattern": "uniform",
-        "arrival_window": 20,
+        "arrival_window": 0,
+        "head_window": 2,
         "arrival_rate": 0.5,
         "priority_pattern": "uniform",
         "priority_min": 1,
@@ -26,16 +28,138 @@
         "high_priority_fraction": 0.7
       },
       {
-        "name": "long_jobs",
-        "description": "Long-job-heavy: only 20% of bursts drawn from 1-5 time units.",
+        "name": "short_stream",
+        "description": "Short-job dominated, staggered release: 15 jobs of 1-4 time units arriving within a 30-unit window (no long jobs).",
         "num_processes": 15,
+        "burst_distribution": "uniform",
+        "burst_time_min": 1,
+        "burst_time_max": 4,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.7,
+        "long_burst_min": 0,
+        "arrival_pattern": "uniform",
+        "arrival_window": 30,
+        "head_window": 2,
+        "arrival_rate": 0.5,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "long_batch",
+        "description": "Long-job dominated, batch release: 15 jobs of 20-50 time units, all released together.",
+        "num_processes": 15,
+        "burst_distribution": "uniform",
+        "burst_time_min": 20,
+        "burst_time_max": 50,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.7,
+        "long_burst_min": 0,
+        "arrival_pattern": "uniform",
+        "arrival_window": 0,
+        "head_window": 2,
+        "arrival_rate": 0.5,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "interactive",
+        "description": "Interactive/response-sensitive: a small batch of long background jobs (60-100 units) released at the head of the window plus a stream of 18 very short interactive jobs (1-2 units) over 50 time units.",
+        "num_processes": 20,
         "burst_distribution": "bimodal",
+        "burst_time_min": 1,
+        "burst_time_max": 100,
+        "short_burst_max": 2,
+        "short_burst_fraction": 0.9,
+        "long_burst_min": 60,
+        "arrival_pattern": "batch_head",
+        "arrival_window": 50,
+        "head_window": 2,
+        "arrival_rate": 0.5,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "interactive_sparse",
+        "description": "Interactive with a sparser arrival stream: the same job mix as 'interactive' but the short jobs arrive over 110 time units (lighter load, slower interactive traffic).",
+        "num_processes": 20,
+        "burst_distribution": "bimodal",
+        "burst_time_min": 1,
+        "burst_time_max": 100,
+        "short_burst_max": 2,
+        "short_burst_fraction": 0.9,
+        "long_burst_min": 60,
+        "arrival_pattern": "batch_head",
+        "arrival_window": 110,
+        "head_window": 2,
+        "arrival_rate": 0.5,
+        "priority_pattern": "uniform",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "priority_aligned",
+        "description": "Priority-sensitive with importance aligned to job size: uniform bursts 1-50, and the shortest jobs carry the highest priority (priority assigned by burst rank).",
+        "num_processes": 15,
+        "burst_distribution": "uniform",
         "burst_time_min": 1,
         "burst_time_max": 50,
         "short_burst_max": 5,
-        "short_burst_fraction": 0.2,
+        "short_burst_fraction": 0.7,
+        "long_burst_min": 0,
         "arrival_pattern": "uniform",
         "arrival_window": 20,
+        "head_window": 2,
+        "arrival_rate": 0.5,
+        "priority_pattern": "burst_aligned",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "priority_skewed",
+        "description": "Priority-sensitive with skewed priority labels uncorrelated with job size: uniform bursts 1-50 and 70% of the priorities in the band 1-2.",
+        "num_processes": 15,
+        "burst_distribution": "uniform",
+        "burst_time_min": 1,
+        "burst_time_max": 50,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.7,
+        "long_burst_min": 0,
+        "arrival_pattern": "uniform",
+        "arrival_window": 20,
+        "head_window": 2,
+        "arrival_rate": 0.5,
+        "priority_pattern": "high_priority_skewed",
+        "priority_min": 1,
+        "priority_max": 5,
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7
+      },
+      {
+        "name": "quantum_sensitive",
+        "description": "Quantum-sensitive/preemption-heavy: 20 jobs of 2-12 time units straddling the Round-Robin quantum (4), arriving within a 30-unit window; preemption is frequent and costly.",
+        "num_processes": 20,
+        "burst_distribution": "uniform",
+        "burst_time_min": 2,
+        "burst_time_max": 12,
+        "short_burst_max": 5,
+        "short_burst_fraction": 0.7,
+        "long_burst_min": 0,
+        "arrival_pattern": "uniform",
+        "arrival_window": 30,
+        "head_window": 2,
         "arrival_rate": 0.5,
         "priority_pattern": "uniform",
         "priority_min": 1,
@@ -45,71 +169,19 @@
       },
       {
         "name": "mixed",
-        "description": "Uniform mix of bursts over the full 1-50 range.",
+        "description": "Mixed: 15 jobs with bursts uniform over the full 1-50 range, arriving within a 20-unit window.",
         "num_processes": 15,
         "burst_distribution": "uniform",
         "burst_time_min": 1,
         "burst_time_max": 50,
         "short_burst_max": 5,
         "short_burst_fraction": 0.7,
+        "long_burst_min": 0,
         "arrival_pattern": "uniform",
         "arrival_window": 20,
+        "head_window": 2,
         "arrival_rate": 0.5,
         "priority_pattern": "uniform",
-        "priority_min": 1,
-        "priority_max": 5,
-        "high_priority_cutoff": 2,
-        "high_priority_fraction": 0.7
-      },
-      {
-        "name": "cpu_bursty",
-        "description": "CPU-bound: uniformly long bursts (20-50) with dense arrivals.",
-        "num_processes": 15,
-        "burst_distribution": "uniform",
-        "burst_time_min": 20,
-        "burst_time_max": 50,
-        "short_burst_max": 5,
-        "short_burst_fraction": 0.7,
-        "arrival_pattern": "uniform",
-        "arrival_window": 15,
-        "arrival_rate": 0.5,
-        "priority_pattern": "uniform",
-        "priority_min": 1,
-        "priority_max": 5,
-        "high_priority_cutoff": 2,
-        "high_priority_fraction": 0.7
-      },
-      {
-        "name": "poisson_arrivals",
-        "description": "Poisson arrivals (rate 0.5 per time unit) with moderate bursts.",
-        "num_processes": 15,
-        "burst_distribution": "uniform",
-        "burst_time_min": 1,
-        "burst_time_max": 20,
-        "short_burst_max": 5,
-        "short_burst_fraction": 0.7,
-        "arrival_pattern": "poisson",
-        "arrival_window": 20,
-        "arrival_rate": 0.5,
-        "priority_pattern": "uniform",
-        "priority_min": 1,
-        "priority_max": 5,
-        "high_priority_cutoff": 2,
-        "high_priority_fraction": 0.7
-      },
-      {
-        "name": "priority_skewed",
-        "description": "Uniform bursts with 70% of processes in the high-priority band 1-2.",
-        "num_processes": 15,
-        "burst_distribution": "uniform",
-        "burst_time_min": 1,
-        "burst_time_max": 50,
-        "short_burst_max": 5,
-        "short_burst_fraction": 0.7,
-        "arrival_pattern": "uniform",
-        "arrival_window": 20,
-        "arrival_rate": 0.5,
-        "priority_pattern": "high_priority_skewed",
         "priority_min": 1,
         "priority_max": 5,
         "high_priority_cutoff": 2,
@@ -120,18 +192,29 @@
       "state_variables": [
         "burst_profile",
         "burst_dispersion",
+        "long_job_share",
+        "arrival_concentration",
         "offered_load",
-        "priority_spread"
+        "priority_spread",
+        "priority_burst_alignment"
       ],
       "bins_per_variable": 3,
-      "n_states": 81,
+      "n_states": 2187,
       "burst_profile_range": [
         1.0,
-        50.0
+        100.0
       ],
       "burst_dispersion_range": [
         0.0,
-        1.5
+        3.0
+      ],
+      "long_job_share_range": [
+        0.0,
+        1.0
+      ],
+      "arrival_concentration_range": [
+        0.0,
+        1.0
       ],
       "offered_load_range": [
         0.5,
@@ -140,7 +223,12 @@
       "priority_spread_range": [
         0.0,
         2.0
-      ]
+      ],
+      "priority_burst_alignment_range": [
+        -1.0,
+        1.0
+      ],
+      "long_burst_threshold": 16
     },
     "reward": {
       "weight_waiting_time": 0.3,
@@ -156,689 +244,1001 @@
       "discount_factor": 0.9,
       "epsilon_start": 1.0,
       "epsilon_min": 0.05,
-      "epsilon_decay_per_episode": 0.995,
+      "epsilon_decay_per_episode": 0.999,
       "initial_value": 0.05
     },
-    "quantum_controller": {
-      "enabled": true,
-      "use_during_evaluation": false,
-      "multipliers": [
-        0.5,
-        1.0,
-        2.0
-      ],
-      "learning_rate": 0.15,
-      "discount_factor": 0.5,
-      "epsilon_start": 1.0,
-      "epsilon_min": 0.05,
-      "epsilon_decay_per_episode": 0.995
-    },
     "training": {
-      "episodes": 600,
+      "episodes": 5400,
       "seed": 42,
       "family_cycle": [
-        "short_jobs",
-        "long_jobs",
-        "mixed",
-        "cpu_bursty",
-        "poisson_arrivals",
-        "priority_skewed"
+        "short_batch",
+        "short_stream",
+        "long_batch",
+        "interactive",
+        "interactive_sparse",
+        "priority_aligned",
+        "priority_skewed",
+        "quantum_sensitive",
+        "mixed"
       ]
     },
     "evaluation": {
       "repetitions": 10,
-      "seed": 2024
+      "seed": 2024,
+      "verification_repetitions": 25,
+      "verification_seed": 777
     }
   },
+  "verification": {
+    "seed": 777,
+    "repetitions_per_family": 25,
+    "workloads_total": 225,
+    "states_observed": 41,
+    "states_with_conflicting_argmax": 7,
+    "workloads_matching_state_modal_argmax": 216,
+    "state_conditional_consistency": 0.96,
+    "modal_winners": [
+      "SJF",
+      "Round Robin"
+    ],
+    "classes": [
+      {
+        "family": "short_batch",
+        "workloads": 25,
+        "winner_counts": {
+          "FCFS": 0,
+          "SJF": 25,
+          "Round Robin": 0,
+          "Priority": 0
+        },
+        "winner_shares": {
+          "FCFS": 0.0,
+          "SJF": 1.0,
+          "Round Robin": 0.0,
+          "Priority": 0.0
+        },
+        "modal_winner": "SJF",
+        "mean_reward_per_action": {
+          "FCFS": -0.045757960085694174,
+          "SJF": 0.14471212566468178,
+          "Round Robin": -0.045757960085694174,
+          "Priority": -0.053196205493293444
+        },
+        "distinct_states": 4,
+        "states": [
+          76,
+          77,
+          78,
+          79
+        ]
+      },
+      {
+        "family": "short_stream",
+        "workloads": 25,
+        "winner_counts": {
+          "FCFS": 0,
+          "SJF": 25,
+          "Round Robin": 0,
+          "Priority": 0
+        },
+        "winner_shares": {
+          "FCFS": 0.0,
+          "SJF": 1.0,
+          "Round Robin": 0.0,
+          "Priority": 0.0
+        },
+        "modal_winner": "SJF",
+        "mean_reward_per_action": {
+          "FCFS": -0.04429096773943456,
+          "SJF": 0.14818001418814616,
+          "Round Robin": -0.04429096773943456,
+          "Priority": -0.05959807870927702
+        },
+        "distinct_states": 5,
+        "states": [
+          3,
+          4,
+          6,
+          7,
+          8
+        ]
+      },
+      {
+        "family": "long_batch",
+        "workloads": 25,
+        "winner_counts": {
+          "FCFS": 0,
+          "SJF": 25,
+          "Round Robin": 0,
+          "Priority": 0
+        },
+        "winner_shares": {
+          "FCFS": 0.0,
+          "SJF": 1.0,
+          "Round Robin": 0.0,
+          "Priority": 0.0
+        },
+        "modal_winner": "SJF",
+        "mean_reward_per_action": {
+          "FCFS": 0.056242988918480126,
+          "SJF": 0.16798686215502248,
+          "Round Robin": -0.1856119672370817,
+          "Priority": 0.06745067133906894
+        },
+        "distinct_states": 5,
+        "states": [
+          1695,
+          1696,
+          1697,
+          1699,
+          1700
+        ]
+      },
+      {
+        "family": "interactive",
+        "workloads": 25,
+        "winner_counts": {
+          "FCFS": 0,
+          "SJF": 8,
+          "Round Robin": 17,
+          "Priority": 0
+        },
+        "winner_shares": {
+          "FCFS": 0.0,
+          "SJF": 0.32,
+          "Round Robin": 0.68,
+          "Priority": 0.0
+        },
+        "modal_winner": "Round Robin",
+        "mean_reward_per_action": {
+          "FCFS": -0.46235627982265187,
+          "SJF": 0.22877687485043585,
+          "Round Robin": 0.4107119328703799,
+          "Priority": -0.160122555881911
+        },
+        "distinct_states": 10,
+        "states": [
+          7,
+          418,
+          419,
+          421,
+          655,
+          660,
+          661,
+          663,
+          664,
+          665
+        ]
+      },
+      {
+        "family": "interactive_sparse",
+        "workloads": 25,
+        "winner_counts": {
+          "FCFS": 4,
+          "SJF": 6,
+          "Round Robin": 15,
+          "Priority": 0
+        },
+        "winner_shares": {
+          "FCFS": 0.16,
+          "SJF": 0.24,
+          "Round Robin": 0.6,
+          "Priority": 0.0
+        },
+        "modal_winner": "Round Robin",
+        "mean_reward_per_action": {
+          "FCFS": -0.3781075486577458,
+          "SJF": 0.17956237386198162,
+          "Round Robin": 0.36194639299655224,
+          "Priority": -0.15257743536758503
+        },
+        "distinct_states": 7,
+        "states": [
+          4,
+          6,
+          7,
+          418,
+          652,
+          655,
+          664
+        ]
+      },
+      {
+        "family": "priority_aligned",
+        "workloads": 25,
+        "winner_counts": {
+          "FCFS": 0,
+          "SJF": 25,
+          "Round Robin": 0,
+          "Priority": 0
+        },
+        "winner_shares": {
+          "FCFS": 0.0,
+          "SJF": 1.0,
+          "Round Robin": 0.0,
+          "Priority": 0.0
+        },
+        "modal_winner": "SJF",
+        "mean_reward_per_action": {
+          "FCFS": -0.1167413147013009,
+          "SJF": 0.1853027476377196,
+          "Round Robin": -0.16253710355042436,
+          "Priority": 0.17482838710471924
+        },
+        "distinct_states": 2,
+        "states": [
+          917,
+          1646
+        ]
+      },
+      {
+        "family": "priority_skewed",
+        "workloads": 25,
+        "winner_counts": {
+          "FCFS": 0,
+          "SJF": 25,
+          "Round Robin": 0,
+          "Priority": 0
+        },
+        "winner_shares": {
+          "FCFS": 0.0,
+          "SJF": 1.0,
+          "Round Robin": 0.0,
+          "Priority": 0.0
+        },
+        "modal_winner": "SJF",
+        "mean_reward_per_action": {
+          "FCFS": -0.010331605528201244,
+          "SJF": 0.2099732064785393,
+          "Round Robin": -0.11806052534033958,
+          "Priority": 0.00036810789542749274
+        },
+        "distinct_states": 9,
+        "states": [
+          912,
+          913,
+          1639,
+          1640,
+          1641,
+          1642,
+          1643,
+          1645,
+          1646
+        ]
+      },
+      {
+        "family": "quantum_sensitive",
+        "workloads": 25,
+        "winner_counts": {
+          "FCFS": 0,
+          "SJF": 25,
+          "Round Robin": 0,
+          "Priority": 0
+        },
+        "winner_shares": {
+          "FCFS": 0.0,
+          "SJF": 1.0,
+          "Round Robin": 0.0,
+          "Priority": 0.0
+        },
+        "modal_winner": "SJF",
+        "mean_reward_per_action": {
+          "FCFS": -0.008906916308012207,
+          "SJF": 0.19814906705680463,
+          "Round Robin": -0.16878759732655696,
+          "Priority": -0.020454553422235424
+        },
+        "distinct_states": 5,
+        "states": [
+          741,
+          742,
+          744,
+          745,
+          746
+        ]
+      },
+      {
+        "family": "mixed",
+        "workloads": 25,
+        "winner_counts": {
+          "FCFS": 0,
+          "SJF": 25,
+          "Round Robin": 0,
+          "Priority": 0
+        },
+        "winner_shares": {
+          "FCFS": 0.0,
+          "SJF": 1.0,
+          "Round Robin": 0.0,
+          "Priority": 0.0
+        },
+        "modal_winner": "SJF",
+        "mean_reward_per_action": {
+          "FCFS": -0.03010295683521111,
+          "SJF": 0.23571667232124283,
+          "Round Robin": -0.09396334693620241,
+          "Priority": -0.03202255869393483
+        },
+        "distinct_states": 7,
+        "states": [
+          916,
+          917,
+          1642,
+          1643,
+          1644,
+          1645,
+          1646
+        ]
+      }
+    ]
+  },
   "training": {
-    "episodes": 600,
+    "episodes": 5400,
     "seed": 42,
-    "mean_reward_first_100": 0.06292865357721784,
-    "mean_reward_last_100": 0.20130104294225876,
-    "mean_reward_all": 0.15531781668616876,
+    "mean_reward_first_100": 0.0035960384147167624,
+    "mean_reward_last_100": 0.22696009960339775,
+    "mean_reward_all": 0.18611586207679234,
     "action_counts": {
-      "FCFS": 64,
-      "SJF": 434,
-      "Round Robin": 53,
-      "Priority": 49
+      "FCFS": 345,
+      "SJF": 3828,
+      "Round Robin": 961,
+      "Priority": 266
     },
     "greedy_action_counts": {
-      "FCFS": 21,
-      "SJF": 426,
-      "Round Robin": 1,
-      "Priority": 2
+      "FCFS": 61,
+      "SJF": 3767,
+      "Round Robin": 749,
+      "Priority": 0
     },
-    "exploration_rate": 0.25,
-    "visited_states": 27,
-    "n_states": 81,
-    "final_epsilon": 0.05,
-    "controller_multiplier_counts": {
-      "0.5": 385,
-      "1": 146,
-      "2": 69
-    }
+    "exploration_rate": 0.1524074074074074,
+    "visited_states": 80,
+    "n_states": 2187,
+    "final_epsilon": 0.05
   },
   "evaluation": {
     "families": [
-      "short_jobs",
-      "long_jobs",
-      "mixed",
-      "cpu_bursty",
-      "poisson_arrivals",
-      "priority_skewed"
+      "short_batch",
+      "short_stream",
+      "long_batch",
+      "interactive",
+      "interactive_sparse",
+      "priority_aligned",
+      "priority_skewed",
+      "quantum_sensitive",
+      "mixed"
     ],
     "repetitions": 10,
     "evaluation_seed": 2024,
     "training_seed": 42,
-    "rows": 420,
+    "rows": 450,
     "regimes": [
-      "adaptive_classic_quantum",
-      "adaptive_learned_quantum",
-      "baseline",
-      "round_robin_learned_quantum"
+      "adaptive",
+      "baseline"
     ],
     "policies": [
       "Adaptive (Q-Learning)",
       "FCFS",
       "Priority",
       "Round Robin",
-      "Round Robin (learned quantum)",
       "SJF"
     ],
-    "distinct_workloads": 60
+    "distinct_workloads": 90,
+    "distinct_states_evaluated": 29,
+    "evaluated_states_visited_during_training": 29,
+    "evaluated_states_not_visited_during_training": 0,
+    "decisions_in_unvisited_states": 0,
+    "oracle_agreement_workloads": 90,
+    "oracle_agreement_matches": 84,
+    "oracle_agreement_rate": 0.9333333333333333,
+    "mean_chosen_minus_oracle_reward": -0.004617587337946098
   },
   "tables": {
     "policy_summary_baselines": [
       {
         "policy": "FCFS",
-        "avg_waiting_time": 142.99,
-        "avg_turnaround_time": 164.7733333333,
-        "avg_response_time": 142.99,
-        "cpu_utilization": 99.7623245366,
-        "throughput": 0.0609162581,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 125.7883333333,
+        "avg_turnaround_time": 142.2377777778,
+        "avg_response_time": 125.7883333333,
+        "cpu_utilization": 97.9680322722,
+        "throughput": 0.1420547624,
+        "context_switches": 15.6666666667,
+        "context_switches_per_process": 0.9388888889
       },
       {
         "policy": "SJF",
-        "avg_waiting_time": 103.5844444444,
-        "avg_turnaround_time": 125.3677777778,
-        "avg_response_time": 103.5844444444,
-        "cpu_utilization": 99.7623245366,
-        "throughput": 0.0609162581,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 80.8346296296,
+        "avg_turnaround_time": 97.2840740741,
+        "avg_response_time": 80.8346296296,
+        "cpu_utilization": 97.9680322722,
+        "throughput": 0.1420547624,
+        "context_switches": 15.6666666667,
+        "context_switches_per_process": 0.9388888889
       },
       {
         "policy": "Round Robin",
-        "avg_waiting_time": 199.1344444444,
-        "avg_turnaround_time": 220.9177777778,
-        "avg_response_time": 22.3133333333,
-        "cpu_utilization": 99.7623245366,
-        "throughput": 0.0609162581,
-        "context_switches": 85.7833333333,
-        "context_switches_per_process": 5.7188888889
+        "avg_waiting_time": 142.1927777778,
+        "avg_turnaround_time": 158.6422222222,
+        "avg_response_time": 19.0755555556,
+        "cpu_utilization": 97.9680322722,
+        "throughput": 0.1420547624,
+        "context_switches": 71.1888888889,
+        "context_switches_per_process": 4.4366666667
       },
       {
         "policy": "Priority",
-        "avg_waiting_time": 142.2388888889,
-        "avg_turnaround_time": 164.0222222222,
-        "avg_response_time": 142.2388888889,
-        "cpu_utilization": 99.7623245366,
-        "throughput": 0.0609162581,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 112.2809259259,
+        "avg_turnaround_time": 128.7303703704,
+        "avg_response_time": 112.2809259259,
+        "cpu_utilization": 97.9680322722,
+        "throughput": 0.1420547624,
+        "context_switches": 15.6666666667,
+        "context_switches_per_process": 0.9388888889
       }
     ],
-    "policy_summary_adaptive_classic": [
+    "policy_summary_adaptive": [
       {
         "policy": "Adaptive (Q-Learning)",
-        "avg_waiting_time": 103.5844444444,
-        "avg_turnaround_time": 125.3677777778,
-        "avg_response_time": 103.5844444444,
-        "cpu_utilization": 99.7623245366,
-        "throughput": 0.0609162581,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 77.0568518519,
+        "avg_turnaround_time": 93.5062962963,
+        "avg_response_time": 73.4274074074,
+        "cpu_utilization": 97.9680322722,
+        "throughput": 0.1420547624,
+        "context_switches": 24.4444444444,
+        "context_switches_per_process": 1.3777777778
       }
     ],
     "adaptive_ratio_vs_baselines": [
       {
         "policy": "FCFS",
         "metric": "avg_waiting_time",
-        "mean_baseline": 142.99,
-        "mean_adaptive": 103.5844444444,
-        "mean_difference": 39.4055555556,
-        "mean_ratio": 1.5742626593,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 125.7883333333,
+        "mean_adaptive": 77.0568518519,
+        "mean_difference": 48.7314814815,
+        "mean_ratio": 2.3202221651,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "FCFS",
         "metric": "avg_turnaround_time",
-        "mean_baseline": 164.7733333333,
-        "mean_adaptive": 125.3677777778,
-        "mean_difference": 39.4055555556,
-        "mean_ratio": 1.4412756952,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 142.2377777778,
+        "mean_adaptive": 93.5062962963,
+        "mean_difference": 48.7314814815,
+        "mean_ratio": 1.8983559977,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "FCFS",
         "metric": "avg_response_time",
-        "mean_baseline": 142.99,
-        "mean_adaptive": 103.5844444444,
-        "mean_difference": 39.4055555556,
-        "mean_ratio": 1.5742626593,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 125.7883333333,
+        "mean_adaptive": 73.4274074074,
+        "mean_difference": 52.3609259259,
+        "mean_ratio": 4.0197319921,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "FCFS",
         "metric": "cpu_utilization",
-        "mean_baseline": 99.7623245366,
-        "mean_adaptive": 99.7623245366,
+        "mean_baseline": 97.9680322722,
+        "mean_adaptive": 97.9680322722,
         "mean_difference": 0.0,
         "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "FCFS",
         "metric": "throughput",
-        "mean_baseline": 0.0609162581,
-        "mean_adaptive": 0.0609162581,
+        "mean_baseline": 0.1420547624,
+        "mean_adaptive": 0.1420547624,
         "mean_difference": 0.0,
         "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "FCFS",
         "metric": "context_switches",
-        "mean_baseline": 14.0,
-        "mean_adaptive": 14.0,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 15.6666666667,
+        "mean_adaptive": 24.4444444444,
+        "mean_difference": -8.7777777778,
+        "mean_ratio": 0.868596343,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "FCFS",
         "metric": "context_switches_per_process",
-        "mean_baseline": 0.9333333333,
-        "mean_adaptive": 0.9333333333,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 0.9388888889,
+        "mean_adaptive": 1.3777777778,
+        "mean_difference": -0.4388888889,
+        "mean_ratio": 0.868596343,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "SJF",
         "metric": "avg_waiting_time",
-        "mean_baseline": 103.5844444444,
-        "mean_adaptive": 103.5844444444,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 80.8346296296,
+        "mean_adaptive": 77.0568518519,
+        "mean_difference": 3.7777777778,
+        "mean_ratio": 1.3197320457,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "SJF",
         "metric": "avg_turnaround_time",
-        "mean_baseline": 125.3677777778,
-        "mean_adaptive": 125.3677777778,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 97.2840740741,
+        "mean_adaptive": 93.5062962963,
+        "mean_difference": 3.7777777778,
+        "mean_ratio": 1.1720879756,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "SJF",
         "metric": "avg_response_time",
-        "mean_baseline": 103.5844444444,
-        "mean_adaptive": 103.5844444444,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 80.8346296296,
+        "mean_adaptive": 73.4274074074,
+        "mean_difference": 7.4072222222,
+        "mean_ratio": 1.9068601256,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "SJF",
         "metric": "cpu_utilization",
-        "mean_baseline": 99.7623245366,
-        "mean_adaptive": 99.7623245366,
+        "mean_baseline": 97.9680322722,
+        "mean_adaptive": 97.9680322722,
         "mean_difference": 0.0,
         "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "SJF",
         "metric": "throughput",
-        "mean_baseline": 0.0609162581,
-        "mean_adaptive": 0.0609162581,
+        "mean_baseline": 0.1420547624,
+        "mean_adaptive": 0.1420547624,
         "mean_difference": 0.0,
         "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "SJF",
         "metric": "context_switches",
-        "mean_baseline": 14.0,
-        "mean_adaptive": 14.0,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 15.6666666667,
+        "mean_adaptive": 24.4444444444,
+        "mean_difference": -8.7777777778,
+        "mean_ratio": 0.868596343,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "SJF",
         "metric": "context_switches_per_process",
-        "mean_baseline": 0.9333333333,
-        "mean_adaptive": 0.9333333333,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 0.9388888889,
+        "mean_adaptive": 1.3777777778,
+        "mean_difference": -0.4388888889,
+        "mean_ratio": 0.868596343,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Round Robin",
         "metric": "avg_waiting_time",
-        "mean_baseline": 199.1344444444,
-        "mean_adaptive": 103.5844444444,
-        "mean_difference": 95.55,
-        "mean_ratio": 1.8838951011,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 142.1927777778,
+        "mean_adaptive": 77.0568518519,
+        "mean_difference": 65.1359259259,
+        "mean_ratio": 1.5943163036,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Round Robin",
         "metric": "avg_turnaround_time",
-        "mean_baseline": 220.9177777778,
-        "mean_adaptive": 125.3677777778,
-        "mean_difference": 95.55,
-        "mean_ratio": 1.7111424357,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 158.6422222222,
+        "mean_adaptive": 93.5062962963,
+        "mean_difference": 65.1359259259,
+        "mean_ratio": 1.4839044411,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Round Robin",
         "metric": "avg_response_time",
-        "mean_baseline": 22.3133333333,
-        "mean_adaptive": 103.5844444444,
-        "mean_difference": -81.2711111111,
-        "mean_ratio": 0.3401666519,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 19.0755555556,
+        "mean_adaptive": 73.4274074074,
+        "mean_difference": -54.3518518519,
+        "mean_ratio": 0.688377651,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Round Robin",
         "metric": "cpu_utilization",
-        "mean_baseline": 99.7623245366,
-        "mean_adaptive": 99.7623245366,
+        "mean_baseline": 97.9680322722,
+        "mean_adaptive": 97.9680322722,
         "mean_difference": 0.0,
         "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Round Robin",
         "metric": "throughput",
-        "mean_baseline": 0.0609162581,
-        "mean_adaptive": 0.0609162581,
+        "mean_baseline": 0.1420547624,
+        "mean_adaptive": 0.1420547624,
         "mean_difference": 0.0,
         "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Round Robin",
         "metric": "context_switches",
-        "mean_baseline": 85.7833333333,
-        "mean_adaptive": 14.0,
-        "mean_difference": 71.7833333333,
-        "mean_ratio": 6.1273809524,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 71.1888888889,
+        "mean_adaptive": 24.4444444444,
+        "mean_difference": 46.7444444444,
+        "mean_ratio": 4.2741436926,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Round Robin",
         "metric": "context_switches_per_process",
-        "mean_baseline": 5.7188888889,
-        "mean_adaptive": 0.9333333333,
-        "mean_difference": 4.7855555556,
-        "mean_ratio": 6.1273809524,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 4.4366666667,
+        "mean_adaptive": 1.3777777778,
+        "mean_difference": 3.0588888889,
+        "mean_ratio": 4.2741436926,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Priority",
         "metric": "avg_waiting_time",
-        "mean_baseline": 142.2388888889,
-        "mean_adaptive": 103.5844444444,
-        "mean_difference": 38.6544444444,
-        "mean_ratio": 1.5413585829,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 112.2809259259,
+        "mean_adaptive": 77.0568518519,
+        "mean_difference": 35.2240740741,
+        "mean_ratio": 2.0000863036,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Priority",
         "metric": "avg_turnaround_time",
-        "mean_baseline": 164.0222222222,
-        "mean_adaptive": 125.3677777778,
-        "mean_difference": 38.6544444444,
-        "mean_ratio": 1.4166427593,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 128.7303703704,
+        "mean_adaptive": 93.5062962963,
+        "mean_difference": 35.2240740741,
+        "mean_ratio": 1.6671806011,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Priority",
         "metric": "avg_response_time",
-        "mean_baseline": 142.2388888889,
-        "mean_adaptive": 103.5844444444,
-        "mean_difference": 38.6544444444,
-        "mean_ratio": 1.5413585829,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 112.2809259259,
+        "mean_adaptive": 73.4274074074,
+        "mean_difference": 38.8535185185,
+        "mean_ratio": 3.2364722081,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Priority",
         "metric": "cpu_utilization",
-        "mean_baseline": 99.7623245366,
-        "mean_adaptive": 99.7623245366,
+        "mean_baseline": 97.9680322722,
+        "mean_adaptive": 97.9680322722,
         "mean_difference": 0.0,
         "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Priority",
         "metric": "throughput",
-        "mean_baseline": 0.0609162581,
-        "mean_adaptive": 0.0609162581,
+        "mean_baseline": 0.1420547624,
+        "mean_adaptive": 0.1420547624,
         "mean_difference": 0.0,
         "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Priority",
         "metric": "context_switches",
-        "mean_baseline": 14.0,
-        "mean_adaptive": 14.0,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 15.6666666667,
+        "mean_adaptive": 24.4444444444,
+        "mean_difference": -8.7777777778,
+        "mean_ratio": 0.868596343,
+        "workloads": 90,
+        "ratio_workloads": 90
       },
       {
         "policy": "Priority",
         "metric": "context_switches_per_process",
-        "mean_baseline": 0.9333333333,
-        "mean_adaptive": 0.9333333333,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "mean_baseline": 0.9388888889,
+        "mean_adaptive": 1.3777777778,
+        "mean_difference": -0.4388888889,
+        "mean_ratio": 0.868596343,
+        "workloads": 90,
+        "ratio_workloads": 90
       }
     ],
     "best_baseline_per_family": [
       {
-        "family": "cpu_bursty",
-        "best_policy": "SJF",
-        "value": 205.96
+        "family": "interactive",
+        "best_policy": "Round Robin",
+        "value": 34.68
       },
       {
-        "family": "long_jobs",
+        "family": "interactive_sparse",
+        "best_policy": "Round Robin",
+        "value": 23.32
+      },
+      {
+        "family": "long_batch",
         "best_policy": "SJF",
-        "value": 98.5533333333
+        "value": 219.3533333333
       },
       {
         "family": "mixed",
         "best_policy": "SJF",
-        "value": 132.7
+        "value": 128.44
       },
       {
-        "family": "poisson_arrivals",
-        "best_policy": "SJF",
-        "value": 40.06
-      },
-      {
-        "family": "priority_skewed",
+        "family": "priority_aligned",
         "best_policy": "SJF",
         "value": 119.22
       },
       {
-        "family": "short_jobs",
+        "family": "priority_skewed",
         "best_policy": "SJF",
-        "value": 25.0133333333
+        "value": 114.3866666667
+      },
+      {
+        "family": "quantum_sensitive",
+        "best_policy": "SJF",
+        "value": 36.335
+      },
+      {
+        "family": "short_batch",
+        "best_policy": "SJF",
+        "value": 12.84
+      },
+      {
+        "family": "short_stream",
+        "best_policy": "SJF",
+        "value": 3.7266666667
       }
     ],
     "family_policy_means": [
       {
-        "family": "short_jobs",
+        "family": "short_batch",
         "policy": "FCFS",
-        "avg_waiting_time": 57.7,
-        "avg_turnaround_time": 66.7666666667,
-        "avg_response_time": 57.7,
-        "cpu_utilization": 99.5727222257,
-        "throughput": 0.1186095232,
+        "avg_waiting_time": 17.6933333333,
+        "avg_turnaround_time": 20.18,
+        "avg_response_time": 17.6933333333,
+        "cpu_utilization": 100.0,
+        "throughput": 0.4066925144,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "short_jobs",
+        "family": "short_batch",
         "policy": "SJF",
-        "avg_waiting_time": 25.0133333333,
-        "avg_turnaround_time": 34.08,
-        "avg_response_time": 25.0133333333,
-        "cpu_utilization": 99.5727222257,
-        "throughput": 0.1186095232,
+        "avg_waiting_time": 12.84,
+        "avg_turnaround_time": 15.3266666667,
+        "avg_response_time": 12.84,
+        "cpu_utilization": 100.0,
+        "throughput": 0.4066925144,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "short_jobs",
+        "family": "short_batch",
         "policy": "Round Robin",
-        "avg_waiting_time": 36.1066666667,
-        "avg_turnaround_time": 45.1733333333,
-        "avg_response_time": 15.02,
-        "cpu_utilization": 99.5727222257,
-        "throughput": 0.1186095232,
-        "context_switches": 37.4,
-        "context_switches_per_process": 2.4933333333
-      },
-      {
-        "family": "short_jobs",
-        "policy": "Priority",
-        "avg_waiting_time": 54.26,
-        "avg_turnaround_time": 63.3266666667,
-        "avg_response_time": 54.26,
-        "cpu_utilization": 99.5727222257,
-        "throughput": 0.1186095232,
+        "avg_waiting_time": 17.6933333333,
+        "avg_turnaround_time": 20.18,
+        "avg_response_time": 17.6933333333,
+        "cpu_utilization": 100.0,
+        "throughput": 0.4066925144,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "long_jobs",
+        "family": "short_batch",
+        "policy": "Priority",
+        "avg_waiting_time": 17.26,
+        "avg_turnaround_time": 19.7466666667,
+        "avg_response_time": 17.26,
+        "cpu_utilization": 100.0,
+        "throughput": 0.4066925144,
+        "context_switches": 14.0,
+        "context_switches_per_process": 0.9333333333
+      },
+      {
+        "family": "short_stream",
         "policy": "FCFS",
-        "avg_waiting_time": 152.6666666667,
-        "avg_turnaround_time": 175.6066666667,
-        "avg_response_time": 152.6666666667,
-        "cpu_utilization": 99.6018269591,
-        "throughput": 0.043896836,
+        "avg_waiting_time": 4.9333333333,
+        "avg_turnaround_time": 7.4333333333,
+        "avg_response_time": 4.9333333333,
+        "cpu_utilization": 88.7612547697,
+        "throughput": 0.3569778666,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "long_jobs",
+        "family": "short_stream",
         "policy": "SJF",
-        "avg_waiting_time": 98.5533333333,
-        "avg_turnaround_time": 121.4933333333,
-        "avg_response_time": 98.5533333333,
-        "cpu_utilization": 99.6018269591,
-        "throughput": 0.043896836,
+        "avg_waiting_time": 3.7266666667,
+        "avg_turnaround_time": 6.2266666667,
+        "avg_response_time": 3.7266666667,
+        "cpu_utilization": 88.7612547697,
+        "throughput": 0.3569778666,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "long_jobs",
+        "family": "short_stream",
         "policy": "Round Robin",
-        "avg_waiting_time": 182.4466666667,
-        "avg_turnaround_time": 205.3866666667,
-        "avg_response_time": 22.6,
-        "cpu_utilization": 99.6018269591,
-        "throughput": 0.043896836,
-        "context_switches": 89.7,
-        "context_switches_per_process": 5.98
-      },
-      {
-        "family": "long_jobs",
-        "policy": "Priority",
-        "avg_waiting_time": 151.7066666667,
-        "avg_turnaround_time": 174.6466666667,
-        "avg_response_time": 151.7066666667,
-        "cpu_utilization": 99.6018269591,
-        "throughput": 0.043896836,
+        "avg_waiting_time": 4.9333333333,
+        "avg_turnaround_time": 7.4333333333,
+        "avg_response_time": 4.9333333333,
+        "cpu_utilization": 88.7612547697,
+        "throughput": 0.3569778666,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "mixed",
+        "family": "short_stream",
+        "policy": "Priority",
+        "avg_waiting_time": 4.8733333333,
+        "avg_turnaround_time": 7.3733333333,
+        "avg_response_time": 4.8733333333,
+        "cpu_utilization": 88.7612547697,
+        "throughput": 0.3569778666,
+        "context_switches": 14.0,
+        "context_switches_per_process": 0.9333333333
+      },
+      {
+        "family": "long_batch",
         "policy": "FCFS",
-        "avg_waiting_time": 179.94,
-        "avg_turnaround_time": 207.5733333333,
-        "avg_response_time": 179.94,
-        "cpu_utilization": 99.7001207692,
-        "throughput": 0.0366874542,
+        "avg_waiting_time": 252.94,
+        "avg_turnaround_time": 289.2466666667,
+        "avg_response_time": 252.94,
+        "cpu_utilization": 100.0,
+        "throughput": 0.0276389219,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "mixed",
+        "family": "long_batch",
         "policy": "SJF",
-        "avg_waiting_time": 132.7,
-        "avg_turnaround_time": 160.3333333333,
-        "avg_response_time": 132.7,
-        "cpu_utilization": 99.7001207692,
-        "throughput": 0.0366874542,
+        "avg_waiting_time": 219.3533333333,
+        "avg_turnaround_time": 255.66,
+        "avg_response_time": 219.3533333333,
+        "cpu_utilization": 100.0,
+        "throughput": 0.0276389219,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "mixed",
+        "family": "long_batch",
         "policy": "Round Robin",
-        "avg_waiting_time": 258.7333333333,
-        "avg_turnaround_time": 286.3666666667,
-        "avg_response_time": 25.08,
-        "cpu_utilization": 99.7001207692,
-        "throughput": 0.0366874542,
-        "context_switches": 108.0,
-        "context_switches_per_process": 7.2
+        "avg_waiting_time": 433.88,
+        "avg_turnaround_time": 470.1866666667,
+        "avg_response_time": 28.0,
+        "cpu_utilization": 100.0,
+        "throughput": 0.0276389219,
+        "context_switches": 141.2,
+        "context_switches_per_process": 9.4133333333
       },
       {
-        "family": "mixed",
+        "family": "long_batch",
         "policy": "Priority",
-        "avg_waiting_time": 185.4133333333,
-        "avg_turnaround_time": 213.0466666667,
-        "avg_response_time": 185.4133333333,
-        "cpu_utilization": 99.7001207692,
-        "throughput": 0.0366874542,
+        "avg_waiting_time": 251.8666666667,
+        "avg_turnaround_time": 288.1733333333,
+        "avg_response_time": 251.8666666667,
+        "cpu_utilization": 100.0,
+        "throughput": 0.0276389219,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "cpu_bursty",
+        "family": "interactive",
         "policy": "FCFS",
-        "avg_waiting_time": 242.5133333333,
-        "avg_turnaround_time": 277.68,
-        "avg_response_time": 242.5133333333,
-        "cpu_utilization": 99.9403149716,
-        "throughput": 0.0285994646,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 168.15,
+        "avg_turnaround_time": 179.645,
+        "avg_response_time": 168.15,
+        "cpu_utilization": 95.1145417059,
+        "throughput": 0.1230239473,
+        "context_switches": 19.0,
+        "context_switches_per_process": 0.95
       },
       {
-        "family": "cpu_bursty",
+        "family": "interactive",
         "policy": "SJF",
-        "avg_waiting_time": 205.96,
-        "avg_turnaround_time": 241.1266666667,
-        "avg_response_time": 205.96,
-        "cpu_utilization": 99.9403149716,
-        "throughput": 0.0285994646,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 53.22,
+        "avg_turnaround_time": 64.715,
+        "avg_response_time": 53.22,
+        "cpu_utilization": 95.1145417059,
+        "throughput": 0.1230239473,
+        "context_switches": 19.0,
+        "context_switches_per_process": 0.95
       },
       {
-        "family": "cpu_bursty",
+        "family": "interactive",
         "policy": "Round Robin",
-        "avg_waiting_time": 407.2266666667,
-        "avg_turnaround_time": 442.3933333333,
-        "avg_response_time": 25.8666666667,
-        "cpu_utilization": 99.9403149716,
-        "throughput": 0.0285994646,
-        "context_switches": 135.9,
-        "context_switches_per_process": 9.06
+        "avg_waiting_time": 34.68,
+        "avg_turnaround_time": 46.175,
+        "avg_response_time": 11.655,
+        "cpu_utilization": 95.1145417059,
+        "throughput": 0.1230239473,
+        "context_switches": 65.3,
+        "context_switches_per_process": 3.265
       },
       {
-        "family": "cpu_bursty",
+        "family": "interactive",
         "policy": "Priority",
-        "avg_waiting_time": 241.2533333333,
-        "avg_turnaround_time": 276.42,
-        "avg_response_time": 241.2533333333,
-        "cpu_utilization": 99.9403149716,
-        "throughput": 0.0285994646,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 128.045,
+        "avg_turnaround_time": 139.54,
+        "avg_response_time": 128.045,
+        "cpu_utilization": 95.1145417059,
+        "throughput": 0.1230239473,
+        "context_switches": 19.0,
+        "context_switches_per_process": 0.95
       },
       {
-        "family": "poisson_arrivals",
+        "family": "interactive_sparse",
         "policy": "FCFS",
-        "avg_waiting_time": 57.4733333333,
-        "avg_turnaround_time": 67.7666666667,
-        "avg_response_time": 57.4733333333,
-        "cpu_utilization": 99.8692810458,
-        "throughput": 0.098056492,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 126.615,
+        "avg_turnaround_time": 137.02,
+        "avg_response_time": 126.615,
+        "cpu_utilization": 99.0244707953,
+        "throughput": 0.1037718994,
+        "context_switches": 19.0,
+        "context_switches_per_process": 0.95
       },
       {
-        "family": "poisson_arrivals",
+        "family": "interactive_sparse",
         "policy": "SJF",
-        "avg_waiting_time": 40.06,
-        "avg_turnaround_time": 50.3533333333,
-        "avg_response_time": 40.06,
-        "cpu_utilization": 99.8692810458,
-        "throughput": 0.098056492,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 39.99,
+        "avg_turnaround_time": 50.395,
+        "avg_response_time": 39.99,
+        "cpu_utilization": 99.0244707953,
+        "throughput": 0.1037718994,
+        "context_switches": 19.0,
+        "context_switches_per_process": 0.95
       },
       {
-        "family": "poisson_arrivals",
+        "family": "interactive_sparse",
         "policy": "Round Robin",
-        "avg_waiting_time": 78.62,
-        "avg_turnaround_time": 88.9133333333,
-        "avg_response_time": 20.24,
-        "cpu_utilization": 99.8692810458,
-        "throughput": 0.098056492,
-        "context_switches": 43.0,
-        "context_switches_per_process": 2.8666666667
+        "avg_waiting_time": 23.32,
+        "avg_turnaround_time": 33.725,
+        "avg_response_time": 8.315,
+        "cpu_utilization": 99.0244707953,
+        "throughput": 0.1037718994,
+        "context_switches": 60.4,
+        "context_switches_per_process": 3.02
       },
       {
-        "family": "poisson_arrivals",
+        "family": "interactive_sparse",
         "policy": "Priority",
-        "avg_waiting_time": 56.5533333333,
-        "avg_turnaround_time": 66.8466666667,
-        "avg_response_time": 56.5533333333,
-        "cpu_utilization": 99.8692810458,
-        "throughput": 0.098056492,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
+        "avg_waiting_time": 89.205,
+        "avg_turnaround_time": 99.61,
+        "avg_response_time": 89.205,
+        "cpu_utilization": 99.0244707953,
+        "throughput": 0.1037718994,
+        "context_switches": 19.0,
+        "context_switches_per_process": 0.95
       },
       {
-        "family": "priority_skewed",
+        "family": "priority_aligned",
         "policy": "FCFS",
         "avg_waiting_time": 167.6466666667,
         "avg_turnaround_time": 193.2466666667,
@@ -849,7 +1249,7 @@
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "priority_skewed",
+        "family": "priority_aligned",
         "policy": "SJF",
         "avg_waiting_time": 119.22,
         "avg_turnaround_time": 144.82,
@@ -860,7 +1260,7 @@
         "context_switches_per_process": 0.9333333333
       },
       {
-        "family": "priority_skewed",
+        "family": "priority_aligned",
         "policy": "Round Robin",
         "avg_waiting_time": 231.6733333333,
         "avg_turnaround_time": 257.2733333333,
@@ -871,253 +1271,468 @@
         "context_switches_per_process": 6.7133333333
       },
       {
-        "family": "priority_skewed",
+        "family": "priority_aligned",
         "policy": "Priority",
-        "avg_waiting_time": 164.2466666667,
-        "avg_turnaround_time": 189.8466666667,
-        "avg_response_time": 164.2466666667,
+        "avg_waiting_time": 120.7133333333,
+        "avg_turnaround_time": 146.3133333333,
+        "avg_response_time": 120.7133333333,
         "cpu_utilization": 99.8896812482,
         "throughput": 0.0396477787,
+        "context_switches": 14.0,
+        "context_switches_per_process": 0.9333333333
+      },
+      {
+        "family": "priority_skewed",
+        "policy": "FCFS",
+        "avg_waiting_time": 166.7866666667,
+        "avg_turnaround_time": 192.2333333333,
+        "avg_response_time": 166.7866666667,
+        "cpu_utilization": 99.5001448644,
+        "throughput": 0.039690795,
+        "context_switches": 14.0,
+        "context_switches_per_process": 0.9333333333
+      },
+      {
+        "family": "priority_skewed",
+        "policy": "SJF",
+        "avg_waiting_time": 114.3866666667,
+        "avg_turnaround_time": 139.8333333333,
+        "avg_response_time": 114.3866666667,
+        "cpu_utilization": 99.5001448644,
+        "throughput": 0.039690795,
+        "context_switches": 14.0,
+        "context_switches_per_process": 0.9333333333
+      },
+      {
+        "family": "priority_skewed",
+        "policy": "Round Robin",
+        "avg_waiting_time": 220.1866666667,
+        "avg_turnaround_time": 245.6333333333,
+        "avg_response_time": 24.28,
+        "cpu_utilization": 99.5001448644,
+        "throughput": 0.039690795,
+        "context_switches": 99.8,
+        "context_switches_per_process": 6.6533333333
+      },
+      {
+        "family": "priority_skewed",
+        "policy": "Priority",
+        "avg_waiting_time": 166.9466666667,
+        "avg_turnaround_time": 192.3933333333,
+        "avg_response_time": 166.9466666667,
+        "cpu_utilization": 99.5001448644,
+        "throughput": 0.039690795,
+        "context_switches": 14.0,
+        "context_switches_per_process": 0.9333333333
+      },
+      {
+        "family": "quantum_sensitive",
+        "policy": "FCFS",
+        "avg_waiting_time": 49.63,
+        "avg_turnaround_time": 56.655,
+        "avg_response_time": 49.63,
+        "cpu_utilization": 99.4481710923,
+        "throughput": 0.1428185193,
+        "context_switches": 19.0,
+        "context_switches_per_process": 0.95
+      },
+      {
+        "family": "quantum_sensitive",
+        "policy": "SJF",
+        "avg_waiting_time": 36.335,
+        "avg_turnaround_time": 43.36,
+        "avg_response_time": 36.335,
+        "cpu_utilization": 99.4481710923,
+        "throughput": 0.1428185193,
+        "context_switches": 19.0,
+        "context_switches_per_process": 0.95
+      },
+      {
+        "family": "quantum_sensitive",
+        "policy": "Round Robin",
+        "avg_waiting_time": 67.855,
+        "avg_turnaround_time": 74.88,
+        "avg_response_time": 27.17,
+        "cpu_utilization": 99.4481710923,
+        "throughput": 0.1428185193,
+        "context_switches": 41.3,
+        "context_switches_per_process": 2.065
+      },
+      {
+        "family": "quantum_sensitive",
+        "policy": "Priority",
+        "avg_waiting_time": 49.685,
+        "avg_turnaround_time": 56.71,
+        "avg_response_time": 49.685,
+        "cpu_utilization": 99.4481710923,
+        "throughput": 0.1428185193,
+        "context_switches": 19.0,
+        "context_switches_per_process": 0.95
+      },
+      {
+        "family": "mixed",
+        "policy": "FCFS",
+        "avg_waiting_time": 177.7,
+        "avg_turnaround_time": 204.48,
+        "avg_response_time": 177.7,
+        "cpu_utilization": 99.974025974,
+        "throughput": 0.0382306189,
+        "context_switches": 14.0,
+        "context_switches_per_process": 0.9333333333
+      },
+      {
+        "family": "mixed",
+        "policy": "SJF",
+        "avg_waiting_time": 128.44,
+        "avg_turnaround_time": 155.22,
+        "avg_response_time": 128.44,
+        "cpu_utilization": 99.974025974,
+        "throughput": 0.0382306189,
+        "context_switches": 14.0,
+        "context_switches_per_process": 0.9333333333
+      },
+      {
+        "family": "mixed",
+        "policy": "Round Robin",
+        "avg_waiting_time": 245.5133333333,
+        "avg_turnaround_time": 272.2933333333,
+        "avg_response_time": 24.56,
+        "cpu_utilization": 99.974025974,
+        "throughput": 0.0382306189,
+        "context_switches": 104.0,
+        "context_switches_per_process": 6.9333333333
+      },
+      {
+        "family": "mixed",
+        "policy": "Priority",
+        "avg_waiting_time": 181.9333333333,
+        "avg_turnaround_time": 208.7133333333,
+        "avg_response_time": 181.9333333333,
+        "cpu_utilization": 99.974025974,
+        "throughput": 0.0382306189,
         "context_switches": 14.0,
         "context_switches_per_process": 0.9333333333
       }
     ],
     "policy_selection": [
       {
-        "family": "cpu_bursty",
+        "family": "interactive",
         "count_FCFS": 0,
-        "count_SJF": 20,
-        "count_Round Robin": 0,
+        "count_SJF": 2,
+        "count_Round Robin": 8,
         "count_Priority": 0,
         "share_FCFS": 0.0,
-        "share_SJF": 1.0,
-        "share_Round Robin": 0.0,
+        "share_SJF": 0.2,
+        "share_Round Robin": 0.8,
         "share_Priority": 0.0,
-        "workloads": 20,
-        "mean_reward": 0.1729203833
+        "workloads": 10,
+        "mean_reward": 0.4062735286
       },
       {
-        "family": "long_jobs",
+        "family": "interactive_sparse",
         "count_FCFS": 0,
-        "count_SJF": 20,
+        "count_SJF": 0,
+        "count_Round Robin": 10,
+        "count_Priority": 0,
+        "share_FCFS": 0.0,
+        "share_SJF": 0.0,
+        "share_Round Robin": 1.0,
+        "share_Priority": 0.0,
+        "workloads": 10,
+        "mean_reward": 0.4396780589
+      },
+      {
+        "family": "long_batch",
+        "count_FCFS": 0,
+        "count_SJF": 10,
         "count_Round Robin": 0,
         "count_Priority": 0,
         "share_FCFS": 0.0,
         "share_SJF": 1.0,
         "share_Round Robin": 0.0,
         "share_Priority": 0.0,
-        "workloads": 20,
-        "mean_reward": 0.2435525933
+        "workloads": 10,
+        "mean_reward": 0.1623818195
       },
       {
         "family": "mixed",
         "count_FCFS": 0,
-        "count_SJF": 20,
+        "count_SJF": 10,
         "count_Round Robin": 0,
         "count_Priority": 0,
         "share_FCFS": 0.0,
         "share_SJF": 1.0,
         "share_Round Robin": 0.0,
         "share_Priority": 0.0,
-        "workloads": 20,
-        "mean_reward": 0.2217259876
+        "workloads": 10,
+        "mean_reward": 0.2157606102
       },
       {
-        "family": "poisson_arrivals",
+        "family": "priority_aligned",
         "count_FCFS": 0,
-        "count_SJF": 20,
+        "count_SJF": 10,
         "count_Round Robin": 0,
         "count_Priority": 0,
         "share_FCFS": 0.0,
         "share_SJF": 1.0,
         "share_Round Robin": 0.0,
         "share_Priority": 0.0,
-        "workloads": 20,
-        "mean_reward": 0.2115819171
+        "workloads": 10,
+        "mean_reward": 0.1754578257
       },
       {
         "family": "priority_skewed",
         "count_FCFS": 0,
-        "count_SJF": 20,
+        "count_SJF": 10,
         "count_Round Robin": 0,
         "count_Priority": 0,
         "share_FCFS": 0.0,
         "share_SJF": 1.0,
         "share_Round Robin": 0.0,
         "share_Priority": 0.0,
-        "workloads": 20,
-        "mean_reward": 0.2259077305
+        "workloads": 10,
+        "mean_reward": 0.2336561262
       },
       {
-        "family": "short_jobs",
+        "family": "quantum_sensitive",
         "count_FCFS": 0,
-        "count_SJF": 20,
+        "count_SJF": 10,
         "count_Round Robin": 0,
         "count_Priority": 0,
         "share_FCFS": 0.0,
         "share_SJF": 1.0,
         "share_Round Robin": 0.0,
         "share_Priority": 0.0,
-        "workloads": 20,
-        "mean_reward": 0.3226510058
+        "workloads": 10,
+        "mean_reward": 0.1949101764
+      },
+      {
+        "family": "short_batch",
+        "count_FCFS": 0,
+        "count_SJF": 10,
+        "count_Round Robin": 0,
+        "count_Priority": 0,
+        "share_FCFS": 0.0,
+        "share_SJF": 1.0,
+        "share_Round Robin": 0.0,
+        "share_Priority": 0.0,
+        "workloads": 10,
+        "mean_reward": 0.1554375416
+      },
+      {
+        "family": "short_stream",
+        "count_FCFS": 0,
+        "count_SJF": 10,
+        "count_Round Robin": 0,
+        "count_Priority": 0,
+        "share_FCFS": 0.0,
+        "share_SJF": 1.0,
+        "share_Round Robin": 0.0,
+        "share_Priority": 0.0,
+        "workloads": 10,
+        "mean_reward": 0.1290155115
       }
     ],
     "state_occupancy": [
       {
-        "family": "cpu_bursty",
-        "workloads": 20,
-        "distinct_states": 2,
-        "mean_burst_profile": 35.4,
-        "mean_burst_dispersion": 0.2492967158,
-        "mean_offered_load": 39.0469447219,
-        "mean_priority_spread": 1.4402169146,
-        "mean_reward": 0.1729203833
+        "family": "interactive",
+        "workloads": 10,
+        "distinct_states": 6,
+        "states_visited_in_training": 6,
+        "workloads_in_unvisited_states": 0,
+        "mean_burst_profile": 1.6,
+        "mean_burst_dispersion": 2.0889439687,
+        "mean_long_job_share": 0.7886094996,
+        "mean_arrival_concentration": 0.14,
+        "mean_offered_load": 4.9574783779,
+        "mean_priority_spread": 1.3418340832,
+        "mean_priority_burst_alignment": -0.0543403879,
+        "mean_reward": 0.4062735286
       },
       {
-        "family": "long_jobs",
-        "workloads": 20,
-        "distinct_states": 2,
-        "mean_burst_profile": 26.0,
-        "mean_burst_dispersion": 0.658283036,
-        "mean_offered_load": 19.8127142044,
-        "mean_priority_spread": 1.3345768335,
-        "mean_reward": 0.2435525933
+        "family": "interactive_sparse",
+        "workloads": 10,
+        "distinct_states": 4,
+        "states_visited_in_training": 4,
+        "workloads_in_unvisited_states": 0,
+        "mean_burst_profile": 1.8,
+        "mean_burst_dispersion": 2.4232824672,
+        "mean_long_job_share": 0.8613876834,
+        "mean_arrival_concentration": 0.1,
+        "mean_offered_load": 2.0112383815,
+        "mean_priority_spread": 1.3598511826,
+        "mean_priority_burst_alignment": 0.0293333544,
+        "mean_reward": 0.4396780589
+      },
+      {
+        "family": "long_batch",
+        "workloads": 10,
+        "distinct_states": 3,
+        "states_visited_in_training": 3,
+        "workloads_in_unvisited_states": 0,
+        "mean_burst_profile": 36.0,
+        "mean_burst_dispersion": 0.2288249243,
+        "mean_long_job_share": 1.0,
+        "mean_arrival_concentration": 1.0,
+        "mean_offered_load": 544.6,
+        "mean_priority_spread": 1.3267265521,
+        "mean_priority_burst_alignment": 0.0768239606,
+        "mean_reward": 0.1623818195
       },
       {
         "family": "mixed",
-        "workloads": 20,
-        "distinct_states": 4,
-        "mean_burst_profile": 27.2,
-        "mean_burst_dispersion": 0.4948049321,
-        "mean_offered_load": 24.0640187479,
-        "mean_priority_spread": 1.3739206826,
-        "mean_reward": 0.2217259876
+        "workloads": 10,
+        "distinct_states": 5,
+        "states_visited_in_training": 5,
+        "workloads_in_unvisited_states": 0,
+        "mean_burst_profile": 28.7,
+        "mean_burst_dispersion": 0.5235559297,
+        "mean_long_job_share": 0.9101197216,
+        "mean_arrival_concentration": 0.18,
+        "mean_offered_load": 21.7211361738,
+        "mean_priority_spread": 1.4619925958,
+        "mean_priority_burst_alignment": -0.0602915467,
+        "mean_reward": 0.2157606102
       },
       {
-        "family": "poisson_arrivals",
-        "workloads": 20,
-        "distinct_states": 5,
-        "mean_burst_profile": 10.4,
-        "mean_burst_dispersion": 0.5211026903,
-        "mean_offered_load": 5.9061060485,
-        "mean_priority_spread": 1.3169790628,
-        "mean_reward": 0.2115819171
+        "family": "priority_aligned",
+        "workloads": 10,
+        "distinct_states": 2,
+        "states_visited_in_training": 2,
+        "workloads_in_unvisited_states": 0,
+        "mean_burst_profile": 24.1,
+        "mean_burst_dispersion": 0.5366147335,
+        "mean_long_job_share": 0.9050421959,
+        "mean_arrival_concentration": 0.2066666667,
+        "mean_offered_load": 21.2235599415,
+        "mean_priority_spread": 1.4142135624,
+        "mean_priority_burst_alignment": 0.9618126299,
+        "mean_reward": 0.1754578257
       },
       {
         "family": "priority_skewed",
-        "workloads": 20,
-        "distinct_states": 3,
+        "workloads": 10,
+        "distinct_states": 7,
+        "states_visited_in_training": 7,
+        "workloads_in_unvisited_states": 0,
         "mean_burst_profile": 24.1,
-        "mean_burst_dispersion": 0.5366147335,
-        "mean_offered_load": 21.2235599415,
-        "mean_priority_spread": 0.9953883341,
-        "mean_reward": 0.2259077305
+        "mean_burst_dispersion": 0.5748143757,
+        "mean_long_job_share": 0.8938307374,
+        "mean_arrival_concentration": 0.1866666667,
+        "mean_offered_load": 22.4940999558,
+        "mean_priority_spread": 1.0171770621,
+        "mean_priority_burst_alignment": 0.0699517667,
+        "mean_reward": 0.2336561262
       },
       {
-        "family": "short_jobs",
-        "workloads": 20,
+        "family": "quantum_sensitive",
+        "workloads": 10,
+        "distinct_states": 3,
+        "states_visited_in_training": 3,
+        "workloads_in_unvisited_states": 0,
+        "mean_burst_profile": 7.4,
+        "mean_burst_dispersion": 0.449206287,
+        "mean_long_job_share": 0.0,
+        "mean_arrival_concentration": 0.125,
+        "mean_offered_load": 4.9425223499,
+        "mean_priority_spread": 1.3712925288,
+        "mean_priority_burst_alignment": 0.0338167179,
+        "mean_reward": 0.1949101764
+      },
+      {
+        "family": "short_batch",
+        "workloads": 10,
         "distinct_states": 4,
-        "mean_burst_profile": 3.5,
-        "mean_burst_dispersion": 1.2382855734,
-        "mean_offered_load": 7.2195166839,
-        "mean_priority_spread": 1.3862598417,
-        "mean_reward": 0.3226510058
+        "states_visited_in_training": 4,
+        "workloads_in_unvisited_states": 0,
+        "mean_burst_profile": 2.4,
+        "mean_burst_dispersion": 0.4534863729,
+        "mean_long_job_share": 0.0,
+        "mean_arrival_concentration": 1.0,
+        "mean_offered_load": 37.3,
+        "mean_priority_spread": 1.362914989,
+        "mean_priority_burst_alignment": 0.0240452218,
+        "mean_reward": 0.1554375416
+      },
+      {
+        "family": "short_stream",
+        "workloads": 10,
+        "distinct_states": 2,
+        "states_visited_in_training": 2,
+        "workloads_in_unvisited_states": 0,
+        "mean_burst_profile": 2.4,
+        "mean_burst_dispersion": 0.4571431209,
+        "mean_long_job_share": 0.0,
+        "mean_arrival_concentration": 0.16,
+        "mean_offered_load": 1.3881284999,
+        "mean_priority_spread": 1.3406238223,
+        "mean_priority_burst_alignment": 0.057722667,
+        "mean_reward": 0.1290155115
       }
     ],
-    "policy_summary_adaptive_learned_quantum": [
+    "oracle_agreement": [
       {
-        "policy": "Adaptive (Q-Learning)",
-        "avg_waiting_time": 103.5844444444,
-        "avg_turnaround_time": 125.3677777778,
-        "avg_response_time": 103.5844444444,
-        "cpu_utilization": 99.7623245366,
-        "throughput": 0.0609162581,
-        "context_switches": 14.0,
-        "context_switches_per_process": 0.9333333333
-      }
-    ],
-    "policy_summary_round_robin_learned_quantum": [
-      {
-        "policy": "Round Robin (learned quantum)",
-        "avg_waiting_time": 199.5311111111,
-        "avg_turnaround_time": 221.3144444444,
-        "avg_response_time": 14.1388888889,
-        "cpu_utilization": 99.7623245366,
-        "throughput": 0.0609162581,
-        "context_switches": 152.5,
-        "context_switches_per_process": 10.1666666667
-      }
-    ],
-    "round_robin_classic_vs_learned_quantum": [
-      {
-        "policy": "Round Robin",
-        "metric": "avg_waiting_time",
-        "mean_baseline": 199.1344444444,
-        "mean_adaptive": 199.5311111111,
-        "mean_difference": -0.3966666667,
-        "mean_ratio": 0.9990847158,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "family": "interactive",
+        "workloads": 10,
+        "matches": 8,
+        "agreement_rate": 0.8,
+        "mean_reward_gap_to_oracle": -0.0221430812
       },
       {
-        "policy": "Round Robin",
-        "metric": "avg_turnaround_time",
-        "mean_baseline": 220.9177777778,
-        "mean_adaptive": 221.3144444444,
-        "mean_difference": -0.3966666667,
-        "mean_ratio": 0.9991051958,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "family": "interactive_sparse",
+        "workloads": 10,
+        "matches": 6,
+        "agreement_rate": 0.6,
+        "mean_reward_gap_to_oracle": -0.0194152048
       },
       {
-        "policy": "Round Robin",
-        "metric": "avg_response_time",
-        "mean_baseline": 22.3133333333,
-        "mean_adaptive": 14.1388888889,
-        "mean_difference": 8.1744444444,
-        "mean_ratio": 1.6746161824,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "family": "long_batch",
+        "workloads": 10,
+        "matches": 10,
+        "agreement_rate": 1.0,
+        "mean_reward_gap_to_oracle": 0.0
       },
       {
-        "policy": "Round Robin",
-        "metric": "cpu_utilization",
-        "mean_baseline": 99.7623245366,
-        "mean_adaptive": 99.7623245366,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "family": "mixed",
+        "workloads": 10,
+        "matches": 10,
+        "agreement_rate": 1.0,
+        "mean_reward_gap_to_oracle": 0.0
       },
       {
-        "policy": "Round Robin",
-        "metric": "throughput",
-        "mean_baseline": 0.0609162581,
-        "mean_adaptive": 0.0609162581,
-        "mean_difference": 0.0,
-        "mean_ratio": 1.0,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "family": "priority_aligned",
+        "workloads": 10,
+        "matches": 10,
+        "agreement_rate": 1.0,
+        "mean_reward_gap_to_oracle": 0.0
       },
       {
-        "policy": "Round Robin",
-        "metric": "context_switches",
-        "mean_baseline": 85.7833333333,
-        "mean_adaptive": 152.5,
-        "mean_difference": -66.7166666667,
-        "mean_ratio": 0.6713570835,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "family": "priority_skewed",
+        "workloads": 10,
+        "matches": 10,
+        "agreement_rate": 1.0,
+        "mean_reward_gap_to_oracle": 0.0
       },
       {
-        "policy": "Round Robin",
-        "metric": "context_switches_per_process",
-        "mean_baseline": 5.7188888889,
-        "mean_adaptive": 10.1666666667,
-        "mean_difference": -4.4477777778,
-        "mean_ratio": 0.6713570835,
-        "workloads": 60,
-        "ratio_workloads": 60
+        "family": "quantum_sensitive",
+        "workloads": 10,
+        "matches": 10,
+        "agreement_rate": 1.0,
+        "mean_reward_gap_to_oracle": 0.0
+      },
+      {
+        "family": "short_batch",
+        "workloads": 10,
+        "matches": 10,
+        "agreement_rate": 1.0,
+        "mean_reward_gap_to_oracle": 0.0
+      },
+      {
+        "family": "short_stream",
+        "workloads": 10,
+        "matches": 10,
+        "agreement_rate": 1.0,
+        "mean_reward_gap_to_oracle": 0.0
       }
     ]
   },
@@ -1135,6 +1750,5 @@
     "SJF",
     "Round Robin",
     "Priority"
-  ],
-  "round_robin_learned_quantum_workloads": 60
+  ]
 }

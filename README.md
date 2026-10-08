@@ -6,18 +6,26 @@ First-Come First-Served, Shortest Job First, Round Robin or Priority — for tha
 The four policies are implemented independently and correctly; the agent is a
 policy-selection layer on top of them, never a replacement for them.
 
-Everything reported under [Measured results](#17-results) was produced by running this
-code.  No value in this repository was entered by hand.
+The core contribution is:
+
+```
+Workload → State → Q-Learning → Select FCFS / SJF / Round Robin / Priority
+        → Evaluate → Reward → Learn
+```
+
+Everything reported under [Results](#17-results) was produced by running this code
+(`python3 main.py experiment`, ~7 s).  No value in this repository was entered by hand.
 
 ---
 
 ## 1. Problem statement
 
 Conventional CPU scheduling policies are each optimal in a different regime.  Non-preemptive
-Shortest Job First minimises mean waiting time when jobs can be compared, but it starves long
-jobs and gives no responsiveness to short ones.  Round Robin bounds response time but pays for
-it in context switches and in a higher mean turnaround time.  Priority scheduling respects the
-importance of jobs but ignores their length, and FCFS is order-fair and otherwise weak.
+Shortest Job First minimises mean waiting time when jobs can be compared, but it gives no
+responsiveness to short jobs that arrive behind a long one.  Round Robin bounds response time
+but pays for it in context switches and in a higher mean waiting time.  Priority scheduling
+respects the importance of jobs but ignores their length, and FCFS is order-fair and otherwise
+weak.
 
 A real workload mix contains all of these regimes.  The question this project asks is
 therefore: *given a workload, can a reinforcement-learning agent learn which conventional
@@ -37,21 +45,30 @@ policy serves it best, using only information available before the workload runs
 1. Implement FCFS, SJF, Round Robin (configurable quantum) and non-preemptive Priority
    scheduling correctly, deterministically and independently.
 2. Compute the six required metrics with standard definitions.
-3. Generate reproducible synthetic workloads from several workload conditions.
+3. Generate reproducible synthetic workloads from several workload conditions that span the
+   regimes in which the four policies trade off.
 4. Build a tabular Q-learning agent that selects a policy from a discretised workload state.
-5. Compare the adaptive scheduler with each conventional policy **on identical workloads**.
-6. Report only measured results, with the configuration and seeds recorded.
+5. Verify, **before training**, which policy each workload class actually favours.
+6. Compare the adaptive scheduler with each conventional policy **on identical, held-out
+   workloads**.
+7. Report only measured results, with the configuration and seeds recorded.
 
 ## 4. Scope
 
 **In scope:** single-CPU simulation; abstract integer time units; synthetic workloads;
-the four policies above; tabular Q-learning over the four actions; a documented quantum
-controller for Round Robin; metric computation, comparison tables and Matplotlib figures.
+the four policies above; tabular Q-learning over the four actions; metric computation,
+comparison tables and Matplotlib figures.
 
 **Out of scope (not implemented, not claimed):** Linux kernel integration, multi-core or
 distributed scheduling, real-time scheduling, energy-aware scheduling, cloud/edge
-scheduling, deep RL (DQN, PPO, actor-critic), databases, REST APIs, web front ends, Docker
-or Kubernetes, and any use as a production scheduler.
+scheduling, deep RL (DQN, PPO, actor-critic) or any other learning algorithm, real process
+traces, databases, REST APIs, web front ends, Docker or Kubernetes, and any use as a
+production scheduler.
+
+An earlier version of this project also contained a *Round-Robin quantum controller*
+(a second learning agent that multiplied the Round-Robin quantum).  That extension was
+**removed**: it was not part of the original four-policy adaptive scheduler.  The
+Round-Robin **quantum parameter** (4 time units) stays — it is part of Round Robin.
 
 ## 5. System architecture
 
@@ -62,7 +79,7 @@ OS-Project/
 ├── errors.py                   ValidationError / ConfigurationError
 ├── workload/
 │   ├── models.py               Process, Workload, ExecutionSlice, ProcessOutcome, ScheduleResult
-│   └── generator.py            WorkloadGenerator: six workload conditions
+│   └── generator.py            WorkloadGenerator: nine workload conditions
 ├── scheduler/
 │   ├── base.py                 Timeline, SchedulingPolicy, shared non-preemptive engine
 │   ├── fcfs.py  sjf.py  round_robin.py  priority.py
@@ -73,14 +90,14 @@ OS-Project/
 │   ├── state.py                StateSnapshot, binners, StateEncoder, observe_workload_state
 │   ├── reward.py               reward equation and its breakdown
 │   ├── q_learning.py           QLearningAgent + epsilon schedule
-│   ├── quantum_controller.py   Round-Robin quantum controller (documented extension)
 │   └── adaptive.py             AdaptiveScheduler: the learning loop
 ├── experiments/
+│   ├── verify_classes.py       pre-training verification of the workload classes
 │   ├── train.py                training loop and history
 │   ├── evaluate.py             evaluation protocol and integrity checks
 │   └── run_experiment.py       the full study, artefact writing
 ├── visualization/plots.py      Matplotlib figures (Agg backend)
-├── tests/                      239 tests
+├── tests/                      296 tests
 ├── docs/
 │   ├── PHASE1_REQUIREMENTS_AUDIT.md   requirements audit performed before coding
 │   └── DESIGN_AND_CHOICES.md          every open decision, documented
@@ -108,7 +125,7 @@ A context switch is a change of the running process; the first dispatch is not c
 process that keeps the CPU across a quantum boundary is not switched out.  Switching is
 costless by default (`switching_cost = 0`) and merely counted; a positive cost is supported
 and tested.  Full semantics — including the arrival convention at quantum boundaries — are in
-[`docs/DESIGN_AND_CHOICES.md`](docs/DESIGN_AND_CHOICES.md) §2–§3.
+[`docs/DESIGN_AND_CHOICES.md`](docs/DESIGN_AND_CHOICES.md) §2.
 
 ## 7. Q-Learning approach
 
@@ -120,36 +137,60 @@ workload -> observe state -> ε-greedy action -> run that policy -> metrics -> r
 four conventional policies -> Q(s,a) += α·(reward − Q(s,a)) -> next episode
 ```
 
-| Setting | Value |
-|---|---|
-| α (learning rate) | 0.1 |
-| γ (discount factor) | 0.9 (unused in value: episodes are single terminal transitions) |
-| ε (exploration) | 1.0 → 0.05, multiplicative decay 0.995 per episode |
-| Q₀ (initial value) | 0.05, optimistic so unexplored actions get tried |
-| Training episodes | 600, workload conditions cycled |
-| Evaluation | greedy (`ε = 0`), Q-table compared before/after and required to be unchanged |
+Training (`run_training_episode`) explores with the ε schedule and updates the Q-table;
+evaluation (`run_evaluation`) is greedy and provably never updates it (the Q-table and the
+visit counts are compared before and after, and the run fails if they changed).
 
-The agent is genuinely table-driven: the test suite verifies that changing the Q-table changes
-the evaluated decision.
+## 8. Workload conditions
 
-## 8. State representation
+Nine synthetic classes, generated by declared rules (never hand-tuned per result).  The
+classes were rebuilt so that the regimes in which the four policies trade off are actually
+present; the pre-training verification (§16.1) measures which policy each class favours
+**before** the agent is trained.
 
-Four pre-execution workload characteristics, discretised into 3 bins each → **81 states**.
-CPU utilisation, queue length and waiting time cannot form the state because they are
-*measured* quantities (the decision precedes execution), so their pre-execution analogues are
-used; this substitution is documented in `docs/DESIGN_AND_CHOICES.md` §5.
+| Class | Jobs | Bursts | Arrivals | Priorities | Reward-optimal policy (measured) |
+|---|---|---|---|---|---|
+| `short_batch` | 15 | uniform 1–4 | batch (all at t = 0) | uniform 1–5 | **SJF** (100% of probes) |
+| `short_stream` | 15 | uniform 1–4 | uniform over [0, 30] | uniform 1–5 | **SJF** (100%) |
+| `long_batch` | 15 | uniform 20–50 | batch (all at t = 0) | uniform 1–5 | **SJF** (100%) |
+| `interactive` | 20 | 90% short 1–2, 10% long 60–100 | long jobs in [0, 2], short jobs over [0, 50] | uniform 1–5 | **Round Robin** (68%) |
+| `interactive_sparse` | 20 | 90% short 1–2, 10% long 60–100 | long jobs in [0, 2], short jobs over [0, 110] | uniform 1–5 | **Round Robin** (60%) |
+| `priority_aligned` | 15 | uniform 1–50 | uniform over [0, 20] | by burst rank: shortest = highest priority | **SJF** (100%) |
+| `priority_skewed` | 15 | uniform 1–50 | uniform over [0, 20] | 70% in the band 1–2 | **SJF** (100%) |
+| `quantum_sensitive` | 20 | uniform 2–12 (straddles the quantum 4) | uniform over [0, 30] | uniform 1–5 | **SJF** (100%) |
+| `mixed` | 15 | uniform 1–50 | uniform over [0, 20] | uniform 1–5 | **SJF** (100%) |
+
+The mechanism that separates SJF from Round Robin is **whether short jobs arrive while a
+long job is running**: in the interactive classes a few long background jobs are released at
+the head of the window while very short jobs keep streaming in, so the non-preemptive
+policies block behind a long job and Round Robin's preemption wins waiting time as well as
+response time.  The control classes (`short_stream`, `quantum_sensitive`) have staggered
+arrivals but no long jobs: Round Robin degenerates to FCFS or pays heavily in context
+switches, and SJF wins.  The priority classes test that the agent does not learn the naive
+"priorities present → pick Priority" rule.
+
+## 9. State representation
+
+Seven **pre-execution** workload characteristics, discretised into 3 bins each →
+**2187 states**.  CPU utilisation, queue length and waiting time cannot form the state
+because they are *measured* quantities (the decision precedes execution), so their
+pre-execution analogues are used; this substitution is documented in
+[`docs/DESIGN_AND_CHOICES.md`](docs/DESIGN_AND_CHOICES.md) §4.
 
 | Variable | Meaning | Bins (low → high) |
 |---|---|---|
-| `burst_profile` | median burst time | < 3.68, 3.68–13.6, ≥ 13.6 |
-| `burst_dispersion` | coefficient of variation of bursts | < 0.5, 0.5–1.0, ≥ 1.0 |
-| `offered_load` | total burst time ÷ `max(1, arrival span)` | < 2.46, 2.46–12.1, ≥ 12.1 |
+| `burst_profile` | median burst time (log bins) | < 4.64, 4.64–21.5, ≥ 21.5 |
+| `burst_dispersion` | coefficient of variation of bursts | < 1.0, 1.0–2.0, ≥ 2.0 |
+| `long_job_share` | share of total burst time from jobs ≥ 16 (= 4 × quantum) | < ⅓, ⅓–⅔, ≥ ⅔ |
+| `arrival_concentration` | fraction of jobs at the modal arrival time | < ⅓, ⅓–⅔, ≥ ⅔ |
+| `offered_load` | total burst time ÷ `max(1, arrival span)` (log bins) | < 2.46, 2.46–12.1, ≥ 12.1 |
 | `priority_spread` | σ of priorities | < 0.667, 0.667–1.333, ≥ 1.333 |
+| `priority_burst_alignment` | Pearson correlation of priority number and burst time | < −⅓, −⅓–⅓, ≥ ⅓ |
 
 Encoded as a mixed-radix index with `burst_profile` most significant.  The state contains no
 scheduling result and no metric, so it cannot leak the outcome of a decision.
 
-## 9. Action space
+## 10. Action space
 
 | Action | Policy |
 |---|---|
@@ -158,7 +199,7 @@ scheduling result and no metric, so it cannot leak the outcome of a decision.
 | 2 | Round Robin |
 | 3 | Priority |
 
-## 10. Reward function
+## 11. Reward function
 
 ```
 term_m = min(2.0, metric_m / reference_m)      reference_m = mean of metric m over the four
@@ -170,10 +211,15 @@ costs    : waiting 0.30, turnaround 0.25, response 0.20, context switches per pr
 ```
 
 `reward = 0` means "exactly as good as the average conventional policy on this workload";
-positive means better.  Weights were declared before the experiment and not tuned afterwards.
-The quantum controller uses the same equation with classic Round Robin as its reference.
+positive means better.  Weights were declared before the first experiment and **not**
+changed when the workload classes and the state were redesigned — the redesign changed
+*where* the policies differ, not what "better" means
+([`docs/DESIGN_AND_CHOICES.md`](docs/DESIGN_AND_CHOICES.md) §5).  A structural
+consequence, measured and reported rather than engineered around: because the reward uses
+unweighted means, **Priority can at best tie SJF** and **FCFS is essentially never** the
+reward-argmax (§17.6).
 
-## 11. Metrics
+## 12. Metrics
 
 | Metric | Definition |
 |---|---|
@@ -184,7 +230,7 @@ The quantum controller uses the same equation with classic Round Robin as its re
 | Throughput | `processes / total elapsed time` |
 | Context switches | changes of the running process; also reported per process |
 
-## 12. Installation
+## 13. Installation
 
 Python 3.10+ is required (3.11 was used).  Dependencies: NumPy, pandas, Matplotlib, pytest.
 
@@ -196,251 +242,258 @@ pip install -r requirements.txt
 On a Debian/Ubuntu system with an externally managed Python, `pip install --break-system-
 packages -r requirements.txt` also works, at the cost of installing into the system Python.
 
-## 13. Usage
+## 14. Usage
 
 ```bash
-python3 main.py experiment     # train, evaluate, write tables and figures (default)
-python3 main.py train          # train only and print the training history
-python3 main.py experiment --no-figures --results-dir /tmp/results --figures-dir /tmp/figures
+python3 main.py experiment                 # verify → train → evaluate → tabulate → plot
+python3 main.py train                      # train only, print the training history
+python3 main.py experiment --no-figures    # skip the figures
+python3 main.py experiment --results-dir my_results --figures-dir my_figures
 ```
 
-Intermediate results can also be produced from Python:
+`experiment` runs the whole study in a fixed order and writes every artefact:
 
-```python
-from config import build_default_config
-from experiments.train import train
-from experiments.evaluate import evaluate
-from rl.state import observe_workload_state
-from workload.generator import WorkloadGenerator
-
-config = build_default_config()
-generator = WorkloadGenerator(config.families)
-training = train(config, generator=generator)
-evaluation = evaluate(config, training, generator=generator)
-
-snapshot = observe_workload_state(generator.generate("cpu_bursty", 12345))
-print(snapshot)                                    # raw state variables
-print(training.encoder.encode(snapshot))           # discretised state index
-print(training.agent.greedy_action(training.encoder.encode(snapshot)))  # selected action
+```
+results/config.json              exact configuration of the run (all hyperparameters, seeds)
+results/class_verification.json  pre-training verification of the workload classes
+results/training_history.json    per-episode training record
+results/q_table.json             the learned Q-table with state bins and visit counts
+results/workloads.csv            every evaluated workload and its fingerprint
+results/metrics.csv              one row per (workload, scheduler, regime)
+results/decisions.csv            one row per adaptive decision (incl. reward-argmax comparison)
+results/summary.json             all tables and headline numbers
+figures/*.png                    six figures
 ```
 
-## 14. Testing
+## 15. Testing
 
 ```bash
-python3 -m pytest -q
+python3 -m pytest -q          # 296 tests, ~17 s
 ```
 
-**239 tests, all passing** (~6 s).  They cover workload validation, the four schedulers against
-hand-computed schedules, metric definitions, state construction and discretisation, the reward
-equation, Q-table updates (verified numerically against the update rule), ε-greedy selection
-and its reproducibility, the quantum controller, the adaptive scheduler (training updates the
-table; evaluation provably does not), the experiment pipeline (identical workloads, disjoint
-training/evaluation sets, artefact writing, rerun equality) and the command-line interface.
+The suite covers: the four schedulers' correctness (hand-computed traces, invariants,
+edge cases — unchanged since the first version); metric definitions; workload generation
+rules (batch-head arrivals, long-mode bound, burst-aligned priorities); state construction
+and discretisation (including that the interactive classes occupy states disjoint from the
+no-long-job control classes); the reward arithmetic and validation; the Q-learning agent;
+the adaptive scheduler (learning, greedy evaluation, reproducibility); the pre-training
+verification (structure, stream disjointness, and the design property that the default
+classes have at least two distinct modal winners); the experiment design (quantum
+controller removed, reward weights unchanged, workload-aware selection end-to-end,
+held-out evaluation, identical workloads for all baselines, state coverage); the
+comparison tables; and the full pipeline (artefacts, byte-identical re-runs, CLI).
 
-## 15. Experiment reproduction
+## 16. Experiment protocol
 
-```bash
-python3 main.py experiment
+```
+1. VERIFY (pre-training)   225 probe workloads (25 per class, seed 777): run all four
+                           policies on each, compute every action's reward, record the
+                           reward-argmax per class, and measure whether the reward-argmax
+                           is a consistent function of the encoded state.
+2. TRAIN                   5400 episodes (600 per class, seed 42), one workload per episode.
+3. EVALUATE                90 held-out workloads (10 per class, seed 2024): all four
+                           baselines + the greedy adaptive scheduler on identical workloads.
 ```
 
-This is the single command that reproduces the study.  It uses the frozen configuration in
-`config.py` (no hyperparameter can be overridden from the command line), and writes:
+Three master seeds, all distinct (enforced by configuration validation): training 42,
+evaluation 2024, verification 777.  Runtime integrity checks (the run fails loudly if any is
+violated): no evaluation workload was used during training; the Q-table and visit counts
+are unchanged by evaluation; every evaluation decision is greedy; all schedulers of one
+workload carry the same fingerprint; the adaptive scheduler's metrics equal the chosen
+baseline's metrics on the same workload.
 
-| Artefact | Content |
-|---|---|
-| `results/config.json` | every hyperparameter, quantum, workload rule, seed and metric list |
-| `results/training_history.json` | per-episode family, workload fingerprint, state, action, reward, ε |
-| `results/q_table.json` | the learned Q-table with state bins and visit counts |
-| `results/workloads.csv` | the 60 evaluated workloads and their fingerprints |
-| `results/metrics.csv` | one row per (workload, scheduler, regime) — 420 rows |
-| `results/decisions.csv` | one row per adaptive decision with its state and reward |
-| `results/summary.json` | every table quoted below |
-| `figures/*.png` | seven figures, all built from the rows above |
+### 16.1 Pre-training verification — do the classes favour different policies?
 
-Configuration: 600 training episodes (seed 42) over six workload conditions; evaluation
-10 repetitions × 6 conditions = 60 workloads (seed 2024, disjoint from training);
-Round-Robin quantum 4; switching cost 0; 81 states × 4 actions; α 0.1, γ 0.9, ε 1.0 → 0.05.
+Measured on 225 probe workloads **before** any training (winner = reward-argmax):
 
-Reproducibility was verified by running the pipeline twice into separate directories and
-comparing `metrics.csv`, `decisions.csv` and `q_table.json` byte for byte (a test does this
-on a reduced configuration; the committed files are from a single run of the full one).
+| Class | FCFS | SJF | Round Robin | Priority | Modal winner |
+|---|---|---|---|---|---|
+| `short_batch` | 0% | **100%** | 0% | 0% | SJF |
+| `short_stream` | 0% | **100%** | 0% | 0% | SJF |
+| `long_batch` | 0% | **100%** | 0% | 0% | SJF |
+| `interactive` | 0% | 32% | **68%** | 0% | **Round Robin** |
+| `interactive_sparse` | 16% | 24% | **60%** | 0% | **Round Robin** |
+| `priority_aligned` | 0% | **100%** | 0% | 0% | SJF |
+| `priority_skewed` | 0% | **100%** | 0% | 0% | SJF |
+| `quantum_sensitive` | 0% | **100%** | 0% | 0% | SJF |
+| `mixed` | 0% | **100%** | 0% | 0% | SJF |
 
-## 16. Expected outcome vs measured result
-
-Stated explicitly, because the two must not be confused:
-
-* **Expected before running:** the agent would choose *different* policies for different
-  workload conditions (the premise of workload-aware selection), and would therefore beat
-  the conventional baselines on the metrics it is rewarded for.  Theory also predicts that
-  non-preemptive SJF minimises mean waiting time for a batch and that Round Robin trades
-  turnaround time for response time.
-* **Measured:** the agent converged to SJF and selected it for **all 120 evaluated
-  decisions**, i.e. it is adaptive in behaviour but *not* condition-dependent here; it beats
-  FCFS, Priority and Round Robin on waiting and turnaround time by 29–47 %, and Round Robin
-  beats it on response time by a factor of 4.6.  The details, with the numbers, follow.
+Two distinct modal winners exist (SJF and Round Robin), the interactive classes favour
+Round Robin by a wide margin, and **96.0%** of probe workloads have a reward-argmax equal
+to the modal argmax of their encoded state — the state carries the information the agent
+needs.  Full table: `results/class_verification.json`.
 
 ## 17. Results
 
-All numbers below come from `results/summary.json` of the committed run.
+All numbers are from the committed run (`python3 main.py experiment`; seeds 42 / 2024 /
+777) and are reproduced in `results/summary.json`.
 
-### 17.1 Training (600 episodes, seed 42)
+### 17.1 Training (5400 episodes, seed 42)
 
-| Quantity | Value |
-|---|---|
-| Mean reward, first 100 episodes | +0.0629 |
-| Mean reward, last 100 episodes | +0.2013 |
-| Mean reward, all episodes | +0.1553 |
-| Episodes whose action was not the greedy one | 25.0 % |
-| States visited | 27 of 81 |
-| Actions selected (all episodes) | FCFS 64, SJF 434, Round Robin 53, Priority 49 |
-| Actions selected when not exploring | FCFS 21, SJF 426, Round Robin 1, Priority 2 |
-| Round-Robin quantum multipliers chosen by the controller | ×0.5: 385, ×1: 146, ×2: 69 |
+* mean reward: **+0.0036** over the first 100 episodes → **+0.2270** over the last 100
+  (the agent learns); exploration rate 15.2%; final ε = 0.05.
+* action selections (all episodes): SJF 3828, Round Robin 961, FCFS 345, Priority 266 —
+  exploration visited all four actions.
+* action selections (greedy only): SJF 3767, Round Robin 749, FCFS 61, Priority 0.
+* **Q-table states visited: 80 of 2187** (the reachable region of the nine classes).
 
-![Training curve](figures/training_curve.png)
+### 17.2 Evaluation (90 held-out workloads, seed 2024)
 
-### 17.2 Evaluation (60 workloads, seed 2024)
+Overall means (all 90 workloads):
 
-Mean over the 60 workloads (per workload, then averaged), for the five schedulers:
+| Metric | FCFS | SJF | Round Robin | Priority | **Adaptive** |
+|---|---|---|---|---|---|
+| mean waiting time | 125.79 | 80.83 | 142.19 | 112.28 | **77.06** |
+| mean turnaround time | 142.24 | 97.28 | 158.64 | 128.73 | **93.51** |
+| mean response time | 125.79 | 80.83 | **19.08** | 112.28 | 73.43 |
+| CPU utilisation (%) | 97.97 | 97.97 | 97.97 | 97.97 | 97.97 |
+| throughput | 0.1421 | 0.1421 | 0.1421 | 0.1421 | 0.1421 |
+| context switches | 15.67 | 15.67 | 71.19 | 15.67 | 24.44 |
 
-| Scheduler | Waiting time | Turnaround | Response | CPU util. (%) | Throughput | Context switches |
+The adaptive scheduler beats every baseline on waiting time (1.32× vs SJF, 1.59× vs Round
+Robin, 2.32× vs FCFS, 2.00× vs Priority, workload by workload), on turnaround time
+(1.17–1.90×), and on response time vs FCFS/SJF/Priority (1.91–4.02×).  Round Robin still
+wins overall response time (19.08 vs 73.43): the declared reward prices waiting +
+turnaround (0.55) above response (0.20), so the agent trades response for waiting on the
+batch-like classes.  Utilisation and throughput are identical for all policies on every
+workload — a structural property of work-conserving schedulers with costless switching —
+and are reported as such.
+
+### 17.3 Policy selected by the agent, per workload condition
+
+| Class | FCFS | SJF | Round Robin | Priority | Mean reward | Agreement with reward-argmax |
 |---|---|---|---|---|---|---|
-| FCFS | 142.99 | 164.77 | 142.99 | 99.7623 | 0.06092 | 14.00 |
-| SJF | 103.58 | 125.37 | 103.58 | 99.7623 | 0.06092 | 14.00 |
-| Round Robin | 199.13 | 220.92 | 22.31 | 99.7623 | 0.06092 | 85.78 |
-| Priority | 142.24 | 164.02 | 142.24 | 99.7623 | 0.06092 | 14.00 |
-| **Adaptive (Q-Learning)** | **103.58** | **125.37** | 103.58 | 99.7623 | 0.06092 | 14.00 |
+| `short_batch` | 0 | **10** | 0 | 0 | +0.155 | 10/10 |
+| `short_stream` | 0 | **10** | 0 | 0 | +0.129 | 10/10 |
+| `long_batch` | 0 | **10** | 0 | 0 | +0.162 | 10/10 |
+| `interactive` | 0 | 2 | **8** | 0 | +0.406 | 8/10 |
+| `interactive_sparse` | 0 | 0 | **10** | 0 | +0.440 | 6/10 |
+| `priority_aligned` | 0 | **10** | 0 | 0 | +0.176 | 10/10 |
+| `priority_skewed` | 0 | **10** | 0 | 0 | +0.234 | 10/10 |
+| `quantum_sensitive` | 0 | **10** | 0 | 0 | +0.195 | 10/10 |
+| `mixed` | 0 | **10** | 0 | 0 | +0.216 | 10/10 |
 
-![Metric comparison](figures/metric_comparison.png)
+**Overall agreement with the per-workload reward-argmax: 84/90 (93.3%).**  The agent's
+per-class selection matches the pre-training verification's modal winner for **9 of 9
+classes**.  In `interactive`, the two SJF selections are the held-out draws that contained
+no long job — the state-visible case where SJF is optimal.  The 6 disagreements are all in
+the two interactive classes and are all near-ties (SJF ahead of Round Robin by 0.017–0.121
+on those specific draws; the class-dominant policy is Round Robin).
 
-Baseline ÷ adaptive ratio per workload (mean of the per-workload ratios; > 1 means the
-baseline is worse for a cost metric such as waiting time):
+Per-class mean waiting / response / switches (10 held-out workloads per class):
 
-| Baseline | Waiting | Turnaround | Response | CPU util. | Throughput | Switches |
-|---|---|---|---|---|---|---|
-| FCFS | 1.5743 | 1.4413 | 1.5743 | 1.0000 | 1.0000 | 1.0000 |
-| SJF | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 | 1.0000 |
-| Round Robin | 1.8839 | 1.7111 | **0.3402** | 1.0000 | 1.0000 | 6.1274 |
-| Priority | 1.5414 | 1.4166 | 1.5414 | 1.0000 | 1.0000 | 1.0000 |
+| Class | FCFS | SJF | Round Robin | Priority | **Adaptive** |
+|---|---|---|---|---|---|
+| `short_batch` | 17.69 / 17.69 / 14 | **12.84** / 12.84 / 14 | 17.69 / 17.69 / 14 | 17.26 / 17.26 / 14 | **12.84** / 12.84 / 14 |
+| `short_stream` | 4.93 / 4.93 / 14 | **3.73** / 3.73 / 14 | 4.93 / 4.93 / 14 | 4.87 / 4.87 / 14 | **3.73** / 3.73 / 14 |
+| `long_batch` | 252.94 / 252.94 / 14 | **219.35** / 219.35 / 14 | 433.88 / 28.00 / 141 | 251.87 / 251.87 / 14 | **219.35** / 219.35 / 14 |
+| `interactive` | 168.15 / 168.15 / 19 | 53.22 / 53.22 / 19 | **34.68** / 11.65 / 65 | 128.04 / 128.04 / 19 | **35.89** / 18.23 / 57 |
+| `interactive_sparse` | 126.61 / 126.61 / 19 | 39.99 / 39.99 / 19 | **23.32** / 8.31 / 60 | 89.20 / 89.20 / 19 | **23.32** / 8.31 / 60 |
+| `priority_aligned` | 167.65 / 167.65 / 14 | **119.22** / 119.22 / 14 | 231.67 / 25.07 / 101 | 120.71 / 120.71 / 14 | **119.22** / 119.22 / 14 |
+| `priority_skewed` | 166.79 / 166.79 / 14 | **114.39** / 114.39 / 14 | 220.19 / 24.28 / 100 | 166.95 / 166.95 / 14 | **114.39** / 114.39 / 14 |
+| `quantum_sensitive` | 49.63 / 49.63 / 19 | **36.34** / 36.34 / 19 | 67.86 / 27.17 / 41 | 49.69 / 49.69 / 19 | **36.34** / 36.34 / 19 |
+| `mixed` | 177.70 / 177.70 / 14 | **128.44** / 128.44 / 14 | 245.51 / 24.56 / 104 | 181.93 / 181.93 / 14 | **128.44** / 128.44 / 14 |
 
-Reading of these numbers:
+The adaptive scheduler achieves the best (or within 4% of the best) waiting time in every
+class: it equals SJF exactly on the seven SJF classes, equals Round Robin exactly on
+`interactive_sparse`, and lands between SJF and Round Robin on `interactive` (35.89 vs
+34.68, i.e. 3.5% worse than the best) because 2 of its 10 workloads are no-long-job draws
+where SJF is optimal.
 
-* The adaptive scheduler reduced mean waiting time by **36.5 %** against FCFS, **46.9 %**
-  against Round Robin and **35.1 %** against Priority, and matched SJF exactly, because under
-  the learned table every evaluated state has SJF as its greedy action.
-* It was **worse than Round Robin on response time** (103.58 vs 22.31, ratio 0.34): Round
-  Robin starts every process early, which is exactly what the response-time metric rewards.
-  The agent did not choose Round Robin because the reward's response weight (0.20) is
-  outweighed by its waiting (0.30) and turnaround (0.25) penalties, where Round Robin is
-  1.88× and 1.71× worse than the adaptive choice.
-* CPU utilisation and throughput are **identical for every scheduler on every workload**
-  (ratio exactly 1.0000).  With a work-conserving single CPU and no switching cost the
-  makespan equals the total burst time plus policy-independent idle time; measured, no
-  evaluated workload ever left the CPU without pending work, so these two metrics cannot
-  discriminate the policies in this model.  They are still computed and reported as required.
-* Context switches are structurally `n − 1 = 14` for the three non-preemptive policies and
-  6.1× higher for Round Robin (85.78), which is the trade-off behind its response-time win.
+### 17.4 State coverage
 
-### 17.3 Policy selection per workload condition
+* State space: **2187** states (7 variables × 3 bins).
+* **Visited during training: 80 states**; **evaluated: 29 distinct states, all 29 visited
+  during training, 0 unvisited, 0 decisions in unvisited states.**  (An unvisited state
+  would fall back to the greedy tie-break, i.e. FCFS; the protocol was sized so that this
+  does not occur.)
 
-The agent selected **SJF in 20 of 20 workloads for every one of the six conditions** (120 of
-120 decisions across both evaluated regimes).  Mean reward per condition — 0 means "equal to
-the average conventional policy":
+### 17.5 Reproducibility
 
-| Condition | Selected policy | Mean reward |
-|---|---|---|
-| short_jobs | SJF (20/20) | +0.3227 |
-| long_jobs | SJF (20/20) | +0.2436 |
-| priority_skewed | SJF (20/20) | +0.2259 |
-| mixed | SJF (20/20) | +0.2217 |
-| poisson_arrivals | SJF (20/20) | +0.2116 |
-| cpu_bursty | SJF (20/20) | +0.1729 |
+Two consecutive runs produce byte-identical `metrics.csv`, `decisions.csv`,
+`q_table.json` and `class_verification.json` (asserted by the test suite).  Every random
+draw is seeded through a SHA-256-based `derive_seed`, and the exact configuration of the
+reported run is written to `results/config.json`.
 
-![Policy selection](figures/policy_selection.png)
-![Reward by condition](figures/reward_by_family.png)
-![Waiting time by condition](figures/metric_by_family.png)
+### 17.6 Honest findings
 
-The conventional policy with the lowest mean waiting time is SJF in every condition — the
-same conclusion the agent reached — so on this reward the learning problem has a
-condition-independent optimum.  14 distinct states occurred in evaluation, all of them visited
-during training (between 5 and 109 updates each), so no decision relied on an unvisited state.
-
-### 17.4 Round-Robin quantum controller (documented extension)
-
-The controller was disabled for the headline comparison and measured directly by running
-Round Robin with the learned multiplier on the same 60 workloads (it chose ×0.5 for 41 of them
-and ×1.0 for the other 19; both quanta are integers, 2 and 4 time units):
-
-| Metric | Classic quantum (4) | Learned quantum | Ratio |
-|---|---|---|---|
-| Mean waiting time | 199.13 | 199.53 | 0.9991 |
-| Mean turnaround time | 220.92 | 221.31 | 0.9991 |
-| Mean response time | 22.31 | **14.14** | 1.6746 |
-| CPU utilisation (%) | 99.7623 | 99.7623 | 1.0000 |
-| Throughput | 0.06092 | 0.06092 | 1.0000 |
-| Context switches | 85.78 | **152.50** | 0.6714 |
-
-The learned quantum **cut mean response time by 36.6 %** (22.31 → 14.14) while leaving waiting
-and turnaround time essentially unchanged (0.2 % worse) and **increasing context switches by
-77.8 %**.  That is the classical quantum trade-off, learned from data rather than chosen by
-hand.
-
-![Round-Robin quantum](figures/round_robin_quantum.png)
-![Learned Q-values](figures/state_space.png)
+* **SJF is optimal for most of the declared workload set, and the agent says so.**  Under
+  the declared reward, SJF is the reward-argmax on 7 of 9 classes (100% of their probe
+  workloads).  The workload-aware behaviour is that the agent selects **Round Robin exactly
+  on the interactive classes** — where preemption changes the ranking — and SJF everywhere
+  else.
+* **FCFS and Priority are never selected** (0 of 90 decisions).  Measured cause: the
+  mean-metric reward structurally cannot prefer them — SJF weakly dominates FCFS on mean
+  times, and Priority can at best tie SJF (when importance tracks job size,
+  `priority_aligned`: Priority's mean reward 0.175 vs SJF's 0.185).  The pre-training
+  verification confirms it: Priority is the reward-argmax on 0 of 225 probe workloads, and
+  FCFS on 4 (a 16% minority of `interactive_sparse`, on draws where Round Robin
+  degenerates to FCFS and SJF happens to be worse on that particular draw).
+* **Round Robin still wins overall response time** (19.08 vs the adaptive's 73.43): the
+  declared weights price waiting + turnaround above response, so the agent trades response
+  for waiting on the batch-like classes.  The weights were not tuned.
+* **Utilisation and throughput are identical for all policies on every workload**
+  (work-conserving schedulers, costless switching).
+* **93.3% agreement with the reward-argmax, not 100%** — the 6 misses are near-ties
+  inside the interactive classes (§17.3).
+* The state space is sparse (80 of 2187 states reachable by the nine classes); coverage of
+  the reachable region is complete.
 
 ## 18. Limitations
 
-1. **Offline workload view.** The state describes the whole job list.  A scheduler that does
-   not know future arrivals could not compute it; the study is therefore a batch-view result,
-   not an online one.
-2. **The learned policy is not condition-dependent here.** With the declared reward weights,
-   SJF is optimal in every configured condition, so the agent's *behaviour* is constant.
-   Making the selection genuinely condition-dependent would need a reward or workload set where
-   different conditions favour different policies — that is an experiment-design change, not a
-   bug fix, and is not claimed to have been achieved.
-3. **CPU utilisation and throughput cannot discriminate** the policies under this model
-   (no switching cost, work-conserving policies, no workload with long idle gaps).
-4. **Round Robin is penalised in the reward.** Its response-time advantage is real and
-   measured, but the declared weights rank waiting and turnaround above response, so the agent
-   prefers SJF.  Different weights would move that boundary; the weights were not tuned.
-5. **Single CPU, abstract time, no switching cost by default.** No I/O, no blocking, no
-   deadlines, no priority inheritance, no multi-core effects.  A context switch costs nothing
-   unless `switching_cost` is set.
-6. **Priority is not rewarded.** Because only mean metrics enter the reward, priority-aware
-   behaviour (serving high-priority jobs) is not valued, which is why Priority scheduling is
-   not selected.
-7. **Tabular and small.** 81 states, 4 actions; 27 states were visited in training.  Each of
-   the 600 episodes schedules the *same* 15-process workload type, so results are specific to
-   the six declared conditions and their parameter ranges.
-8. **The quantum controller is an extension**, not part of the four policies, and it is
-   excluded from the headline comparison by default.  It is reported separately.
+1. **One decision per workload** (the project's simple architecture): the agent cannot
+   change policy mid-run.
+2. **Batch view**: the state sees the whole job list of the workload before it runs
+   (arrival times, bursts, priorities).  That is the declared simulation model; a real
+   system would estimate these quantities online.
+3. **Synthetic workloads only**, single CPU, no I/O, integer time, no failures, no
+   multi-core.
+4. **Tabular Q-learning** with a hand-designed discretisation; no function approximation
+   and no other learning algorithm (per the project's scope).
+5. SJF dominates most of the declared workload set under the declared reward (§17.6);
+   FCFS and Priority are never selected; the agent trades response time for waiting time
+   because of the declared weights.
+6. The residual 4% of probe workloads whose reward-argmax differs from their state's modal
+   argmax are near-ties that a 3-bin discretisation of these variables cannot resolve.
 
-## 19. Future scope
+## 19. Audit (reviewer's questions)
 
-* Re-select the policy *during* execution at defined decision epochs, with an explicit rule for
-  preempting a running process and a state that only uses information available at that epoch.
-* Reward priority satisfaction (e.g. weighted waiting time or deadline misses) so that a
-  priority-aware choice becomes learnable.
-* Extend the workload families so that different conditions genuinely favour different
-  policies, and check whether the agent then varies its selection.
-* Sweep the quantum and the reward weights as *reported* sensitivity analyses (with the
-  primary configuration kept fixed and declared).
-* Leave-one-condition-out training/evaluation to test generalisation to unseen conditions.
-* Compare against a non-learning oracle that always picks the best fixed policy per condition,
-  as an explicit upper bound for the reported conditions.
-* Add a bounded per-switch cost to the main protocol and re-measure all six metrics.
-
-Deliberately excluded (see §4): multi-core, distributed, real-time, energy-aware or kernel
-scheduling, and deep reinforcement learning.
+1. **Does the RL agent actually perform workload-aware selection?**  Yes.  It selects
+   Round Robin on the interactive classes (8/10 and 10/10 held-out workloads) and SJF on
+   the seven batch-like classes (10/10 each), matching the pre-training verification's modal
+   winner for 9/9 classes, with 93.3% agreement with the per-workload reward-argmax.  The
+   selection is a function of the encoded workload state, not of the class label: inside
+   `interactive`, held-out draws without long jobs — whose state is shared with
+   `short_stream` — are scheduled with SJF.
+2. **Which workload classes trigger different policies?**  `interactive` and
+   `interactive_sparse` trigger **Round Robin**; `short_batch`, `short_stream`,
+   `long_batch`, `priority_aligned`, `priority_skewed`, `quantum_sensitive` and `mixed`
+   trigger **SJF**.  FCFS and Priority are never triggered (structural, §17.6).
+3. **Is the behaviour learned rather than hard-coded?**  Yes — tabular Q-learning with
+   ε-greedy exploration; the selection comes from the Q-table (forced-value tests change
+   the decision; evaluation is greedy and provably non-learning); nothing maps a class or
+   a state to a policy in code.
+4. **Are the results reproducible?**  Yes — fixed seeds (42 / 2024 / 777, recorded in
+   `results/config.json`), SHA-256-derived per-draw seeds, byte-identical artefacts on
+   re-runs (tested).
+5. **Are all four baselines evaluated on identical workloads?**  Yes — one workload object
+   per (class, repetition), scheduled by FCFS, SJF, Round Robin, Priority and the adaptive
+   scheduler; fingerprints are carried in every row and the run fails if any scheduler saw
+   a different workload (tested).  Evaluation workloads are disjoint from training
+   workloads (tested).
+6. **Any remaining deviations from the project requirements?**  None known.  The
+   quantum-controller extension was removed (the RR quantum parameter stays, as part of
+   Round Robin); the core flow, the six metrics, the four schedulers and the reward are
+   unchanged from their declared form; no new ML algorithm or unrelated system feature was
+   added.  The remaining limitations are the honest findings of §17.6 and §18.
 
 ---
 
 ### Repository notes
 
-* `docs/PHASE1_REQUIREMENTS_AUDIT.md` — the requirements extracted before coding, and the
-  decisions that had to be fixed to proceed.
-* `docs/DESIGN_AND_CHOICES.md` — every unspecified choice, its justification and where to
-  change it (scheduler variants, tie-breaking, state discretisation, reward weights,
-  hyperparameters, experiment protocol).
-* `results/` and `figures/` — the measured outputs of `python3 main.py experiment`.
-* The project is a simulator: it does not modify, replace or interact with any operating
-  system kernel.
+* Results and figures are committed so that the reported numbers can be inspected without
+  re-running; re-running reproduces them byte for byte.
+* `docs/DESIGN_AND_CHOICES.md` records every design decision, the diagnosis of the first
+  experiment's outcome (SJF selected 120/120), and the full change history of the redesign.
+* `docs/PHASE1_REQUIREMENTS_AUDIT.md` is the requirements audit performed before any code
+  was written (historical).

@@ -23,18 +23,16 @@ to prove that every scheduler saw identical workloads.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from typing import Dict, Mapping, Optional, Sequence, Tuple
+from dataclasses import dataclass
+from typing import Dict, Mapping, Optional, Sequence
 
-from config import ACTION_NAMES, ACTION_ROUND_ROBIN, ExperimentConfig, SchedulerConfig
+from config import ACTION_NAMES, ExperimentConfig
 from errors import ValidationError
 from evaluation.metrics import WorkloadMetrics, compute_metrics
 from rl.q_learning import QLearningAgent
-from rl.quantum_controller import CLASSIC_MULTIPLIER, QuantumController
-from rl.reward import compute_reward, compute_reward_against_reference
+from rl.reward import compute_reward
 from rl.state import StateEncoder, StateSnapshot, observe_workload_state
 from scheduler.base import SchedulingPolicy
-from scheduler.round_robin import RoundRobin
 from workload.models import Workload
 
 __all__ = ["AdaptiveDecision", "AdaptiveScheduler"]
@@ -49,14 +47,13 @@ class AdaptiveDecision:
         workload_fingerprint: Fingerprint of the scheduled workload.
         snapshot: The observed (undiscretised) state.
         state_index: The discretised state index used by the Q-table.
+        state_visit_count: Number of Q-table updates this state had received *before*
+            this decision.  During evaluation this is exactly the training visit count,
+            so a value of 0 marks a state the agent has never learned about.
         action: Action chosen by the agent.
         policy_name: Name of the chosen policy.
         explored: Whether the chosen action differs from the current greedy action.
         epsilon: Exploration rate in force when the action was chosen.
-        quantum_multiplier: Quantum multiplier applied to the Round-Robin run reported in
-            :attr:`metrics` (``1.0`` when classic Round Robin was used).
-        controller_multiplier: Multiplier the quantum controller chose in this episode, or
-            ``None`` when the controller is disabled.
         metrics: Metrics of the scheduling run that was actually reported.
         reward: Reward of the decision.
         reference_metrics: Metrics of all four conventional policies on the same workload.
@@ -67,12 +64,11 @@ class AdaptiveDecision:
     workload_fingerprint: str
     snapshot: StateSnapshot
     state_index: int
+    state_visit_count: int
     action: int
     policy_name: str
     explored: bool
     epsilon: float
-    quantum_multiplier: float
-    controller_multiplier: Optional[float]
     metrics: WorkloadMetrics
     reward: float
     reference_metrics: Mapping[int, WorkloadMetrics]
@@ -84,16 +80,18 @@ class AdaptiveDecision:
             "workload_name": self.workload_name,
             "workload_fingerprint": self.workload_fingerprint,
             "state_index": self.state_index,
+            "state_visit_count": self.state_visit_count,
             "state_burst_profile": self.snapshot.burst_profile,
             "state_burst_dispersion": self.snapshot.burst_dispersion,
+            "state_long_job_share": self.snapshot.long_job_share,
+            "state_arrival_concentration": self.snapshot.arrival_concentration,
             "state_offered_load": self.snapshot.offered_load,
             "state_priority_spread": self.snapshot.priority_spread,
+            "state_priority_burst_alignment": self.snapshot.priority_burst_alignment,
             "action": self.action,
             "policy_name": self.policy_name,
             "explored": self.explored,
             "epsilon": self.epsilon,
-            "quantum_multiplier": self.quantum_multiplier,
-            "controller_multiplier": self.controller_multiplier,
             "reward": self.reward,
             "learned": self.learned,
         }
@@ -113,21 +111,16 @@ class AdaptiveScheduler:
         encoder: StateEncoder,
         agent: QLearningAgent,
         policies: Sequence[SchedulingPolicy],
-        quantum_controller: Optional[QuantumController] = None,
     ) -> None:
         """
         Args:
-            config: The experiment configuration (reward, scheduler settings and the
-                quantum-controller regime).
+            config: The experiment configuration (reward and scheduler settings).
             encoder: State encoder shared with the agent.
             agent: The policy-selection agent.
             policies: The four conventional policies, one per action.
-            quantum_controller: Round-Robin quantum controller; required when the
-                configuration enables it.
 
         Raises:
-            ValidationError: If the policies do not cover the four actions exactly once or
-                the controller configuration is inconsistent.
+            ValidationError: If the policies do not cover the four actions exactly once.
         """
         if not isinstance(config, ExperimentConfig):
             raise ValidationError(
@@ -151,26 +144,11 @@ class AdaptiveScheduler:
                 f"agent has {agent.n_actions} actions but the project defines "
                 f"{len(ACTION_NAMES)} actions"
             )
-        if config.quantum_controller.enabled:
-            if quantum_controller is None:
-                raise ValidationError(
-                    "the configuration enables the quantum controller but none was supplied"
-                )
-            if quantum_controller.config != config.quantum_controller:
-                raise ValidationError(
-                    "the quantum controller was built with a different configuration than "
-                    "the experiment configuration"
-                )
-        elif quantum_controller is not None:
-            raise ValidationError(
-                "a quantum controller was supplied but the configuration disables it"
-            )
 
         self._config = config
         self._encoder = encoder
         self._agent = agent
         self._policies = {policy.action_index: policy for policy in policies}
-        self._controller = quantum_controller
 
     # -- public API -------------------------------------------------------------------
     @property
@@ -188,77 +166,28 @@ class AdaptiveScheduler:
         """The state encoder."""
         return self._encoder
 
-    @property
-    def quantum_controller(self) -> Optional[QuantumController]:
-        """The Round-Robin quantum controller, if the configuration enables it."""
-        return self._controller
-
     def run_training_episode(self, workload: Workload, episode: int) -> AdaptiveDecision:
         """Run one training episode: explore, measure, reward and learn.
 
         Args:
             workload: The workload to schedule in this episode.
-            episode: 0-based episode index, which drives the epsilon schedules.
+            episode: 0-based episode index, which drives the epsilon schedule.
 
         Returns:
             The decision, with ``learned=True``.
         """
-        return self._run(workload, episode=episode, learn=True, use_controller_quantum=False)
+        return self._run(workload, episode=episode, learn=True)
 
-    def run_evaluation(
-        self, workload: Workload, use_learned_quantum: Optional[bool] = None
-    ) -> AdaptiveDecision:
+    def run_evaluation(self, workload: Workload) -> AdaptiveDecision:
         """Run the greedy policy on a workload without touching the Q-table.
 
         Args:
             workload: The workload to schedule.
-            use_learned_quantum: Whether Round Robin should use the controller's learned
-                quantum.  ``None`` follows
-                :attr:`config.QuantumControllerConfig.use_during_evaluation`.
 
         Returns:
             The decision, with ``learned=False``.
-
-        Raises:
-            ValidationError: If the learned quantum is requested while the quantum
-                controller is disabled.
         """
-        if use_learned_quantum is None:
-            use_learned_quantum = bool(
-                self._controller is not None
-                and self._config.quantum_controller.use_during_evaluation
-            )
-        if use_learned_quantum and self._controller is None:
-            raise ValidationError(
-                "learned quantum requested but the quantum controller is disabled"
-            )
-        return self._run(
-            workload, episode=None, learn=False, use_controller_quantum=bool(use_learned_quantum)
-        )
-
-    def run_round_robin_with_learned_quantum(self, workload: Workload) -> Tuple[WorkloadMetrics, float]:
-        """Run Round Robin with the controller's greedy multiplier for this workload.
-
-        This measures the quantum controller directly, independently of whether the
-        policy-selection agent happens to choose the Round-Robin action.  It never writes
-        to either Q-table.
-
-        Args:
-            workload: The workload to schedule.
-
-        Returns:
-            The metrics of the controlled Round-Robin run and the multiplier used.
-
-        Raises:
-            ValidationError: If the quantum controller is disabled.
-        """
-        if self._controller is None:
-            raise ValidationError(
-                "the quantum controller is disabled; there is no learned quantum to apply"
-            )
-        state = self._encoder.encode(observe_workload_state(workload))
-        multiplier = self._controller.greedy_multiplier(state)
-        return self._run_controlled_round_robin(workload, multiplier), multiplier
+        return self._run(workload, episode=None, learn=False)
 
     # -- internals --------------------------------------------------------------------
     def _run(
@@ -266,10 +195,9 @@ class AdaptiveScheduler:
         workload: Workload,
         episode: Optional[int],
         learn: bool,
-        use_controller_quantum: bool,
     ) -> AdaptiveDecision:
         """Shared implementation of the training and evaluation episodes."""
-        snapshot = observe_workload_state(workload)
+        snapshot = observe_workload_state(workload, self._config.state)
         state = self._encoder.encode(snapshot)
 
         epsilon = self._agent.epsilon_for_episode(episode) if learn else 0.0
@@ -283,31 +211,10 @@ class AdaptiveScheduler:
             for index, policy in self._policies.items()
         }
 
-        reported: Dict[int, WorkloadMetrics] = dict(attempts)
-        quantum_multiplier = 1.0
-        controller_multiplier: Optional[float] = None
-        controller = self._controller
-        if controller is not None:
-            controller_action = self._choose_controller_action(controller, state, learn, episode)
-            controller_multiplier = controller.multiplier_for_action(controller_action)
-            # The controlled Round-Robin run is needed to train the controller, and to
-            # report a learned-quantum result when that regime is requested.
-            if learn or use_controller_quantum:
-                controlled = (
-                    attempts[ACTION_ROUND_ROBIN]
-                    if controller_multiplier == CLASSIC_MULTIPLIER
-                    else self._run_controlled_round_robin(workload, controller_multiplier)
-                )
-                if learn:
-                    controller_reward = compute_reward_against_reference(
-                        self._config.reward, attempts[ACTION_ROUND_ROBIN], controlled
-                    )
-                    controller.update(state, controller_action, controller_reward)
-                if use_controller_quantum:
-                    reported[ACTION_ROUND_ROBIN] = controlled
-                    quantum_multiplier = controller_multiplier
-
-        reward_breakdown = compute_reward(self._config.reward, reported, action)
+        reward_breakdown = compute_reward(self._config.reward, attempts, action)
+        # Captured before the update: during evaluation this is the number of training
+        # updates the state has received, i.e. how much the agent knows about it.
+        state_visit_count = int(self._agent.visit_counts[state])
         if learn:
             self._agent.update(state, action, reward_breakdown.reward, next_state=None)
 
@@ -316,39 +223,13 @@ class AdaptiveScheduler:
             workload_fingerprint=workload.fingerprint,
             snapshot=snapshot,
             state_index=state,
+            state_visit_count=state_visit_count,
             action=action,
             policy_name=ACTION_NAMES[action],
             explored=explored,
             epsilon=epsilon,
-            quantum_multiplier=quantum_multiplier,
-            controller_multiplier=controller_multiplier,
-            metrics=reported[action],
+            metrics=attempts[action],
             reward=reward_breakdown.reward,
             reference_metrics=attempts,
             learned=learn,
         )
-
-    @staticmethod
-    def _choose_controller_action(
-        controller: QuantumController,
-        state: int,
-        learn: bool,
-        episode: Optional[int],
-    ) -> int:
-        """Select the controller's action: epsilon-greedy while learning, greedy otherwise."""
-        if learn:
-            return controller.select_action(state, controller.epsilon_for_episode(episode or 0))
-        return controller.greedy_action(state)
-
-    def _run_controlled_round_robin(self, workload: Workload, multiplier: float) -> WorkloadMetrics:
-        """Run Round Robin with the quantum scaled by ``multiplier``.
-
-        The quantum is rounded to the nearest whole time unit of at least one, which is the
-        resolution the simulator schedules in.
-        """
-        base_quantum = self._config.scheduler.round_robin_quantum
-        quantum = max(1, int(round(base_quantum * multiplier)))
-        scheduler_config: SchedulerConfig = replace(
-            self._config.scheduler, round_robin_quantum=quantum
-        )
-        return compute_metrics(RoundRobin(scheduler_config).run(workload))

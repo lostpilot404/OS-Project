@@ -2,7 +2,7 @@
 
 Usage::
 
-    python3 main.py experiment        # train, evaluate, tabulate, plot  (default)
+    python3 main.py experiment        # verify, train, evaluate, tabulate, plot (default)
     python3 main.py train             # train only and report the training history
 
 Every command uses the frozen configuration in :func:`config.build_default_config`; no
@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Optional, Sequence
 
 from config import ACTION_NAMES, build_default_config
-from experiments.evaluate import ADAPTIVE_CLASSIC_REGIME
 from experiments.run_experiment import run_experiment
 from experiments.train import train
 
@@ -39,7 +38,8 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default="experiment",
         choices=("experiment", "train"),
-        help="'experiment' trains, evaluates, tabulates and plots; 'train' only trains.",
+        help="'experiment' verifies the classes, trains, evaluates, tabulates and plots; "
+        "'train' only trains.",
     )
     parser.add_argument(
         "--results-dir",
@@ -61,6 +61,32 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _report_verification(summary) -> None:
+    """Print the pre-training verification of the workload classes."""
+    verification = summary["verification"]
+    print("Pre-training class verification")
+    print("-------------------------------")
+    print(f"  probe workloads per class      : {verification['repetitions_per_family']}")
+    print(f"  probe workloads total          : {verification['workloads_total']}")
+    print(
+        f"  state-conditional consistency  : "
+        f"{verification['state_conditional_consistency']:.1%} of probe workloads match "
+        "their state's modal reward-argmax"
+    )
+    print("  Reward-optimal policy per class (measured before training):")
+    for entry in verification["classes"]:
+        counts = ", ".join(
+            f"{name} {entry['winner_shares'][name]:.0%}"
+            for name in ACTION_NAMES
+            if entry["winner_shares"][name] > 0.0
+        )
+        print(
+            f"    {entry['family']:<20} -> {entry['modal_winner']:<12} "
+            f"({counts}; {entry['distinct_states']} states)"
+        )
+    print()
+
+
 def _report_training(history) -> None:
     """Print the training summary."""
     summary = history.summary()
@@ -76,20 +102,31 @@ def _report_training(history) -> None:
     print("  policy selections (all episodes):")
     for name in ACTION_NAMES:
         print(f"    {name:<12}: {summary['action_counts'][name]}")
-    print("  Round-Robin quantum multipliers chosen by the controller:")
-    for multiplier, count in summary["controller_multiplier_counts"].items():
-        print(f"    x{multiplier:<5}: {count}")
+    print("  policy selections (greedy only):")
+    for name in ACTION_NAMES:
+        print(f"    {name:<12}: {summary['greedy_action_counts'][name]}")
 
 
 def _report_evaluation(evaluation, summary) -> None:
     """Print the measured evaluation results."""
     print()
-    print("Evaluation")
-    print("----------")
+    print("Evaluation (held-out workloads)")
+    print("------------------------------")
     print(f"  workload conditions            : {', '.join(evaluation.families)}")
     print(f"  repetitions per condition      : {evaluation.repetitions}")
     print(f"  evaluation master seed         : {evaluation.evaluation_seed}")
     print(f"  distinct workloads evaluated   : {evaluation.metrics['workload_fingerprint'].nunique()}")
+    eval_summary = summary["evaluation"]
+    print(
+        f"  distinct states evaluated      : {eval_summary['distinct_states_evaluated']} "
+        f"({eval_summary['evaluated_states_visited_during_training']} visited during "
+        f"training, {eval_summary['evaluated_states_not_visited_during_training']} not)"
+    )
+    print(
+        f"  agreement with the reward-argmax: {eval_summary['oracle_agreement_matches']} of "
+        f"{eval_summary['oracle_agreement_workloads']} held-out workloads "
+        f"({eval_summary['oracle_agreement_rate']:.1%})"
+    )
     print()
 
     ratios = summary["tables"]["adaptive_ratio_vs_baselines"]
@@ -113,6 +150,15 @@ def _report_evaluation(evaluation, summary) -> None:
             )
     print()
 
+    print("  Agreement with the reward-argmax, per workload condition:")
+    for record in summary["tables"]["oracle_agreement"]:
+        print(
+            f"    {record['family']:<20} {record['matches']}/{record['workloads']} matched "
+            f"({record['agreement_rate']:.0%}), mean reward gap to the oracle "
+            f"{record['mean_reward_gap_to_oracle']:+.4f}"
+        )
+    print()
+
     print("  Policy selected by the agent, per workload condition:")
     for record in summary["tables"]["policy_selection"]:
         selected = sorted(
@@ -125,11 +171,10 @@ def _report_evaluation(evaluation, summary) -> None:
         )
         chosen = ", ".join(f"{name} x{count}" for name, count in selected) or "none"
         print(
-            f"    {record['family']:<18} {chosen:<40} mean reward "
+            f"    {record['family']:<20} {chosen:<40} mean reward "
             f"{record['mean_reward']:+.4f}"
         )
     print()
-    print(f"  Adaptive regime reported above: {ADAPTIVE_CLASSIC_REGIME}")
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -148,18 +193,19 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         figures_dir=args.figures_dir,
         make_figures=not args.no_figures,
     )
+    _report_verification(artifacts.summary)
     _report_training(artifacts.training.history)
     _report_evaluation(artifacts.evaluation, artifacts.summary)
 
     print()
     print("Artefacts written")
-    print("-----------------")
+    print("----------------")
     for name, path in artifacts.paths.items():
         if name == "figures":
             for figure in path:  # type: ignore[union-attr]
                 print(f"  figure: {figure}")
         else:
-            print(f"  {name:<16}: {path}")
+            print(f"  {name:<20}: {path}")
     print()
     print("Every number above was measured by this run; see README.md for interpretation.")
     return 0

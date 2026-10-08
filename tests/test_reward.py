@@ -11,7 +11,6 @@ from rl.reward import (
     COST_METRICS,
     REWARD_METRICS,
     compute_reward,
-    compute_reward_against_reference,
 )
 from tests.helpers import metrics_stub
 
@@ -133,22 +132,3 @@ class TestValidation:
     def test_negative_weight_is_rejected(self) -> None:
         with pytest.raises(ConfigurationError, match="must be >= 0"):
             RewardConfig(weight_waiting_time=-0.5, weight_throughput=0.075)
-
-
-class TestAgainstReference:
-    def test_identical_run_scores_zero(self) -> None:
-        reference = metrics_stub()
-        assert compute_reward_against_reference(RewardConfig(), reference, reference) == pytest.approx(
-            0.0
-        )
-
-    def test_better_run_scores_positive(self) -> None:
-        reference = metrics_stub()
-        better = metrics_stub(avg_waiting_time=0.5, avg_turnaround_time=0.5)
-        assert compute_reward_against_reference(RewardConfig(), reference, better) > 0
-
-    def test_different_workloads_are_rejected(self) -> None:
-        with pytest.raises(ValidationError, match="same workload"):
-            compute_reward_against_reference(
-                RewardConfig(), metrics_stub(), metrics_stub(workload_fingerprint="other")
-            )

@@ -27,20 +27,20 @@ from evaluation.comparison import (
     adaptive_ratio_table,
     best_policy_per_family,
     family_summary,
+    oracle_agreement_table,
     policy_selection_table,
     policy_summary,
     state_occupancy_table,
 )
 from experiments.evaluate import (
-    ADAPTIVE_CLASSIC_REGIME,
-    ADAPTIVE_LEARNED_REGIME,
+    ADAPTIVE_REGIME,
     BASELINE_REGIME,
-    ROUND_ROBIN_LEARNED_QUANTUM_REGIME,
     build_evaluation_workloads,
     evaluate,
 )
 from experiments.run_experiment import run_experiment
 from experiments.train import train
+from experiments.verify_classes import verify_classes
 from main import main as cli_main
 from workload.generator import WorkloadGenerator
 
@@ -60,7 +60,8 @@ def _small_config() -> ExperimentConfig:
         families=families,
         state=StateConfig(),
         training=TrainingConfig(episodes=12, seed=5, family_cycle=("few_short", "few_long")),
-        evaluation=EvaluationConfig(repetitions=2, seed=99),
+        evaluation=EvaluationConfig(repetitions=2, seed=99, verification_repetitions=3,
+                                    verification_seed=123),
     )
     config.validate()
     return config
@@ -93,7 +94,7 @@ class TestWorkloadGeneration:
             assert all(family.priority_min <= p.priority <= family.priority_max
                        for p in workload.processes)
             assert all(p.arrival_time >= 0 for p in workload.processes)
-            if family.arrival_pattern == "uniform":
+            if family.arrival_pattern in ("uniform", "batch_head"):
                 assert all(p.arrival_time <= family.arrival_window for p in workload.processes)
 
     def test_pids_are_one_based_and_unique(self) -> None:
@@ -103,8 +104,8 @@ class TestWorkloadGeneration:
 
     def test_short_job_family_has_lower_median_burst(self) -> None:
         generator = WorkloadGenerator(build_default_config().families)
-        short = generator.generate("short_jobs", 3)
-        long = generator.generate("long_jobs", 3)
+        short = generator.generate("short_batch", 3)
+        long = generator.generate("long_batch", 3)
         assert short.median_burst_time < long.median_burst_time
 
     def test_skewed_family_has_lower_priority_spread(self) -> None:
@@ -115,23 +116,36 @@ class TestWorkloadGeneration:
         uniform = observe_workload_state(generator.generate("mixed", 1))
         assert skewed.priority_spread < uniform.priority_spread
 
-    def test_bimodal_short_family_has_higher_burst_dispersion(self) -> None:
+    def test_interactive_family_has_higher_burst_dispersion(self) -> None:
         from rl.state import observe_workload_state
 
         generator = WorkloadGenerator(build_default_config().families)
-        short_heavy = observe_workload_state(generator.generate("short_jobs", 3))
-        cpu_bursty = observe_workload_state(generator.generate("cpu_bursty", 3))
-        assert short_heavy.burst_dispersion > cpu_bursty.burst_dispersion
+        interactive = observe_workload_state(generator.generate("interactive", 3))
+        homogeneous = observe_workload_state(generator.generate("mixed", 3))
+        assert interactive.burst_dispersion > homogeneous.burst_dispersion
 
-    def test_poisson_arrivals_are_spread_over_time(self) -> None:
+    def test_interactive_family_has_a_batch_head_of_long_jobs(self) -> None:
         generator = WorkloadGenerator(build_default_config().families)
-        workload = generator.generate("poisson_arrivals", 4)
-        assert all(p.arrival_time >= 0 for p in workload.processes)
-        assert workload.arrival_span > 0
-        assert len({p.arrival_time for p in workload.processes}) > 1
-        # Workloads are stored in arrival order, independently of generation order.
-        arrivals = [p.arrival_time for p in workload.processes]
-        assert arrivals == sorted(arrivals)
+        family = generator.family("interactive")
+        workload = generator.generate("interactive", 4)
+        long_jobs = [p for p in workload.processes if p.burst_time >= family.long_mode_min()]
+        short_jobs = [p for p in workload.processes if p.burst_time < family.long_mode_min()]
+        assert long_jobs and short_jobs
+        assert all(p.arrival_time <= family.head_window for p in long_jobs)
+        assert all(p.arrival_time <= family.arrival_window for p in short_jobs)
+
+    def test_batch_families_release_everything_together(self) -> None:
+        generator = WorkloadGenerator(build_default_config().families)
+        for name in ("short_batch", "long_batch"):
+            workload = generator.generate(name, 4)
+            assert all(p.arrival_time == 0 for p in workload.processes)
+
+    def test_aligned_family_tracks_burst_rank(self) -> None:
+        generator = WorkloadGenerator(build_default_config().families)
+        workload = generator.generate("priority_aligned", 2)
+        by_burst = sorted(workload.processes, key=lambda p: (p.burst_time, p.pid))
+        priorities = [p.priority for p in by_burst]
+        assert priorities == sorted(priorities)
 
     def test_unknown_family_and_bad_seed_are_rejected(self) -> None:
         generator = WorkloadGenerator(_small_config().families)
@@ -182,11 +196,36 @@ class TestTraining:
         expected = generator.generate("few_short", derive_seed(config.training.seed, 0, 0))
         assert result.history.workload_fingerprints[0] == expected.fingerprint
 
-    def test_controller_is_trained_when_enabled(self) -> None:
+    def test_training_result_exposes_the_q_table_with_state_bins(self) -> None:
+        result = train(_small_config())
+        rows = result.q_table_rows()
+        assert len(rows) == result.agent.n_states
+        for row in rows:
+            assert set(row["state_bins"]) == set(result.encoder.variables)
+            assert row["greedy_action"] in ACTION_NAMES
+
+
+class TestClassVerification:
+    def test_verification_runs_before_training_and_is_deterministic(self) -> None:
         config = _small_config()
-        result = train(config)
-        assert result.controller is not None
-        assert result.controller.agent.visit_counts.sum() == config.training.episodes
+        generator = WorkloadGenerator(config.families)
+        first = verify_classes(config, generator=generator)
+        second = verify_classes(config, generator=generator)
+        assert first.summary() == second.summary()
+        assert first.workloads_total == len(config.families) * 3
+
+    def test_verification_does_not_train(self) -> None:
+        config = _small_config()
+        result = verify_classes(config)
+        # A verification result carries no agent and no Q-table.
+        assert not hasattr(result, "agent")
+
+    def test_verification_reports_a_modal_winner_per_class(self) -> None:
+        config = _small_config()
+        result = verify_classes(config)
+        for entry in result.classes:
+            assert entry.modal_winner in ACTION_NAMES
+            assert entry.winner_shares[entry.modal_winner] > 0.0
 
 
 class TestEvaluation:
@@ -199,24 +238,16 @@ class TestEvaluation:
     def test_all_policies_and_regimes_are_measured(self) -> None:
         config = _small_config()
         result = evaluate(config, train(config))
-        assert set(result.metrics["policy"]) == set(ACTION_NAMES) | {
-            ADAPTIVE_LABEL,
-            "Round Robin (learned quantum)",
-        }
-        assert set(result.metrics["regime"]) == {
-            BASELINE_REGIME,
-            ADAPTIVE_CLASSIC_REGIME,
-            ADAPTIVE_LEARNED_REGIME,
-            ROUND_ROBIN_LEARNED_QUANTUM_REGIME,
-        }
+        assert set(result.metrics["policy"]) == set(ACTION_NAMES) | {ADAPTIVE_LABEL}
+        assert set(result.metrics["regime"]) == {BASELINE_REGIME, ADAPTIVE_REGIME}
 
     def test_row_count_matches_the_protocol(self) -> None:
         config = _small_config()
         result = evaluate(config, train(config))
         workloads = len(config.families) * config.evaluation.repetitions
-        # four baselines + classic adaptive + learned-quantum adaptive + learned-quantum RR
-        assert len(result.metrics) == workloads * 7
-        assert len(result.decisions) == workloads * 2
+        # four baselines + the adaptive scheduler
+        assert len(result.metrics) == workloads * 5
+        assert len(result.decisions) == workloads
 
     def test_evaluation_workloads_are_disjoint_from_training(self) -> None:
         config = _small_config()
@@ -239,14 +270,12 @@ class TestEvaluation:
         for row in result.decisions.itertuples():
             assert row.action == training.agent.greedy_action(row.state_index)
 
-    def test_adaptive_classic_rows_equal_the_chosen_baseline(self) -> None:
+    def test_adaptive_rows_equal_the_chosen_baseline(self) -> None:
         config = _small_config()
         training = train(config)
         result = evaluate(config, training)
         baselines = result.metrics[result.metrics["regime"] == BASELINE_REGIME]
-        adaptive_decisions = result.decisions[
-            result.decisions["regime"] == ADAPTIVE_CLASSIC_REGIME
-        ]
+        adaptive_decisions = result.decisions[result.decisions["regime"] == ADAPTIVE_REGIME]
         assert not adaptive_decisions.empty
         for decision in adaptive_decisions.itertuples():
             chosen = ACTION_NAMES[decision.action]
@@ -257,6 +286,29 @@ class TestEvaluation:
             ].iloc[0]
             assert decision.adaptive_avg_waiting_time == pytest.approx(baseline_row["avg_waiting_time"])
 
+    def test_decisions_carry_the_reward_argmax_comparison(self) -> None:
+        config = _small_config()
+        result = evaluate(config, train(config))
+        for column in ("oracle_action", "oracle_policy_name", "oracle_reward",
+                       "chosen_minus_oracle_reward", "matches_oracle"):
+            assert column in result.decisions.columns
+        assert set(result.decisions["oracle_policy_name"]).issubset(set(ACTION_NAMES))
+        # The oracle action is the reward-argmax over the four baselines measured on the
+        # same workload, so the chosen action's reward can never exceed the oracle's by
+        # more than numerical noise.
+        gaps = result.decisions["chosen_minus_oracle_reward"]
+        assert (gaps <= 1e-9).all()
+
+    def test_state_coverage_is_reported(self) -> None:
+        config = _small_config()
+        result = evaluate(config, train(config))
+        summary = result.summary()
+        assert summary["distinct_states_evaluated"] >= 1
+        assert summary["evaluated_states_visited_during_training"] <= (
+            summary["distinct_states_evaluated"]
+        )
+        assert "state_visit_count" in result.decisions.columns
+
     def test_zero_repetitions_is_rejected_by_configuration(self) -> None:
         with pytest.raises(ConfigurationError):
             EvaluationConfig(repetitions=0)
@@ -264,7 +316,7 @@ class TestEvaluation:
     def test_equal_seeds_are_rejected_by_the_configuration(self) -> None:
         config = _small_config()
         broken = replace(config, evaluation=replace(config.evaluation, seed=config.training.seed))
-        with pytest.raises(ConfigurationError, match="seeds must differ"):
+        with pytest.raises(ConfigurationError, match="seeds must all differ"):
             broken.validate()
 
     def test_leaked_training_workloads_are_detected(self) -> None:
@@ -285,9 +337,12 @@ class TestComparisonTables:
     def test_tables_have_the_expected_shape(self) -> None:
         config = _small_config()
         result = evaluate(config, train(config))
-        baselines = policy_summary(result.metrics)
+        baselines = policy_summary(result.metrics, BASELINE_REGIME)
         assert set(baselines.index) == set(ACTION_NAMES)
         assert set(baselines.columns) == set(ALL_METRICS)
+
+        adaptive = policy_summary(result.metrics, ADAPTIVE_REGIME)
+        assert list(adaptive.index) == [ADAPTIVE_LABEL]
 
         ratios = adaptive_ratio_table(result.metrics)
         assert len(ratios) == len(ACTION_NAMES) * len(ALL_METRICS)
@@ -305,6 +360,13 @@ class TestComparisonTables:
 
         occupancy = state_occupancy_table(result.decisions)
         assert (occupancy["distinct_states"] >= 1).all()
+        assert (occupancy["states_visited_in_training"] <= occupancy["distinct_states"]).all()
+
+        oracle = oracle_agreement_table(result.decisions)
+        assert (oracle["workloads"] == config.evaluation.repetitions).all()
+        assert len(oracle) == len(config.families)
+        assert ((oracle["matches"] >= 0) & (oracle["matches"] <= oracle["workloads"])).all()
+        assert ((oracle["agreement_rate"] >= 0.0) & (oracle["agreement_rate"] <= 1.0)).all()
 
         best = best_policy_per_family(result.metrics)
         assert set(best["best_policy"]).issubset(set(ACTION_NAMES))
@@ -320,7 +382,7 @@ class TestComparisonTables:
             (result.metrics["regime"] == BASELINE_REGIME) & (result.metrics["policy"] == "SJF")
         ].set_index(["family", "repetition"])[metric]
         adaptive = result.metrics[
-            result.metrics["regime"] == ADAPTIVE_CLASSIC_REGIME
+            result.metrics["regime"] == ADAPTIVE_REGIME
         ].set_index(["family", "repetition"])[metric]
         paired = baseline.to_frame("baseline").join(adaptive.to_frame("adaptive"))
         usable = paired[paired["adaptive"] != 0.0]
@@ -349,10 +411,10 @@ class TestEndToEnd:
             figures_dir=tmp_path / "figures",
             make_figures=True,
         )
-        for name in ("config", "training_history", "q_table", "workloads", "metrics",
-                     "decisions", "summary"):
+        for name in ("config", "class_verification", "training_history", "q_table", "workloads",
+                     "metrics", "decisions", "summary"):
             assert artifacts.paths[name].exists(), name
-        assert len(artifacts.paths["figures"]) == 7
+        assert len(artifacts.paths["figures"]) == 6
         assert all(path.exists() for path in artifacts.paths["figures"])
 
         payload = json.loads((tmp_path / "results" / "summary.json").read_text())
@@ -360,6 +422,27 @@ class TestEndToEnd:
         assert payload["evaluation"]["distinct_workloads"] == (
             len(config.families) * config.evaluation.repetitions
         )
+        # The verification section is part of the summary and precedes training.
+        assert payload["verification"]["repetitions_per_family"] == 3
+        assert payload["verification"]["workloads_total"] == len(config.families) * 3
+
+        verification_payload = json.loads(
+            (tmp_path / "results" / "class_verification.json").read_text()
+        )
+        assert len(verification_payload["classes"]) == len(config.families)
+
+    def test_config_snapshot_has_no_quantum_controller(self, tmp_path: Path) -> None:
+        config = _small_config()
+        run_experiment(
+            config, results_dir=tmp_path / "results", figures_dir=tmp_path / "figures",
+            make_figures=False,
+        )
+        payload = json.loads((tmp_path / "results" / "config.json").read_text())
+        assert "quantum_controller" not in payload
+        assert "quantum_controller" not in payload["q_learning"]
+        assert payload["scheduler"]["round_robin_quantum"] == 4
+        assert payload["state"]["long_burst_threshold"] == 16
+        assert payload["evaluation"]["verification_seed"] == 123
 
     def test_rerun_reproduces_identical_results(self, tmp_path: Path) -> None:
         config = _small_config()
@@ -384,7 +467,11 @@ class TestEndToEnd:
         assert (tmp_path / "a" / "q_table.json").read_text() == (
             tmp_path / "b" / "q_table.json"
         ).read_text()
+        assert (tmp_path / "a" / "class_verification.json").read_text() == (
+            tmp_path / "b" / "class_verification.json"
+        ).read_text()
         assert first.summary["training"] == second.summary["training"]
+        assert first.summary["verification"] == second.summary["verification"]
 
     def test_every_policy_ran_on_every_evaluated_workload(self, tmp_path: Path) -> None:
         config = _small_config()
@@ -418,7 +505,9 @@ class TestEndToEnd:
         )
         assert exit_code == 0
         output = capsys.readouterr().out
+        assert "Pre-training class verification" in output
         assert "Evaluation" in output
         assert "Policy selected by the agent" in output
         assert (tmp_path / "results" / "metrics.csv").exists()
+        assert (tmp_path / "results" / "class_verification.json").exists()
         assert (tmp_path / "figures" / "metric_comparison.png").exists()

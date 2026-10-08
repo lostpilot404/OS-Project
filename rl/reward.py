@@ -30,8 +30,10 @@ cost metric and a benefit metric of equal weight influence the reward equally.  
 switches are scaled per process before comparison, because only their count relative to
 the number of processes is comparable across workload sizes.
 
-The reference for the Round-Robin quantum controller is classic Round Robin on the same
-workload (see :func:`compute_reward_against_reference`).
+The reward is deliberately invariant to the workload *set*: it is computed against the
+four conventional policies on the *same* workload, so redesigning the workload classes
+changes where the policies differ, never what "better" means (see
+``docs/DESIGN_AND_CHOICES.md`` §6).
 """
 
 from __future__ import annotations
@@ -48,7 +50,6 @@ __all__ = [
     "BENEFIT_METRICS",
     "RewardBreakdown",
     "compute_reward",
-    "compute_reward_against_reference",
 ]
 
 #: Metrics that are better when lower, in the order of :meth:`config.RewardConfig.cost_weights`.
@@ -127,38 +128,6 @@ def compute_reward(
         chosen_values=chosen,
         normalised_terms=terms,
     )
-
-
-def compute_reward_against_reference(
-    config: RewardConfig,
-    reference: WorkloadMetrics,
-    candidate: WorkloadMetrics,
-) -> float:
-    """Reward a candidate run against one reference run of the same workload.
-
-    Used by the Round-Robin quantum controller, whose reference is classic Round Robin
-    (quantum multiplier 1.0) on the same workload.
-
-    Args:
-        config: Reward weights and clipping.
-        reference: Metrics of the reference run.
-        candidate: Metrics of the run being scored.
-
-    Returns:
-        The scalar reward; ``0`` means "as good as the reference".
-
-    Raises:
-        ValidationError: If the two runs are not on the same workload.
-    """
-    _check_reward_config(config)
-    if reference.workload_fingerprint != candidate.workload_fingerprint:
-        raise ValidationError(
-            "reference and candidate must be evaluated on the same workload, got "
-            f"{reference.workload_fingerprint} and {candidate.workload_fingerprint}"
-        )
-    reference_values = tuple(getattr(reference, metric) for metric in REWARD_METRICS)
-    candidate_values = tuple(getattr(candidate, metric) for metric in REWARD_METRICS)
-    return _weighted_reward(config, _normalised_terms(config, candidate_values, reference_values))
 
 
 def _check_reward_config(config: RewardConfig) -> None:
