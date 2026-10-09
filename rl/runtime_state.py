@@ -20,7 +20,8 @@ class RuntimeStateEncoder:
     * completed work: 0, 1--3, or 4+ processes;
     * median remaining burst among ready work: at most one quantum, at most four
       quanta, or larger;
-    * mean ready age: at most one quantum, at most four quanta, or larger;
+    * mean arrival age of currently ready jobs: at most one quantum, at most four
+      quanta, or larger (this is not accumulated ready-queue waiting time);
     * observed priority spread among all processes that have arrived: zero or non-zero.
 
     The encoder has no workload argument and uses no total process count, unarrived
@@ -63,12 +64,12 @@ class RuntimeStateEncoder:
             else (1 if median_remaining <= 4 * self.quantum else 2)
         )
 
-        wait_bin = (
-            0 if observation.mean_ready_wait <= self.quantum
-            else (1 if observation.mean_ready_wait <= 4 * self.quantum else 2)
+        arrival_age_bin = (
+            0 if observation.mean_ready_arrival_age <= self.quantum
+            else (1 if observation.mean_ready_arrival_age <= 4 * self.quantum else 2)
         )
         priority_bin = 0 if observation.observed_priority_spread == 0 else 1
-        return ready_bin, completed_bin, burst_bin, wait_bin, priority_bin
+        return ready_bin, completed_bin, burst_bin, arrival_age_bin, priority_bin
 
     def encode(self, observation: RuntimeObservation) -> int:
         """Map a causal observation to a stable mixed-radix state index."""

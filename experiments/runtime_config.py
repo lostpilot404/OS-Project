@@ -37,7 +37,8 @@ class RuntimeExperimentConfig:
     training_episodes_per_seed: int = 1200
     training_seeds: Tuple[int, ...] = (7101, 7102, 7103, 7104, 7105)
     validation_seed: int = 8201
-    final_test_seed: int = 9301
+    # Fresh held-out seed for the remediated queue/reward/state design.
+    final_test_seed: int = 19301
     validation_repetitions: int = 20
     final_test_repetitions: int = 30
     bootstrap_replicates: int = 1000
@@ -48,7 +49,8 @@ class RuntimeExperimentConfig:
     q_learning: QLearningConfig = field(
         default_factory=lambda: QLearningConfig(
             learning_rate=0.1,
-            discount_factor=0.95,
+            # Episodic undiscounted waiting-cost objective: sum of interval rewards.
+            discount_factor=1.0,
             epsilon_start=1.0,
             epsilon_min=0.05,
             epsilon_decay_per_episode=0.997,

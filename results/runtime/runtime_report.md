@@ -10,8 +10,8 @@ dispatch/quantum decision epoch.
 
 - Independent Q-learning seeds: 7101, 7102, 7103, 7104, 7105.
 - Training: 1200 sequential episodes/model across 6 families; 6000 total model-episodes.
-- Validation: 140 distinct workloads; used for reporting only, not tuning.
-- Untouched final test: 210 distinct workloads, generated/evaluated only after training and validation.
+- Validation: 140 distinct workloads; used for reporting and the predeclared illustrative-demo selection rule, not model/hyperparameter tuning.
+- Untouched final test: 210 distinct workloads, generated only after the validation-based demo was selected.
 - Final test and validation workload fingerprints overlap: False.
 - Round Robin quantum / per-PID-change switch cost: 4 / 1 time units.
 - Exact burst lengths are assumed known when a process arrives (also required by SJF); no unarrived process details are exposed.
@@ -22,14 +22,24 @@ At each decision epoch, the Q learner encodes five coarse causal features, choos
 FCFS, SJF, Round Robin, or Priority, executes the chosen policy's next dispatch or
 quantum segment, and observes the next causal state. It updates with
 `Q(s,a) <- Q(s,a) + alpha * (r + gamma max_known_a' Q(s',a') - Q(s,a))`; terminal
-updates omit the bootstrap. With `r = -delta_wait/q`, gamma=1 telescopes to negative
-total waiting time per quantum, while configured gamma<1 explicitly discounts
-later waiting increments. The state-action visit table masks unvisited actions for
-greedy evaluation and bootstrapping; wholly unseen states use the documented causal
-heuristic fallback. Evaluation is deterministic and read-only.
+updates omit the bootstrap. This run uses gamma=1: since each finite workload is an
+episode and `r = -delta_wait/q`, the undiscounted return is exactly negative total
+waiting time divided by the Round-Robin quantum. There is no per-decision or
+simulated-time discount. Unvisited actions are masked for greedy evaluation and
+bootstrapping; wholly unseen states use the documented causal heuristic fallback.
+Evaluation is deterministic and read-only.
+
+## Ready-queue contract
+
+The live queue contains arrived, unfinished, non-running processes. Dispatch removes
+one process; completion removes it permanently. FCFS and RR select the current FIFO
+head. RR requeues an unfinished process at the tail after admitting endpoint arrivals.
+SJF and Priority select by their primary key, with ties preserving current queue order.
+A policy change never rebuilds the queue or resets remaining bursts. Simultaneous
+arrivals are admitted by `(arrival_time, pid)` before RR requeue at a service endpoint.
 
 The predeclared non-RL heuristic selects RR for at least three ready jobs with mean
-ready age at least one quantum; otherwise Priority if ready priorities differ;
+arrival age at least one quantum; otherwise Priority if ready priorities differ;
 otherwise SJF if the largest visible remaining burst is at least twice the smallest;
 otherwise FCFS. Fixed baselines are the four preserved standalone implementations.
 
@@ -37,12 +47,12 @@ otherwise FCFS. Fixed baselines are the four preserved standalone implementation
 
 | Method | Mean wait | Mean turnaround | Mean response | CPU util. % | Throughput | Context switches | Policy switches |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FCFS | 130.412 | 149.525 | 130.412 | 92.545 | 0.077 | 14.000 | 0.000 |
-| SJF | 94.471 | 113.585 | 94.471 | 92.545 | 0.077 | 14.000 | 0.000 |
-| Round Robin | 217.840 | 236.954 | 26.209 | 78.278 | 0.067 | 76.081 | 0.000 |
-| Priority | 129.577 | 148.690 | 129.577 | 92.545 | 0.077 | 14.000 | 0.000 |
-| Causal heuristic | 206.494 | 225.608 | 40.882 | 80.701 | 0.070 | 68.662 | 3.090 |
-| Runtime Q-learning | 184.648 | 203.761 | 41.251 | 81.794 | 0.071 | 63.154 | 5.657 |
+| FCFS | 127.797 | 146.612 | 127.797 | 92.237 | 0.077 | 14.000 | 0.000 |
+| SJF | 93.345 | 112.161 | 93.345 | 92.237 | 0.077 | 14.000 | 0.000 |
+| Round Robin | 215.729 | 234.544 | 26.220 | 78.216 | 0.068 | 74.767 | 0.000 |
+| Priority | 129.207 | 148.022 | 129.207 | 92.237 | 0.077 | 14.000 | 0.000 |
+| Causal heuristic | 203.404 | 222.220 | 40.070 | 80.481 | 0.071 | 67.371 | 3.210 |
+| Runtime Q-learning | 104.789 | 123.604 | 86.341 | 90.836 | 0.076 | 17.322 | 4.729 |
 
 Q-learning rows average across the five independently trained models and the same paired test workloads; fixed and heuristic rows contain one deterministic result per workload.
 
@@ -53,42 +63,42 @@ A difference is target minus reference; negative is favorable for waiting/turnar
 
 | Target | Reference | Metric | Difference | 95% interval |
 |---|---|---|---:|---:|
-| Causal heuristic | SJF | avg_waiting_time | 112.023 | [108.681, 115.650] |
-| Causal heuristic | SJF | avg_turnaround_time | 112.023 | [108.334, 115.723] |
-| Causal heuristic | SJF | avg_response_time | -53.590 | [-56.062, -51.212] |
-| Causal heuristic | SJF | cpu_utilization | -11.844 | [-12.063, -11.636] |
+| Causal heuristic | SJF | avg_waiting_time | 110.059 | [106.219, 114.032] |
+| Causal heuristic | SJF | avg_turnaround_time | 110.059 | [106.042, 113.971] |
+| Causal heuristic | SJF | avg_response_time | -53.276 | [-56.026, -50.873] |
+| Causal heuristic | SJF | cpu_utilization | -11.756 | [-11.992, -11.518] |
 | Causal heuristic | SJF | throughput | -0.006 | [-0.006, -0.006] |
-| Causal heuristic | SJF | context_switches | 54.662 | [53.243, 56.143] |
-| FCFS | SJF | avg_waiting_time | 35.940 | [34.100, 37.784] |
-| FCFS | SJF | avg_turnaround_time | 35.940 | [34.272, 37.953] |
-| FCFS | SJF | avg_response_time | 35.940 | [34.129, 37.682] |
+| Causal heuristic | SJF | context_switches | 53.371 | [51.666, 55.191] |
+| FCFS | SJF | avg_waiting_time | 34.451 | [32.640, 36.540] |
+| FCFS | SJF | avg_turnaround_time | 34.451 | [32.548, 36.377] |
+| FCFS | SJF | avg_response_time | 34.451 | [32.605, 36.440] |
 | FCFS | SJF | cpu_utilization | 0.000 | [0.000, 0.000] |
 | FCFS | SJF | throughput | 0.000 | [0.000, 0.000] |
 | FCFS | SJF | context_switches | 0.000 | [0.000, 0.000] |
-| Priority | SJF | avg_waiting_time | 35.105 | [33.221, 37.054] |
-| Priority | SJF | avg_turnaround_time | 35.105 | [33.062, 37.084] |
-| Priority | SJF | avg_response_time | 35.105 | [33.145, 37.081] |
+| Priority | SJF | avg_waiting_time | 35.862 | [33.987, 37.684] |
+| Priority | SJF | avg_turnaround_time | 35.862 | [34.127, 37.907] |
+| Priority | SJF | avg_response_time | 35.862 | [33.956, 37.823] |
 | Priority | SJF | cpu_utilization | 0.000 | [0.000, 0.000] |
 | Priority | SJF | throughput | 0.000 | [0.000, 0.000] |
 | Priority | SJF | context_switches | 0.000 | [0.000, 0.000] |
-| Round Robin | SJF | avg_waiting_time | 123.369 | [119.354, 127.309] |
-| Round Robin | SJF | avg_turnaround_time | 123.369 | [119.378, 127.218] |
-| Round Robin | SJF | avg_response_time | -68.263 | [-70.720, -65.570] |
-| Round Robin | SJF | cpu_utilization | -14.267 | [-14.449, -14.068] |
+| Round Robin | SJF | avg_waiting_time | 122.383 | [117.619, 127.315] |
+| Round Robin | SJF | avg_turnaround_time | 122.383 | [118.040, 126.896] |
+| Round Robin | SJF | avg_response_time | -67.126 | [-70.219, -64.285] |
+| Round Robin | SJF | cpu_utilization | -14.021 | [-14.241, -13.760] |
 | Round Robin | SJF | throughput | -0.009 | [-0.010, -0.009] |
-| Round Robin | SJF | context_switches | 62.081 | [60.519, 63.392] |
-| Runtime Q-learning | SJF | avg_waiting_time | 90.176 | [79.148, 99.409] |
-| Runtime Q-learning | SJF | avg_turnaround_time | 90.176 | [78.767, 100.029] |
-| Runtime Q-learning | SJF | avg_response_time | -53.220 | [-57.535, -48.534] |
-| Runtime Q-learning | SJF | cpu_utilization | -10.751 | [-11.741, -9.366] |
-| Runtime Q-learning | SJF | throughput | -0.006 | [-0.007, -0.005] |
-| Runtime Q-learning | SJF | context_switches | 49.154 | [43.216, 53.362] |
-| Runtime Q-learning | Causal heuristic | avg_waiting_time | -21.846 | [-32.933, -12.648] |
-| Runtime Q-learning | Causal heuristic | avg_turnaround_time | -21.846 | [-33.045, -12.251] |
-| Runtime Q-learning | Causal heuristic | avg_response_time | 0.370 | [-3.713, 3.980] |
-| Runtime Q-learning | Causal heuristic | cpu_utilization | 1.093 | [0.072, 2.394] |
-| Runtime Q-learning | Causal heuristic | throughput | 0.000 | [-0.001, 0.001] |
-| Runtime Q-learning | Causal heuristic | context_switches | -5.508 | [-11.363, -1.639] |
+| Round Robin | SJF | context_switches | 60.767 | [58.995, 62.491] |
+| Runtime Q-learning | SJF | avg_waiting_time | 11.443 | [5.022, 19.297] |
+| Runtime Q-learning | SJF | avg_turnaround_time | 11.443 | [4.941, 18.899] |
+| Runtime Q-learning | SJF | avg_response_time | -7.004 | [-9.541, -4.305] |
+| Runtime Q-learning | SJF | cpu_utilization | -1.402 | [-1.843, -1.005] |
+| Runtime Q-learning | SJF | throughput | -0.002 | [-0.002, -0.001] |
+| Runtime Q-learning | SJF | context_switches | 3.322 | [2.209, 4.555] |
+| Runtime Q-learning | Causal heuristic | avg_waiting_time | -98.616 | [-106.097, -90.192] |
+| Runtime Q-learning | Causal heuristic | avg_turnaround_time | -98.616 | [-106.286, -90.115] |
+| Runtime Q-learning | Causal heuristic | avg_response_time | 46.272 | [43.472, 49.100] |
+| Runtime Q-learning | Causal heuristic | cpu_utilization | 10.354 | [9.890, 10.834] |
+| Runtime Q-learning | Causal heuristic | throughput | 0.005 | [0.004, 0.005] |
+| Runtime Q-learning | Causal heuristic | context_switches | -50.050 | [-51.929, -48.066] |
 
 ## Coverage and controller overhead
 
@@ -97,10 +107,11 @@ policy decision sequences/times, and all six scheduler metrics are in the CSV ou
 Observation construction, action selection, Q updates, and total simulator wall time
 are recorded separately; timing is host-dependent and is not charged to simulated time.
 
-- Learned same-trace policy-change demonstration: `runtime_learned_switch_demo.json` (16 policy changes across 60 decisions; training seed 7102, priority_skewed repetition 11).
-- Mean Q-controller observation/selection overhead per evaluation trace: 1.738843 ms / 1.922951 ms.
-- Mean Q-controller observation/action-selection time per decision: 26.937 us / 29.789 us.
-- Mean Q training update time: 17.525 us per transition.
+- Illustrative validation-split Q trace (not representative): `runtime_learned_switch_demo.json` (15 policy changes across 23 decisions; training seed 7103, staggered_interactive repetition 0).
+- Demo selection rule (validation only): validation only: maximize policy switches among Q traces with zero unseen-state fallbacks; if none qualify, use all validation Q traces; break ties by ascending training seed, family, then repetition.
+- Mean Q-controller observation/selection overhead per evaluation trace: 0.253699 ms / 0.393512 ms.
+- Mean Q-controller observation/action-selection time per decision: 13.693 us / 21.239 us.
+- Mean Q training update time: 18.124 us per transition.
 
 ## Limitations and legacy reference
 
@@ -115,7 +126,7 @@ causal runtime baseline and is not included in these fair paired comparisons.
 
 - `runtime_training_metrics.csv`: per-episode sequential training outcomes.
 - `runtime_validation_metrics.csv` / `runtime_final_test_metrics.csv`: paired metrics.
-- `runtime_validation_decisions.csv` / `runtime_final_test_decisions.csv`: causal state/action event records and policy-switch timing.
+- `runtime_validation_decisions.csv` / `runtime_final_test_decisions.csv`: large causal state/action event logs, regenerated by the command above and intentionally excluded from version control.
 - `runtime_workload_manifest.csv`: split seeds and fingerprints for regeneration.
 - `runtime_state_action_coverage.csv` / `runtime_q_table.csv`: state/action visits and learned values.
 - `runtime_summary.json`: configuration, software, split audit, aggregate results, and intervals.

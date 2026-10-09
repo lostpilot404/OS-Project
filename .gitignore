@@ -13,3 +13,8 @@ venv/
 .idea/
 .vscode/
 .DS_Store
+
+# Large runtime event logs are reproducible from the declared seeds and CLI.
+# Compact metrics, manifests, Q tables, summaries, reports and demo remain tracked.
+results/runtime/runtime_validation_decisions.csv
+results/runtime/runtime_final_test_decisions.csv

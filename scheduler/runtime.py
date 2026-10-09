@@ -61,6 +61,10 @@ class RuntimeObservation:
     schedule. Burst lengths for arrived processes are exact, matching the simulator's
     explicit assumption that burst estimates are known when a process enters the system
     (the same assumption required by SJF). Aggregates cover only work observed so far.
+    ``mean_ready_arrival_age`` is the mean of ``current_time - arrival_time`` for the
+    processes currently ready; it is arrival age, not accumulated ready-queue waiting.
+    ``previous_policy`` is the policy selected at the immediately preceding decision
+    epoch, or ``None`` at the first decision.
     """
 
     current_time: int
@@ -69,7 +73,7 @@ class RuntimeObservation:
     arrived_count: int
     observed_mean_burst: float
     observed_priority_spread: int
-    mean_ready_wait: float
+    mean_ready_arrival_age: float
     previous_policy: Optional[int]
 
     def __post_init__(self) -> None:
@@ -182,16 +186,23 @@ class RuntimeController(Protocol):
 
 
 class RuntimeSimulator:
-    """Event-driven scheduler that preserves one evolving ready queue.
+    """Event-driven scheduler that preserves one evolving FIFO ready queue.
 
-    At an epoch, FCFS/SJF/Priority run the chosen process non-preemptively; Round Robin
-    runs it for ``min(quantum, remaining_burst)``. Arrivals are admitted in chronological
-    order and appended to the existing FIFO ready queue. A partially executed RR process
-    is appended at the tail after arrivals at the quantum endpoint are admitted.
+    The queue contains arrived, unfinished processes that are not currently running.
+    Dispatch removes the selected process. FCFS and RR select the queue head; SJF selects
+    the shortest remaining burst, and Priority selects the highest configured priority.
+    SJF/Priority ties preserve current queue insertion order. Thus an RR-requeued process
+    remains at the tail if the next decision selects FCFS, SJF, or Priority; selection by
+    those policies does not silently restore original-arrival order.
 
-    Switch cost is charged only when the running PID changes, matching the standalone
-    schedulers and ``build_schedule_result``. A policy change never resets or reconstructs
-    the ready queue.
+    Arrivals are appended in ``(arrival_time, pid)`` order. At a service endpoint, arrivals
+    at that exact time are admitted before an unfinished RR process is appended to the
+    tail. A completed process is never re-enqueued. A policy choice changes only the next
+    selection rule and service length; queue membership/order and remaining bursts persist.
+    Non-RR service is non-preemptive; RR service is ``min(quantum, remaining_burst)``.
+
+    A context-switch cost is charged only when the running PID changes, matching the
+    standalone schedulers and ``build_schedule_result``.
     """
 
     def __init__(self, config: SchedulerConfig) -> None:
@@ -294,7 +305,7 @@ class RuntimeSimulator:
                     if observed_priorities
                     else 0
                 ),
-                mean_ready_wait=(
+                mean_ready_arrival_age=(
                     sum(current_time - p.arrival_time for p in ready) / len(ready)
                 ),
                 previous_policy=previous_policy,
@@ -334,17 +345,22 @@ class RuntimeSimulator:
                 )
 
             if decision.action == ACTION_FCFS:
-                chosen = min(ready, key=lambda p: (p.arrival_time, p.pid))
+                # FCFS is FIFO on the live ready queue, including prior RR requeues.
+                chosen = ready[0]
             elif decision.action == ACTION_SJF:
-                chosen = min(ready, key=lambda p: (remaining[p.pid], p.arrival_time, p.pid))
+                # Python's min is stable: equal remaining bursts retain queue order.
+                chosen = min(ready, key=lambda p: remaining[p.pid])
             elif decision.action == ACTION_ROUND_ROBIN:
                 chosen = ready[0]
             elif decision.action == ACTION_PRIORITY:
-                def priority_key(process: Process) -> tuple[int, int, int]:
-                    priority = process.priority
-                    if not self.config.lower_priority_number_is_higher_priority:
-                        priority = -priority
-                    return (priority, process.arrival_time, process.pid)
+                def priority_key(process: Process) -> int:
+                    return (
+                        process.priority
+                        if self.config.lower_priority_number_is_higher_priority
+                        else -process.priority
+                    )
+
+                # Equal priorities retain the current ready-queue insertion order.
                 chosen = min(ready, key=priority_key)
             else:  # RuntimeActionDecision already validates, retain a defensive guard.
                 raise ValidationError(f"unsupported runtime action {decision.action}")
@@ -383,6 +399,13 @@ class RuntimeSimulator:
             else:
                 raise ValidationError("a non-RR action unexpectedly preempted a process")
 
+            # Preserve the previous value long enough to label this transition, then
+            # publish the just-selected policy in the next decision's observation.
+            policy_switch = (
+                previous_policy is not None and decision.action != previous_policy
+            )
+            previous_policy = decision.action
+
             terminal = len(completed) == len(processes)
             next_observation: Optional[RuntimeObservation] = None
             if not terminal:
@@ -399,9 +422,6 @@ class RuntimeSimulator:
                 if callable(encode):
                     next_state_index = int(encode(next_observation))
 
-            policy_switch = (
-                previous_policy is not None and decision.action != previous_policy
-            )
             record = RuntimeDecisionRecord(
                 decision_index=decision_index,
                 observation=observation,
@@ -431,7 +451,6 @@ class RuntimeSimulator:
                 update_ns += perf_counter_ns() - update_started
 
             previous_pid = chosen.pid
-            previous_policy = decision.action
             observation = next_observation  # type: ignore[assignment]
             decision_index += 1
 

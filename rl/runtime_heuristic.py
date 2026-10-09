@@ -14,8 +14,8 @@ class CausalHeuristic:
 
     The rule is declared before evaluation and has no fitted parameters:
 
-    1. choose Round Robin if at least three processes are ready and mean ready age is at
-       least one quantum (fairness under a visibly aged queue);
+    1. choose Round Robin if at least three processes are ready and mean arrival age of
+       ready jobs is at least one quantum (an age-based fairness proxy, not measured wait);
     2. otherwise choose Priority if at least two ready processes have differing priority;
     3. otherwise choose SJF if the largest remaining burst is at least twice the
        smallest (visible burst heterogeneity);
@@ -35,7 +35,7 @@ class CausalHeuristic:
         if not isinstance(observation, RuntimeObservation):
             raise ValidationError("CausalHeuristic requires RuntimeObservation")
         ready = observation.ready_processes
-        if len(ready) >= 3 and observation.mean_ready_wait >= self.quantum:
+        if len(ready) >= 3 and observation.mean_ready_arrival_age >= self.quantum:
             return ACTION_ROUND_ROBIN
         priorities = {process.priority for process in ready}
         if len(ready) >= 2 and len(priorities) > 1:

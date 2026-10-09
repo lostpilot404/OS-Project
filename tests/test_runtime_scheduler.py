@@ -10,6 +10,9 @@ import pytest
 from config import (
     ACTION_FCFS,
     ACTION_NAMES,
+    ACTION_PRIORITY,
+    ACTION_ROUND_ROBIN,
+    ACTION_SJF,
     QLearningConfig,
     SchedulerConfig,
 )
@@ -33,6 +36,24 @@ class FixedController:
     def select_action(self, observation, *, training=False, episode=0):
         assert isinstance(observation, RuntimeObservation)
         return RuntimeActionDecision(self.action)
+
+    def observe_transition(self, *args, **kwargs):
+        return None
+
+
+class ScriptedController:
+    """Controller that emits a predetermined action at each decision epoch."""
+
+    def __init__(self, actions: list[int]) -> None:
+        self.actions = list(actions)
+        self.observations: list[RuntimeObservation] = []
+
+    def select_action(self, observation, *, training=False, episode=0):
+        assert isinstance(observation, RuntimeObservation)
+        self.observations.append(observation)
+        if len(self.observations) > len(self.actions):
+            raise AssertionError("runtime requested more scripted actions than expected")
+        return RuntimeActionDecision(self.actions[len(self.observations) - 1])
 
     def observe_transition(self, *args, **kwargs):
         return None
@@ -88,6 +109,21 @@ def _assert_schedule_equivalent(actual, expected) -> None:
         "context_switches",
     ):
         assert getattr(left, metric) == pytest.approx(getattr(right, metric))
+
+
+def _decision_summary(record):
+    return (
+        record.observation.current_time,
+        record.observation.previous_policy,
+        tuple(
+            (process.pid, process.remaining_burst)
+            for process in record.observation.ready_processes
+        ),
+        record.chosen_pid,
+        record.start_time,
+        record.end_time,
+        record.terminal,
+    )
 
 
 class TestRuntimeAgainstFixedSchedulers:
@@ -158,6 +194,151 @@ class TestRuntimeAgainstFixedSchedulers:
                 )
                 standalone = policy_class(config).run(workload)
                 _assert_schedule_equivalent(runtime.result, standalone)
+
+
+class TestMixedPolicyQueueContract:
+    def test_previous_policy_is_immediately_preceding_choice_through_terminal(self) -> None:
+        workload = _workload([(pid, 0, 1, 1) for pid in range(1, 6)])
+        actions = [ACTION_FCFS, ACTION_SJF, ACTION_ROUND_ROBIN, ACTION_PRIORITY, ACTION_FCFS]
+        controller = ScriptedController(actions)
+        run = RuntimeSimulator(
+            SchedulerConfig(round_robin_quantum=2, switching_cost=0)
+        ).run(workload, controller)
+
+        assert [record.decision.action for record in run.decisions] == actions
+        assert [observation.previous_policy for observation in controller.observations] == [
+            None,
+            ACTION_FCFS,
+            ACTION_SJF,
+            ACTION_ROUND_ROBIN,
+            ACTION_PRIORITY,
+        ]
+        assert len(run.decisions) == 5
+        assert run.decisions[0].observation.previous_policy is None
+        assert run.decisions[-1].terminal is True
+        assert run.decisions[-1].observation.previous_policy == ACTION_PRIORITY
+        assert run.decisions[-1].next_state_index is None
+
+    def test_round_robin_then_fcfs_uses_requeue_order_not_original_arrival(self) -> None:
+        workload = _workload(
+            [(1, 0, 4, 1), (2, 0, 5, 1), (3, 2, 1, 1)],
+            name="rr-fcfs-live-fifo",
+        )
+        controller = ScriptedController(
+            [ACTION_ROUND_ROBIN, ACTION_FCFS, ACTION_FCFS, ACTION_FCFS]
+        )
+        run = RuntimeSimulator(
+            SchedulerConfig(round_robin_quantum=2, switching_cost=0)
+        ).run(workload, controller)
+
+        assert [_decision_summary(record) for record in run.decisions] == [
+            (0, None, ((1, 4), (2, 5)), 1, 0, 2, False),
+            (2, ACTION_ROUND_ROBIN, ((2, 5), (3, 1), (1, 2)), 2, 2, 7, False),
+            (7, ACTION_FCFS, ((3, 1), (1, 2)), 3, 7, 8, False),
+            (8, ACTION_FCFS, ((1, 2),), 1, 8, 10, True),
+        ]
+        assert [(part.pid, part.start_time, part.end_time) for part in run.result.trace] == [
+            (1, 0, 2),
+            (2, 2, 7),
+            (3, 7, 8),
+            (1, 8, 10),
+        ]
+
+    def test_fcfs_then_round_robin_admits_endpoint_arrivals_before_requeue(self) -> None:
+        workload = _workload(
+            [(1, 0, 2, 1), (2, 0, 4, 1), (3, 2, 2, 1), (4, 4, 1, 1)],
+            name="fcfs-rr-endpoint-order",
+        )
+        controller = ScriptedController(
+            [ACTION_FCFS, ACTION_ROUND_ROBIN, ACTION_ROUND_ROBIN,
+             ACTION_ROUND_ROBIN, ACTION_ROUND_ROBIN]
+        )
+        run = RuntimeSimulator(
+            SchedulerConfig(round_robin_quantum=2, switching_cost=0)
+        ).run(workload, controller)
+
+        assert [_decision_summary(record) for record in run.decisions] == [
+            (0, None, ((1, 2), (2, 4)), 1, 0, 2, False),
+            (2, ACTION_FCFS, ((2, 4), (3, 2)), 2, 2, 4, False),
+            (4, ACTION_ROUND_ROBIN, ((3, 2), (4, 1), (2, 2)), 3, 4, 6, False),
+            (6, ACTION_ROUND_ROBIN, ((4, 1), (2, 2)), 4, 6, 7, False),
+            (7, ACTION_ROUND_ROBIN, ((2, 2),), 2, 7, 9, True),
+        ]
+        assert [(part.pid, part.start_time, part.end_time) for part in run.result.trace] == [
+            (1, 0, 2),
+            (2, 2, 4),
+            (3, 4, 6),
+            (4, 6, 7),
+            (2, 7, 9),
+        ]
+
+    def test_sjf_and_priority_ties_preserve_live_queue_order_across_switches(self) -> None:
+        workload = _workload(
+            [(1, 0, 4, 1), (2, 0, 2, 1), (3, 0, 2, 1)],
+            name="rr-sjf-priority-tie-order",
+        )
+        controller = ScriptedController(
+            [ACTION_ROUND_ROBIN, ACTION_SJF, ACTION_PRIORITY, ACTION_ROUND_ROBIN]
+        )
+        run = RuntimeSimulator(
+            SchedulerConfig(round_robin_quantum=2, switching_cost=0)
+        ).run(workload, controller)
+
+        assert [_decision_summary(record) for record in run.decisions] == [
+            (0, None, ((1, 4), (2, 2), (3, 2)), 1, 0, 2, False),
+            (2, ACTION_ROUND_ROBIN, ((2, 2), (3, 2), (1, 2)), 2, 2, 4, False),
+            (4, ACTION_SJF, ((3, 2), (1, 2)), 3, 4, 6, False),
+            (6, ACTION_PRIORITY, ((1, 2),), 1, 6, 8, True),
+        ]
+        assert [(part.pid, part.start_time, part.end_time) for part in run.result.trace] == [
+            (1, 0, 2),
+            (2, 2, 4),
+            (3, 4, 6),
+            (1, 6, 8),
+        ]
+
+    def test_priority_then_round_robin_uses_priority_then_fifo_head(self) -> None:
+        workload = _workload(
+            [(1, 0, 4, 3), (2, 0, 5, 2), (3, 2, 1, 1)],
+            name="rr-priority-rr",
+        )
+        controller = ScriptedController(
+            [ACTION_ROUND_ROBIN, ACTION_PRIORITY, ACTION_ROUND_ROBIN,
+             ACTION_FCFS, ACTION_FCFS]
+        )
+        run = RuntimeSimulator(
+            SchedulerConfig(round_robin_quantum=2, switching_cost=0)
+        ).run(workload, controller)
+
+        assert [_decision_summary(record) for record in run.decisions] == [
+            (0, None, ((1, 4), (2, 5)), 1, 0, 2, False),
+            (2, ACTION_ROUND_ROBIN, ((2, 5), (3, 1), (1, 2)), 3, 2, 3, False),
+            (3, ACTION_PRIORITY, ((2, 5), (1, 2)), 2, 3, 5, False),
+            (5, ACTION_ROUND_ROBIN, ((1, 2), (2, 3)), 1, 5, 7, False),
+            (7, ACTION_FCFS, ((2, 3),), 2, 7, 10, True),
+        ]
+        assert [(part.pid, part.start_time, part.end_time) for part in run.result.trace] == [
+            (1, 0, 2),
+            (3, 2, 3),
+            (2, 3, 5),
+            (1, 5, 7),
+            (2, 7, 10),
+        ]
+
+    def test_ready_feature_is_explicitly_arrival_age(self) -> None:
+        workload = _workload([(1, 0, 4, 1), (2, 0, 5, 1)])
+        controller = ScriptedController([ACTION_ROUND_ROBIN, ACTION_FCFS, ACTION_FCFS])
+        run = RuntimeSimulator(
+            SchedulerConfig(round_robin_quantum=2, switching_cost=0)
+        ).run(workload, controller)
+        observation = run.decisions[1].observation
+
+        assert observation.mean_ready_arrival_age == 2.0
+        assert hasattr(observation, "mean_ready_arrival_age")
+        assert [(p.pid, p.remaining_burst) for p in observation.ready_processes] == [
+            (2, 5),
+            (1, 2),
+        ]
 
 
 class TestCausalBoundary:
@@ -231,6 +412,20 @@ class TestCausalBoundary:
 
 
 class TestSequentialQRuntime:
+    def test_gamma_one_uses_full_nonterminal_return_and_terminal_has_no_bootstrap(self) -> None:
+        agent = QLearningAgent(
+            2,
+            4,
+            QLearningConfig(learning_rate=1.0, discount_factor=1.0),
+            seed=8,
+        )
+        agent.update(1, 2, 10.0, next_state=None)
+        agent.update(0, 1, 2.0, next_state=1, mask_unvisited_next_actions=True)
+        agent.update(0, 3, 2.0, next_state=None, mask_unvisited_next_actions=True)
+
+        assert agent.state_action_value(0, 1) == pytest.approx(12.0)
+        assert agent.state_action_value(0, 3) == pytest.approx(2.0)
+
     def test_nonterminal_gamma_changes_the_update_target(self) -> None:
         zero_gamma = QLearningAgent(
             2,
@@ -277,7 +472,7 @@ class TestSequentialQRuntime:
             encoder,
             QLearningConfig(
                 learning_rate=0.5,
-                discount_factor=0.8,
+                discount_factor=1.0,
                 epsilon_start=1.0,
                 epsilon_min=0.2,
                 epsilon_decay_per_episode=0.9,

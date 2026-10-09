@@ -3,11 +3,20 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
+from types import SimpleNamespace
 
-from config import ACTION_NAMES
+import pytest
+
+from config import ACTION_NAMES, QLearningConfig
+from errors import ValidationError
 from evaluation.comparison import ALL_METRICS
 from experiments.runtime_config import RuntimeExperimentConfig
-from experiments.runtime_experiment import run_runtime_experiment
+from experiments.runtime_experiment import (
+    _config_snapshot,
+    _select_demo_candidate,
+    run_runtime_experiment,
+)
 
 
 def _small_runtime_config() -> RuntimeExperimentConfig:
@@ -26,7 +35,7 @@ def _small_runtime_config() -> RuntimeExperimentConfig:
     )
 
 
-def test_pipeline_separates_splits_pairs_all_methods_and_records_learned_switch(tmp_path) -> None:
+def test_pipeline_separates_splits_pairs_all_methods_and_records_validation_demo(tmp_path) -> None:
     artifacts = run_runtime_experiment(_small_runtime_config(), tmp_path / "first")
     frame = artifacts.final_test_metrics
     assert set(frame["method"]) == {
@@ -56,15 +65,17 @@ def test_pipeline_separates_splits_pairs_all_methods_and_records_learned_switch(
 
     demo = json.loads(artifacts.paths["learned_switch_demo"].read_text())
     assert demo["status"] == "verified_learned_runtime_policy_switch"
-    assert demo["policy_switch_count"] > 0
-    assert demo["fallback_decisions"] == 0
-    assert demo["all_choices_from_trained_state"] is True
+    assert demo["source_split"] == "validation"
+    assert demo["illustrative_not_representative"] is True
+    assert demo["workload_fingerprint"]
+    assert demo["workload_processes"]
     actions = [entry["action"] for entry in demo["decisions"]]
-    assert len(set(actions)) > 1
     assert sum(entry["policy_switch"] for entry in demo["decisions"]) == demo[
         "policy_switch_count"
     ]
     assert set(actions).issubset(range(len(ACTION_NAMES)))
+    assert artifacts.summary["demo"]["source_split"] == "validation"
+    assert artifacts.summary["demo"]["selection_rule"]
 
     coverage = artifacts.paths["state_action_coverage"].read_text()
     assert "unvisited_state_actions" in coverage
@@ -72,6 +83,33 @@ def test_pipeline_separates_splits_pairs_all_methods_and_records_learned_switch(
     report = artifacts.paths["report"].read_text()
     assert "untouched final test" in report.lower()
     assert "gamma" in report
+
+
+def test_runtime_default_uses_undiscounted_waiting_objective_and_explicit_feature_metadata() -> None:
+    snapshot = RuntimeExperimentConfig()
+    metadata = _config_snapshot(snapshot)
+    assert snapshot.q_learning.discount_factor == 1.0
+    assert metadata["state_encoder"]["features"][3] == (
+        "mean_ready_arrival_age(<=q,<=4q,>4q)"
+    )
+    assert "live FIFO insertion order" in metadata["ready_queue_contract"]
+    assert "undiscounted episodic return" in metadata["learning_objective"]
+
+    discounted_config = replace(snapshot, q_learning=QLearningConfig(discount_factor=0.5))
+    discounted_objective = _config_snapshot(discounted_config)["learning_objective"]
+    assert "per-decision discounted return" in discounted_objective
+    assert "not the undiscounted total-waiting objective" in discounted_objective
+
+
+def test_demo_selector_rejects_final_test_candidate() -> None:
+    candidate = (
+        999,
+        None,
+        SimpleNamespace(split="final_test"),
+        SimpleNamespace(policy_switch_count=999),
+    )
+    with pytest.raises(ValidationError, match="selected from validation"):
+        _select_demo_candidate([candidate])
 
 
 def test_seeded_metrics_and_demo_are_reproducible_excluding_host_timings(tmp_path) -> None:

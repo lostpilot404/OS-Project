@@ -45,6 +45,11 @@ __all__ = [
 
 Q_METHOD = "Runtime Q-learning"
 HEURISTIC_METHOD = "Causal heuristic"
+DEMO_SELECTION_RULE = (
+    "validation only: maximize policy switches among Q traces with zero unseen-state "
+    "fallbacks; if none qualify, use all validation Q traces; break ties by ascending "
+    "training seed, family, then repetition"
+)
 _SPLIT_TAGS = {"training": 11, "validation": 23, "final_test": 37}
 
 
@@ -157,7 +162,7 @@ def build_runtime_workloads(
 def _train_models(
     config: RuntimeExperimentConfig,
     generator: WorkloadGenerator,
-) -> tuple[Tuple[TrainedRuntimeModel, ...], pd.DataFrame, pd.DataFrame, List[Dict[str, Any]]]: 
+) -> tuple[Tuple[TrainedRuntimeModel, ...], pd.DataFrame, pd.DataFrame, List[Dict[str, Any]]]:
     encoder = RuntimeStateEncoder(config.scheduler.round_robin_quantum)
     heuristic = CausalHeuristic(config.scheduler.round_robin_quantum)
     simulator = RuntimeSimulator(config.scheduler)
@@ -336,11 +341,7 @@ def _evaluate_split(
             decision_rows.extend(
                 _decision_rows(split, Q_METHOD, model.training_seed, item, q_run.decisions)
             )
-            if (
-                keep_demo_candidates
-                and q_run.policy_switch_count
-                and all(record.decision.fallback_reason is None for record in q_run.decisions)
-            ):
+            if keep_demo_candidates:
                 demos.append((q_run.policy_switch_count, model, item, q_run))
 
     metrics = pd.DataFrame(metrics_rows)
@@ -375,6 +376,46 @@ def _evaluate_split(
                 }
             )
     return metrics, decisions, demos
+
+
+def _select_demo_candidate(
+    candidates: Sequence[tuple[int, TrainedRuntimeModel, RuntimeWorkload, RuntimeRun]],
+) -> tuple[int, TrainedRuntimeModel, RuntimeWorkload, RuntimeRun]:
+    """Select an illustrative trace from validation data only.
+
+    Prefer no-fallback traces, then maximize the observed number of policy changes. Ties
+    are broken by ascending model seed, family name, and repetition. The split check is
+    deliberately enforced here so a future caller cannot accidentally feed final-test
+    switch counts into demonstration selection.
+    """
+    if not candidates:
+        raise ValidationError("no validation Q-learning traces are available for the demo")
+    for switch_count, _model, item, run in candidates:
+        if item.split != "validation":
+            raise ValidationError(
+                "the illustrative runtime demonstration must be selected from validation"
+            )
+        if switch_count != run.policy_switch_count:
+            raise ValidationError("demo candidate switch count does not match its runtime trace")
+
+    no_fallback = [
+        candidate
+        for candidate in candidates
+        if all(
+            record.decision.fallback_reason is None
+            for record in candidate[3].decisions
+        )
+    ]
+    pool = no_fallback or list(candidates)
+    return min(
+        pool,
+        key=lambda entry: (
+            -entry[0],
+            entry[1].training_seed,
+            entry[2].family,
+            entry[2].repetition,
+        ),
+    )
 
 
 def _metric_row(
@@ -459,6 +500,7 @@ def _decision_rows(
                 "state_index": record.decision.state_index,
                 "action": record.decision.action,
                 "action_name": record.policy_name,
+                "previous_policy": observation.previous_policy,
                 "chosen_pid": record.chosen_pid,
                 "start_time": record.start_time,
                 "end_time": record.end_time,
@@ -471,7 +513,7 @@ def _decision_rows(
                 "ready_count": len(observation.ready_processes),
                 "completed_count": observation.completed_count,
                 "arrived_count": observation.arrived_count,
-                "mean_ready_wait": observation.mean_ready_wait,
+                "mean_ready_arrival_age": observation.mean_ready_arrival_age,
                 "observed_mean_burst": observation.observed_mean_burst,
                 "observed_priority_spread": observation.observed_priority_spread,
                 "ready_processes_compact": ";".join(
@@ -695,6 +737,18 @@ def _software_snapshot() -> Dict[str, Any]:
 
 
 def _config_snapshot(config: RuntimeExperimentConfig) -> Dict[str, Any]:
+    gamma = config.q_learning.discount_factor
+    if gamma == 1.0:
+        learning_objective = (
+            "maximize undiscounted episodic return; with gamma=1, sum_t r_t equals "
+            "negative total waiting time divided by RR quantum"
+        )
+    else:
+        learning_objective = (
+            f"maximize per-decision discounted return sum_t {gamma:g}^t r_t; this "
+            "discounts by decision count, not simulated elapsed time, and is not the "
+            "undiscounted total-waiting objective"
+        )
     return {
         "experiment": "causal_event_driven_runtime_policy_adaptation",
         "training_episodes_per_seed": config.training_episodes_per_seed,
@@ -715,16 +769,18 @@ def _config_snapshot(config: RuntimeExperimentConfig) -> Dict[str, Any]:
                 "ready_count(1,2-3,4+)",
                 "completed_count(0,1-3,4+)",
                 "median_ready_remaining_burst(<=q,<=4q,>4q)",
-                "mean_ready_wait(<=q,<=4q,>4q)",
+                "mean_ready_arrival_age(<=q,<=4q,>4q)",
                 "arrived_work_priority_spread(zero,nonzero)",
             ],
             "state_count": 162,
         },
         "reward": "r_t = -incremental_total_waiting_time / max(1, RR_quantum)",
-        "discounted_objective": (
-            "sum_t gamma^t r_t; at gamma=1 rewards telescope to negative total waiting "
-            "time divided by quantum, while gamma<1 discounts later delay increments"
+        "learning_objective": learning_objective,
+        "ready_queue_contract": (
+            "FCFS/RR use live FIFO insertion order; SJF/Priority ties preserve that order; "
+            "arrivals at a service endpoint enter before an unfinished RR job is requeued"
         ),
+        "demonstration_selection_rule": DEMO_SELECTION_RULE,
         "priority_convention": "lower numeric value is higher priority by default",
         "burst_information_assumption": (
             "exact burst is known on arrival for arrived processes, matching the standalone SJF simulator"
@@ -750,6 +806,24 @@ def _mean_by_method(metrics: pd.DataFrame) -> Dict[str, Dict[str, float]]:
 
 def _render_report(summary: Dict[str, Any]) -> str:
     final_means = summary["final_test_means"]
+    gamma = float(summary["configuration"]["q_learning"]["discount_factor"])
+    if gamma == 1.0:
+        learning_lines = (
+            "updates omit the bootstrap. This run uses gamma=1: since each finite workload is an",
+            "episode and `r = -delta_wait/q`, the undiscounted return is exactly negative total",
+            "waiting time divided by the Round-Robin quantum. There is no per-decision or",
+            "simulated-time discount. Unvisited actions are masked for greedy evaluation and",
+            "bootstrapping; wholly unseen states use the documented causal heuristic fallback.",
+            "Evaluation is deterministic and read-only.",
+        )
+    else:
+        learning_lines = (
+            f"updates omit the bootstrap. This run uses gamma={gamma:g} per decision, so later",
+            "waiting increments are discounted by decision count, not simulated elapsed time.",
+            "That objective is not the undiscounted total-waiting objective. Unvisited actions",
+            "are masked for greedy evaluation and bootstrapping; wholly unseen states use the",
+            "documented causal heuristic fallback. Evaluation is deterministic and read-only.",
+        )
     lines = [
         "# Causal runtime-adaptation experiment",
         "",
@@ -763,8 +837,8 @@ def _render_report(summary: Dict[str, Any]) -> str:
         "",
         f"- Independent Q-learning seeds: {', '.join(map(str, summary['configuration']['training_seeds']))}.",
         f"- Training: {summary['configuration']['training_episodes_per_seed']} sequential episodes/model across {len(summary['configuration']['training_families'])} families; {summary['training_workloads']} total model-episodes.",
-        f"- Validation: {summary['validation_unique_workloads']} distinct workloads; used for reporting only, not tuning.",
-        f"- Untouched final test: {summary['final_test_unique_workloads']} distinct workloads, generated/evaluated only after training and validation.",
+        f"- Validation: {summary['validation_unique_workloads']} distinct workloads; used for reporting and the predeclared illustrative-demo selection rule, not model/hyperparameter tuning.",
+        f"- Untouched final test: {summary['final_test_unique_workloads']} distinct workloads, generated only after the validation-based demo was selected.",
         f"- Final test and validation workload fingerprints overlap: {summary['split_fingerprint_overlap']}.",
         f"- Round Robin quantum / per-PID-change switch cost: {summary['configuration']['scheduler']['round_robin_quantum']} / {summary['configuration']['scheduler']['switching_cost']} time units.",
         "- Exact burst lengths are assumed known when a process arrives (also required by SJF); no unarrived process details are exposed.",
@@ -775,14 +849,19 @@ def _render_report(summary: Dict[str, Any]) -> str:
         "FCFS, SJF, Round Robin, or Priority, executes the chosen policy's next dispatch or",
         "quantum segment, and observes the next causal state. It updates with",
         "`Q(s,a) <- Q(s,a) + alpha * (r + gamma max_known_a' Q(s',a') - Q(s,a))`; terminal",
-        "updates omit the bootstrap. With `r = -delta_wait/q`, gamma=1 telescopes to negative",
-        "total waiting time per quantum, while configured gamma<1 explicitly discounts",
-        "later waiting increments. The state-action visit table masks unvisited actions for",
-        "greedy evaluation and bootstrapping; wholly unseen states use the documented causal",
-        "heuristic fallback. Evaluation is deterministic and read-only.",
+        *learning_lines,
+        "",
+        "## Ready-queue contract",
+        "",
+        "The live queue contains arrived, unfinished, non-running processes. Dispatch removes",
+        "one process; completion removes it permanently. FCFS and RR select the current FIFO",
+        "head. RR requeues an unfinished process at the tail after admitting endpoint arrivals.",
+        "SJF and Priority select by their primary key, with ties preserving current queue order.",
+        "A policy change never rebuilds the queue or resets remaining bursts. Simultaneous",
+        "arrivals are admitted by `(arrival_time, pid)` before RR requeue at a service endpoint.",
         "",
         "The predeclared non-RL heuristic selects RR for at least three ready jobs with mean",
-        "ready age at least one quantum; otherwise Priority if ready priorities differ;",
+        "arrival age at least one quantum; otherwise Priority if ready priorities differ;",
         "otherwise SJF if the largest visible remaining burst is at least twice the smallest;",
         "otherwise FCFS. Fixed baselines are the four preserved standalone implementations.",
         "",
@@ -834,7 +913,8 @@ def _render_report(summary: Dict[str, Any]) -> str:
         "Observation construction, action selection, Q updates, and total simulator wall time",
         "are recorded separately; timing is host-dependent and is not charged to simulated time.",
         "",
-        f"- Learned same-trace policy-change demonstration: `{summary['demo']['path']}` ({summary['demo']['policy_switch_count']} policy changes across {summary['demo']['decision_count']} decisions; training seed {summary['demo']['training_seed']}, {summary['demo']['family']} repetition {summary['demo']['repetition']}).",
+        f"- Illustrative validation-split Q trace (not representative): `{summary['demo']['path']}` ({summary['demo']['policy_switch_count']} policy changes across {summary['demo']['decision_count']} decisions; training seed {summary['demo']['training_seed']}, {summary['demo']['family']} repetition {summary['demo']['repetition']}).",
+        f"- Demo selection rule (validation only): {DEMO_SELECTION_RULE}.",
         f"- Mean Q-controller observation/selection overhead per evaluation trace: {summary['mean_runtime_q_observation_ms']:.6f} ms / {summary['mean_runtime_q_selection_ms']:.6f} ms.",
         f"- Mean Q-controller observation/action-selection time per decision: {summary['mean_runtime_q_observation_us_per_decision']:.3f} us / {summary['mean_runtime_q_selection_us_per_decision']:.3f} us.",
         f"- Mean Q training update time: {summary['mean_training_q_update_us_per_transition']:.3f} us per transition.",
@@ -852,7 +932,7 @@ def _render_report(summary: Dict[str, Any]) -> str:
         "",
         "- `runtime_training_metrics.csv`: per-episode sequential training outcomes.",
         "- `runtime_validation_metrics.csv` / `runtime_final_test_metrics.csv`: paired metrics.",
-        "- `runtime_validation_decisions.csv` / `runtime_final_test_decisions.csv`: causal state/action event records and policy-switch timing.",
+        "- `runtime_validation_decisions.csv` / `runtime_final_test_decisions.csv`: large causal state/action event logs, regenerated by the command above and intentionally excluded from version control.",
         "- `runtime_workload_manifest.csv`: split seeds and fingerprints for regeneration.",
         "- `runtime_state_action_coverage.csv` / `runtime_q_table.csv`: state/action visits and learned values.",
         "- `runtime_summary.json`: configuration, software, split audit, aggregate results, and intervals.",
@@ -878,38 +958,35 @@ def run_runtime_experiment(
     training_union = set().union(*training_fingerprints_by_seed.values())
 
     validation_workloads = build_runtime_workloads("validation", config, generator)
-    validation_metrics, validation_decisions, _ = _evaluate_split(
-        "validation", validation_workloads, models, config, coverage_rows
-    )
-    validation_fingerprints = {item.fingerprint for item in validation_workloads}
-    if training_union & validation_fingerprints:
-        raise ValidationError("training and validation workload fingerprints overlap")
-
-    # The final split is deliberately generated only after training and validation are
-    # complete; no test statistic is used to select hyperparameters or alter the models.
-    final_workloads = build_runtime_workloads("final_test", config, generator)
-    _assert_split_separation(models, validation_workloads, final_workloads)
-    final_metrics, final_decisions, demo_candidates = _evaluate_split(
-        "final_test",
-        final_workloads,
+    validation_metrics, validation_decisions, validation_demo_candidates = _evaluate_split(
+        "validation",
+        validation_workloads,
         models,
         config,
         coverage_rows,
         keep_demo_candidates=True,
     )
-    if not demo_candidates:
-        raise ValidationError(
-            "No learned runtime Q model changed policy within any final-test trace. "
-            "Do not manufacture a demonstration; adjust the training design and rerun."
-        )
-    demo_switches, demo_model, demo_item, demo_run = max(
-        demo_candidates,
-        key=lambda entry: (
-            entry[0],
-            -entry[1].training_seed,
-            entry[2].family,
-            -entry[2].repetition,
-        ),
+    validation_fingerprints = {item.fingerprint for item in validation_workloads}
+    if training_union & validation_fingerprints:
+        raise ValidationError("training and validation workload fingerprints overlap")
+
+    # Choose the illustrative trace using the predeclared validation-only rule before
+    # generating the final-test workloads. Test outcomes cannot enter this selection.
+    demo_switches, demo_model, demo_item, demo_run = _select_demo_candidate(
+        validation_demo_candidates
+    )
+
+    # The final split is generated only after training and validation are complete. It is
+    # used for aggregate reporting only, never hyperparameter/model/demo selection.
+    final_workloads = build_runtime_workloads("final_test", config, generator)
+    _assert_split_separation(models, validation_workloads, final_workloads)
+    final_metrics, final_decisions, _ = _evaluate_split(
+        "final_test",
+        final_workloads,
+        models,
+        config,
+        coverage_rows,
+        keep_demo_candidates=False,
     )
 
     manifest = pd.DataFrame(
@@ -997,6 +1074,9 @@ def run_runtime_experiment(
         "mean_training_q_update_us_per_transition": mean_update_ms * 1000.0,
         "demo": {
             "path": demo_path.name,
+            "source_split": demo_item.split,
+            "illustrative_not_representative": True,
+            "selection_rule": DEMO_SELECTION_RULE,
             "training_seed": demo_model.training_seed,
             "family": demo_item.family,
             "repetition": demo_item.repetition,
@@ -1074,12 +1154,23 @@ def _demo_payload(
     """Serialize a real learned trace with observations and actual action transitions."""
     return {
         "status": "verified_learned_runtime_policy_switch",
+        "source_split": item.split,
+        "illustrative_not_representative": True,
+        "selection_rule": DEMO_SELECTION_RULE,
         "training_seed": model.training_seed,
-        "split": item.split,
         "family": item.family,
         "repetition": item.repetition,
         "workload_seed": item.seed,
         "workload_fingerprint": item.fingerprint,
+        "workload_processes": [
+            {
+                "pid": process.pid,
+                "arrival_time": process.arrival_time,
+                "burst_time": process.burst_time,
+                "priority": process.priority,
+            }
+            for process in item.workload.processes
+        ],
         "policy_switch_count": run.policy_switch_count,
         "decision_count": run.decision_count,
         "policy_switch_times": [
@@ -1091,6 +1182,8 @@ def _demo_payload(
             {
                 "decision_index": record.decision_index,
                 "time": record.observation.current_time,
+                "previous_policy": record.observation.previous_policy,
+                "mean_ready_arrival_age": record.observation.mean_ready_arrival_age,
                 "state_index": record.decision.state_index,
                 "action": record.decision.action,
                 "policy": record.policy_name,

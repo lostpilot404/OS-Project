@@ -23,7 +23,8 @@ their arrival times. This is an environment privilege, not a controller input. A
 - completed-process and arrived-process counts;
 - mean burst and priority spread across processes that have arrived so far (including
   previously completed processes);
-- mean waiting age of the current ready queue.
+- mean arrival age (`current_time - arrival_time`) of currently ready jobs; this includes
+  any earlier CPU service and is not accumulated ready-queue waiting.
 
 No `Workload` or reference to it crosses the controller API. The observation/state
 encoder do not accept unarrived process data, the number of future processes, future
@@ -43,37 +44,49 @@ verify that event advancement has not broken the existing scheduler semantics.
 
 ## 2. Event-driven execution semantics
 
-The ready queue persists for the entire trace; changing the selected rule never clears,
-rebuilds or reorders it on behalf of the controller. On a decision epoch:
+The simulator maintains one FIFO ready queue for the entire trace. It contains arrived,
+unfinished processes that are not currently selected/running. Arrival appends a process in
+canonical `(arrival_time, pid)` order. Dispatch removes the selected process; completion
+removes it permanently. An RR process that remains unfinished after its quantum is
+reinserted at the tail. In particular, FCFS after an RR decision uses this live insertion
+order—not the process's original arrival time—and SJF/Priority ties also preserve it.
+
+At a decision epoch:
 
 1. admit all arrivals at or before the epoch in canonical `(arrival_time, pid)` order;
-2. construct an immutable observation from arrived/currently ready/completed work;
-3. ask the controller for one action;
-4. apply that action to the current ready set;
-5. run the selected process's next service segment, charge any PID-change switch cost,
-   account for observed waiting-time increments, and admit arrivals at the segment end;
-6. for RR only, append a still-incomplete process to the existing queue tail *after*
-   admitting all arrivals at or before the quantum endpoint; otherwise a selected process
-   runs to completion;
-7. expose the next causal observation and learn from the transition if this is a training
-   run.
+2. construct an immutable observation (its `previous_policy` is the action from the
+   immediately preceding decision, or `None` at the first decision);
+3. ask the controller for one action and remove the selected process from the ready queue;
+4. commit to that dispatch before any switch overhead; arrivals during the overhead are
+   appended but do not retroactively change the selected PID;
+5. run the selected process's next service segment and account for waiting-time increments;
+6. at the service endpoint, admit simultaneous arrivals before resolving the running
+   process: a completed process leaves permanently; an unfinished RR process is appended
+   at the tail; non-RR service runs to completion;
+7. expose the next observation and learn from the transition if this is a training run.
 
-Policy selection rules are total and deterministic:
+Policy selection rules are deterministic:
 
 | Action | Selection/execution rule |
 |---|---|
-| FCFS | Smallest `(arrival_time, pid)`, non-preemptive. |
-| SJF | Smallest `(remaining_burst, arrival_time, pid)`, non-preemptive. |
-| Round Robin | FIFO queue; run for `min(configured_quantum, remaining_burst)`. Boundary arrivals precede re-enqueue of the yielded process. |
-| Priority | Smallest configured priority key, then arrival time and PID; non-preemptive. Lower numeric priority is higher by default. |
+| FCFS | Current ready-queue head, non-preemptive. Initial arrivals are already ordered by `(arrival_time, pid)`. |
+| SJF | Smallest remaining burst, non-preemptive; ties preserve current queue order. |
+| Round Robin | Current ready-queue head; run for `min(configured_quantum, remaining_burst)`. Endpoint arrivals precede tail re-enqueue. |
+| Priority | Highest configured static priority, non-preemptive; ties preserve current queue order. Lower numeric value is higher by default. |
+
+A policy change alters only the next selection rule/service length. Queue membership/order,
+remaining bursts, arrivals, and completed history are not reset. Thus an RR requeue remains
+behind jobs already waiting if the next action is FCFS; SJF/Priority can select another job
+only because their primary key differs, with queue order resolving ties. Under an
+unchanging policy, initial queue insertion order preserves standalone FCFS/SJF/Priority tie
+behavior, and RR has the same endpoint-arrival ordering; fixed-policy equivalence tests
+remain required.
 
 The first dispatch has no switch charge. A charge is added only when the next PID differs
-from the last running PID; changing policy alone is not a context switch. A process that
-resumes after a consecutive same-PID dispatch incurs no PID-change switch cost. CPU busy,
-idle and switch overhead remain distinct in `ScheduleResult` and all six existing metrics.
-The trace validator checks work conservation outside the actual switch interval, including
-when an idle wait for an arrival precedes a switch. This corrects a validator edge case; it
-does not alter the standalone policies' selection or execution rules.
+from the last running PID; changing policy alone is not a context switch. CPU busy, idle and
+switch overhead remain distinct in `ScheduleResult` and all six existing metrics. The trace
+validator checks work conservation outside the actual switch interval, including when an
+idle wait for an arrival precedes a switch.
 
 The default runtime experiment uses RR quantum 4 and switching cost 1. The cost is applied
 in both adaptive and fixed-policy schedules. Fixed FCFS/SJF/RR/Priority references are run
@@ -91,7 +104,7 @@ has five features:
 | Current ready count | 1, 2–3, 4+ |
 | Completed process count | 0, 1–3, 4+ |
 | Median remaining burst among ready jobs | `<= q`, `<= 4q`, `> 4q` |
-| Mean ready waiting age | `<= q`, `<= 4q`, `> 4q` |
+| Mean arrival age of currently ready jobs | `<= q`, `<= 4q`, `> 4q`; includes earlier service, not accumulated queue wait |
 | Priority spread among arrived work | zero, non-zero |
 
 The state space is `3 × 3 × 3 × 3 × 2 = 162`; there are 648 state-action entries for the
@@ -118,9 +131,16 @@ r_t = - ΔW_t / max(1, q)
 `ΔW_t` includes waiting while the selected PID incurs a switch cost, time spent in the
 next CPU segment by other ready/arriving jobs, and no service interval for jobs arriving
 exactly at an interval endpoint. The simulator checks that the sum of all interval
-increments equals the validated schedule's total per-process waiting time. Thus for
-`gamma=1`, `sum_t r_t` is exactly `-total_waiting_time/q`; configured `gamma=0.95` instead
-optimizes an explicitly discounted sum of later waiting increments.
+increments equals the validated schedule's total per-process waiting time. The runtime
+experiment default sets `gamma=1`, so `sum_t r_t` is exactly
+`-total_waiting_time/max(1,q)` for each completed finite trace. This is the undiscounted
+episodic objective of minimizing total waiting time (the positive scale factor does not
+change the minimizing policy). There is no discount by decision count or simulated time.
+Reward normalization by the quantum limits the per-interval magnitude; gamma 1 can still
+produce larger cumulative Q values for longer traces. Episodes are finite, and Q values use
+floating-point arithmetic. A custom `gamma<1` changes the objective to discounting by
+decision epoch, not by elapsed simulated duration; such a setting must not be described as
+optimizing total waiting time.
 
 For nonterminal transitions:
 
@@ -128,8 +148,9 @@ For nonterminal transitions:
 Q(s,a) <- Q(s,a) + alpha * (r + gamma * max_{a' in visited(s')} Q(s',a') - Q(s,a))
 ```
 
-For terminal transitions the bootstrap is omitted. A unit test uses different gamma values
-and verifies they produce different nonterminal Q targets. The runtime uses the generic
+For terminal transitions the bootstrap is omitted. Tests verify the undiscounted
+nonterminal target with `gamma=1`, verify terminal updates omit future value, and retain a
+generic check that changing gamma changes a nonterminal target. The runtime uses the generic
 `QLearningAgent` with explicit state-action counts; the old single-step offline selector
 continues to use terminal transitions.
 
@@ -149,7 +170,8 @@ unvisited count. Both state and state-action visit counts are exported.
 The heuristic uses the same `RuntimeObservation` and no fitted parameters. Its rule is
 fixed before the final test:
 
-1. RR if at least 3 processes are ready and mean ready age is at least one quantum;
+1. RR if at least 3 processes are ready and mean arrival age of those jobs is at least
+   one quantum (an age proxy, not accumulated ready-queue waiting);
 2. else Priority if at least 2 ready processes have differing priority values;
 3. else SJF if the largest visible remaining burst is at least twice the smallest;
 4. else FCFS.
@@ -166,11 +188,15 @@ The default runtime study declares:
   episodes per seed. Six families cycle across episodes; `poisson_arrivals` is held out
   from training.
 - **Validation:** 20 instances per each of 7 families = 140 unique workloads, generated
-  from master seed 8201. Used for reporting/health checks only; there is no hyperparameter
-  selection in this pipeline.
+  from master seed 8201. Used for reporting and for the predeclared illustrative-demo
+  selection rule only; no model or hyperparameter tuning is performed.
 - **Final test:** 30 instances per each of 7 families = 210 unique workloads, generated
-  from master seed 9301. Generated only after all training and validation runs; it is not
-  used to change the model, heuristic or configuration.
+  from fresh master seed 19301 after training, validation reporting and demo selection. Its
+  metrics do not influence model, heuristic, configuration or demonstration choice.
+
+The previous final set (master seed 9301) was examined in the independent audit and
+therefore informed the queue/reward remediation. It is retired as a final claim; seed 19301
+is the new held-out set for the revised result.
 
 SHA-256-derived workload seeds use separate split tags and family/repetition coordinates;
 agent exploration streams are also derived separately. Fingerprints are checked for
@@ -217,52 +243,61 @@ exclusion of zero.
 
 ## 8. Current measured default result
 
-With the configuration above, the currently checked-in run reports:
+The previous final set (master seed 9301) was examined in the independent audit and
+informed the queue/reward methodology changes. It is retired as a final claim. The revised
+result below uses the new held-out master seed 19301, declared before its run; 30 instances
+per family produce 210 final-test workloads.
 
 | Method | Wait | Turnaround | Response | Utilization % | Throughput | Context switches | Policy switches |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FCFS | 130.412 | 149.525 | 130.412 | 92.545 | 0.0766 | 14.000 | 0.000 |
-| SJF | 94.471 | 113.585 | 94.471 | 92.545 | 0.0766 | 14.000 | 0.000 |
-| Round Robin | 217.840 | 236.954 | 26.209 | 78.278 | 0.0671 | 76.081 | 0.000 |
-| Priority | 129.577 | 148.690 | 129.577 | 92.545 | 0.0766 | 14.000 | 0.000 |
-| Causal heuristic | 206.494 | 225.608 | 40.882 | 80.701 | 0.0703 | 68.662 | 3.091 |
-| Runtime Q-learning | 184.648 | 203.761 | 41.251 | 81.794 | 0.0705 | 63.154 | 5.657 |
+| FCFS | 127.797 | 146.612 | 127.797 | 92.237 | 0.077 | 14.000 | 0.000 |
+| SJF | 93.345 | 112.161 | 93.345 | 92.237 | 0.077 | 14.000 | 0.000 |
+| Round Robin | 215.729 | 234.544 | 26.220 | 78.216 | 0.068 | 74.767 | 0.000 |
+| Priority | 129.207 | 148.022 | 129.207 | 92.237 | 0.077 | 14.000 | 0.000 |
+| Causal heuristic | 203.404 | 222.220 | 40.070 | 80.481 | 0.071 | 67.371 | 3.210 |
+| Runtime Q-learning | 104.789 | 123.604 | 86.341 | 90.836 | 0.076 | 17.322 | 4.729 |
 
-This run does **not** establish that the learner dominates fixed policies: SJF has the
-lowest mean waiting time and Q-learning's mean wait is higher than both SJF and FCFS. The
-learner did improve on the selected predeclared heuristic in mean waiting time and
-context-switch count in this test set. These are descriptive, generator-specific results.
-The paired Q-learning minus SJF waiting-time difference is +90.176 with a 95% interval
-[+79.148, +99.409]; Q-learning minus heuristic is -21.846 with interval [-32.933,
--12.648]. Complete tables and intervals are generated by `runtime_report.md` and
-`runtime_paired_comparisons.csv`, not copied into computations.
+Q-learning does **not** beat SJF on mean waiting time: Q minus SJF is +11.443 with a
+95% crossed-bootstrap interval [+5.022, +19.297]. It improves on the heuristic's mean
+waiting time by 98.616 (interval [-106.097, -90.192]), but the heuristic has substantially
+lower mean response time (Q minus heuristic +46.272, interval [+43.472, +49.100]). Q uses
+fewer context switches than the heuristic (-50.050) but more than SJF (+3.322). These are
+conditional, generator-specific comparisons over five learned seeds; they do not imply
+performance on general OS workloads. Complete intervals for all metrics remain in the
+generated `runtime_report.md` and `runtime_paired_comparisons.csv`.
 
-Each model visited 255–265 of 648 state/action pairs (39.4–40.9%). On final test, each
-encountered 75–77 distinct states; 2–8 individual decisions per model took the explicit
-causal fallback. Coverage is meaningful and visibly incomplete; unseen estimates are not
-presented as learned actions.
+Each model visited 267–276 of 648 state/action pairs (41.2–42.6%). On final test, 1–3
+decisions per model used the explicit unseen-state fallback. Coverage remains incomplete;
+unseen estimates are not presented as learned actions.
 
-The learned demonstration is selected from actual held-out Q-controller runs only after
-learning. The checked-in case is priority-skewed repetition 11, training seed 7102: 16
-policy changes over 60 dispatch/quantum decisions. Its per-epoch causal observations,
-selected actions, switch times, execution trace, seed and fingerprint are saved in
-`results/runtime/runtime_learned_switch_demo.json`. Selection of the case is by highest
-observed action-switch count among the evaluated learned traces; the action sequence itself
-is not specified in code or scripted.
+The illustrative demo is selected from validation before final-test generation. It is the
+validation trace with the most policy changes among no-fallback Q traces, with deterministic
+tie-breaking by ascending training seed, family and repetition; if no trace qualifies, the
+rule falls back to all validation Q traces. The selected case is seed 7103,
+`staggered_interactive` repetition 0, fingerprint `275409d7458331f6`, with 15 changes over
+23 decisions. It is an illustration, not a representative performance sample. The real
+controller supplies every decision; the artifact records workload definition/fingerprint,
+observations, actions, switch times and execution trace.
 
 ## 9. Artifact map, command and verification
 
-The default command is:
+Regenerate the default run into a separate directory with:
 
 ```bash
-python main.py runtime-experiment
+python main.py runtime-experiment --results-dir /tmp/os-project-runtime
 ```
 
-`results/runtime/` contains training and validation/test metric tables, per-decision causal
-audit rows, workload manifest, per-model Q tables and state/action coverage, paired
-bootstrap comparisons, summary JSON, report Markdown, and the learned switch demonstration.
-The timing columns are inherently machine-dependent; seeds, workload fingerprints, action
-sequences, schedule traces, schedule metrics, and bootstrap results are deterministic.
+The declared seeds and configuration are in `experiments/runtime_config.py`; the command
+also regenerates large per-decision CSV logs in that output directory. The normal default
+command writes to `results/runtime/`.
+
+`results/runtime/` tracks compact training and validation/test metric tables, workload
+manifest, per-model Q tables and state/action coverage, paired bootstrap comparisons,
+summary JSON, report Markdown, and the validation-split demonstration. Large per-decision
+CSV logs are generated by the same command but intentionally gitignored; the deterministic
+seeded generation procedure plus compact raw per-workload metrics are retained for
+verification. Timing columns are inherently machine-dependent; workload fingerprints,
+actions, schedule metrics and bootstrap results are deterministic.
 
 Run the full test suite with:
 
