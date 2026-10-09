@@ -1,10 +1,10 @@
-"""Command-line entry point for the offline workload-aware policy selector.
+"""Command-line entry point for runtime adaptation and the legacy offline reference.
 
 Usage::
 
-    python main.py experiment        # train, evaluate, report, and plot
-    python main.py experiment --no-figures
-    python main.py train             # train the configured independent seeds only
+    python main.py runtime-experiment   # event-driven train/validate/test/report
+    python main.py experiment           # legacy offline whole-workload selector
+    python main.py train                # train the legacy offline selector only
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from typing import Optional, Sequence
 
 from config import ACTION_NAMES, build_default_config
 from experiments.run_experiment import run_experiment
+from experiments.runtime_experiment import run_runtime_experiment
 from experiments.train import train
 
 __all__ = ["main"]
@@ -26,17 +27,21 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="main.py",
         description=(
-            "Offline workload-aware CPU policy selection: one batch decision per complete "
-            "workload using tabular Q-learning over FCFS, SJF, Round Robin, and Priority. "
-            "This project does not perform runtime policy switching."
+            "Single-CPU event-driven adaptive scheduling with causal runtime policy "
+            "decisions. The legacy offline whole-workload selector remains available as "
+            "the separate 'experiment' reference command."
         ),
     )
     parser.add_argument(
         "command",
         nargs="?",
-        default="experiment",
-        choices=("experiment", "train"),
-        help="'experiment' runs the full multi-seed evaluation; 'train' trains configured seeds only.",
+        default="runtime-experiment",
+        choices=("runtime-experiment", "experiment", "train"),
+        help=(
+            "'runtime-experiment' (default) runs causal sequential training, validation, "
+            "and held-out testing; 'experiment' runs the legacy offline reference; "
+            "'train' trains the legacy selector only."
+        ),
     )
     parser.add_argument(
         "--results-dir",
@@ -118,8 +123,35 @@ def _report_evaluation(evaluation, summary) -> None:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Run the command-line interface and return its exit code."""
     args = _build_parser().parse_args(argv)
-    config = build_default_config()
+    if args.command == "runtime-experiment":
+        artifacts = run_runtime_experiment(
+            results_dir=args.results_dir or Path("results/runtime")
+        )
+        summary = artifacts.summary
+        print("Causal event-driven runtime experiment")
+        print("---------------------------------------")
+        print(
+            f"  training seeds                 : "
+            f"{', '.join(map(str, summary['configuration']['training_seeds']))}"
+        )
+        print(f"  training episodes/model        : {summary['configuration']['training_episodes_per_seed']}")
+        print(f"  validation workloads           : {summary['validation_unique_workloads']}")
+        print(f"  final held-out test workloads  : {summary['final_test_unique_workloads']}")
+        print("  final-test mean waiting time:")
+        for method, values in summary["final_test_means"].items():
+            if "avg_waiting_time" in values:
+                print(f"    {method:<22}: {values['avg_waiting_time']:.3f}")
+        demo = summary["demo"]
+        print(
+            f"  learned within-trace switches : {demo['policy_switch_count']} "
+            f"({demo['decision_count']} decisions; {demo['path']})"
+        )
+        print("  artifacts:")
+        for name, path in artifacts.paths.items():
+            print(f"    {name:<24}: {path}")
+        return 0
 
+    config = build_default_config()
     if args.command == "train":
         for seed in config.training.seeds:
             model_config = replace(

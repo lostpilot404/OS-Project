@@ -1,290 +1,223 @@
-# Offline Workload-Aware CPU Policy Selection with Tabular Q-Learning
+# Event-Driven Runtime-Adaptive CPU Scheduling
 
-A reproducible single-CPU scheduling study that uses tabular Q-learning to choose one
-conventional policy for a complete workload. **The selector makes one batch/offline
-choice before execution; it is not a runtime OS scheduler and does not switch policies
-while a workload runs.**
+This repository now contains a **single-CPU, event-driven runtime scheduler**. At every
+ready-queue dispatch or Round-Robin quantum boundary, a controller chooses FCFS, SJF,
+Round Robin, or Priority for the next segment of the same evolving workload. It preserves
+one ready queue, remaining bursts, arrivals, RR FIFO/re-enqueue behavior, and per-process
+context-switch accounting. The default command trains, validates, and tests a sequential
+Q-learning controller on separate seeded workloads.
 
-## Objective and scope
+The older whole-workload policy selector remains available as a clearly separate **legacy
+offline reference**. It is not the runtime scheduler and is not treated as a causal
+baseline.
 
-The objective is to measure whether a workload-aware selector can choose among **FCFS,
-SJF, Round Robin, and Priority** under declared synthetic workload conditions, using one
-consistent reward and paired evaluation against all four policies. Every configured
-workload is a finite process list containing process IDs, arrival times, CPU burst times,
-and priorities.
-
-The complete list is available at decision time. In particular, state features include
-known burst times and even future arrival times from the generated batch. That information
-is valid for this offline experiment, but would not be available to a conventional online
-OS scheduler. The simulation has one CPU and is not connected to a real operating system.
-There is no process-by-process policy switching, runtime hook, learned Round-Robin quantum,
-or second controller in the reported experiment.
-
-## Architecture
+## Runtime architecture and causal boundary
 
 ```text
-config.py                 Frozen experiment, scheduler, workload, state, reward and RL settings
-workload/
-  models.py               Process, complete workload, schedule trace and outcomes
-  generator.py            Seeded synthetic workload generation
-scheduler/
-  fcfs.py                 Non-preemptive First-Come, First-Served
-  sjf.py                  Non-preemptive Shortest Job First
-  round_robin.py          Preemptive Round Robin with fixed quantum 4
-  priority.py             Non-preemptive static Priority
-rl/
-  state.py                Pre-execution features and mixed-radix discretization
-  reward.py               One reward against exactly the four conventional policies
-  q_learning.py           Tabular action values and epsilon-greedy exploration
-  adaptive.py             Offline selector: one policy choice per complete workload
-evaluation/
-  metrics.py              Six required scheduling metrics and derived reward input
-  comparison.py           Paired comparisons, variability and unique-workload summaries
-experiments/
-  train.py                One terminal workload decision and Q update per episode
-  evaluate.py             Read-only paired evaluation of one independently trained model
-  run_experiment.py       Multi-seed run, artifacts, metadata and generated report
-  report.py               Results report and README tables rendered from artifacts
-visualization/plots.py    Six optional figures; imported only when figures are requested
-tests/                     Unit, independent-metric, reproducibility and end-to-end tests
-results/                   Tracked machine-readable outputs and generated results report
-figures/                   Tracked figures from the default experiment
+scheduler/runtime.py           Event-driven single-CPU environment and immutable observations
+scheduler/{fcfs,sjf,round_robin,priority}.py
+                               Preserved standalone fixed-policy baselines
+rl/runtime_state.py             Five-feature, causal state encoder (162 tabular states)
+rl/runtime_controller.py        Sequential Q-learning; visits, masking, deterministic fallback
+rl/runtime_heuristic.py         Predeclared deterministic non-RL adaptive rule
+experiments/runtime_config.py   Frozen seeds, split sizes, switch cost and Q settings
+experiments/runtime_experiment.py
+                               Training, validation, final test, paired metrics and reports
+workload/models.py              Process/workload models and schedule-trace validation
+results/runtime/                Reproducible runtime-experiment tables, audit trail and report
+rl/adaptive.py                  Explicitly legacy offline whole-workload selector
+experiments/run_experiment.py   Explicitly legacy offline result pipeline
 ```
 
-## Conventional scheduling policies
+The environment privately owns the complete event queue. At a decision epoch its
+controller receives only a frozen `RuntimeObservation` containing:
 
-The action order is fixed and is also the deterministic tie order: **FCFS, SJF, Round
-Robin, Priority**.
+- current simulated time;
+- processes that have arrived and are currently ready, with their known burst,
+  remaining burst, arrival time and priority;
+- counts of arrived and completed processes;
+- aggregates over **arrived work only** (observed mean burst and priority spread);
+- mean arrival age of the currently ready jobs (not accumulated ready-queue waiting), and
+  the policy selected at the immediately preceding decision epoch (`None` on the first call).
 
-| Policy | Simulation rule |
-|---|---|
-| FCFS | Non-preemptive; among ready processes, earliest arrival then lowest PID. |
-| SJF | Non-preemptive; shortest burst, then earliest arrival, then lowest PID. SRTF is not implemented. |
-| Round Robin | FIFO ready queue; each turn runs for at most the configured quantum (4 time units by default). Arrivals at or before the end of a turn are enqueued before a preempted process. |
-| Priority | Non-preemptive static priority; priority 1 is highest by default, then arrival time and PID. |
+The controller API accepts an observation, not a `Workload`; the state encoder likewise
+accepts only that observation. Unarrived process IDs/attributes, future arrivals/bursts,
+workload-wide summaries, and counterfactual schedule metrics are not passed to the
+controller. Exact burst lengths for arrived processes are assumed known on arrival, matching
+the information assumption already required by SJF. This is a simulator assumption, not a
+claim about real operating-system burst prediction.
 
-Tie-breaking is deterministic. Context switches count changes of the running PID: the first
-dispatch is not a switch, and a process that resumes without another PID running is not a
-switch. An optional nonzero switching cost is configurable, but the reported default is
-zero.
+Causality tests change hidden future arrivals, bursts and priorities while keeping the
+observable history identical; the corresponding observation/action prefixes remain
+identical. The simulator computes rewards from actual waiting-time increments between
+events; it does not pass hypothetical policy outcomes to the learner.
 
-## RL formulation: a one-step episodic selector
+## Runtime execution semantics
 
-One training episode is one complete workload:
+The ready queue is one persistent FIFO of arrived, unfinished, non-running processes:
 
-1. Compute four pre-execution workload features from the complete process list.
-2. Encode the features as one of **81 discrete states**.
-3. Choose one action using epsilon-greedy action selection.
-4. Run that conventional policy to completion. Run the four conventional policies on the
-   same workload to calculate the reward reference.
-5. Apply one terminal tabular Q update. There is no next workload state in the episode.
+- A process enters at arrival time; simultaneous arrivals are appended by `(arrival_time,
+  pid)`. Dispatch removes the selected process from the queue. It is not in the queue while
+  running or while completing.
+- **FCFS:** dispatch the current queue head, non-preemptively. Thus it follows current FIFO
+  insertion order, not the process's original arrival time after an RR requeue.
+- **Round Robin:** dispatch the queue head for `min(quantum, remaining_burst)`. If it is
+  unfinished at the quantum boundary, admit all arrivals at or before that endpoint in
+  `(arrival_time, pid)` order, then append the yielded process at the tail. A completed
+  process is never re-enqueued.
+- **SJF:** choose the smallest remaining burst, non-preemptively; ties preserve current
+  ready-queue order.
+- **Priority:** choose the highest configured static priority, non-preemptively; equal
+  priorities preserve current ready-queue order (lower numeric value is higher by default).
+- A policy switch changes only the next selection rule and service length. It does not
+  rebuild/reorder the queue or reset remaining bursts. Arrivals during switch overhead are
+  appended, but the dispatch already selected before that overhead is not reconsidered.
+- Completion/quantum-expiration endpoints are settled before the next decision: endpoint
+  arrivals are queued first; a completed process leaves permanently, while an unfinished RR
+  process goes to the tail after those arrivals.
+- A context-switch cost is charged only when the running PID changes. The first dispatch
+  and redispatch of the same PID are free. The default runtime experiment uses quantum 4
+  and switch cost 1 time unit. The standalone fixed policies retain their original
+  selection rules; under an unchanging policy, initial queue insertion order yields the
+  same FCFS/SJF/Priority tie order and RR FIFO behavior.
 
-This is single-step episodic tabular Q-learning, equivalently a contextual policy-selection
-problem. It is not sequential scheduling control. With terminal transitions,
-`Q(s,a) ← Q(s,a) + α [r − Q(s,a)]`; the configured discount factor γ has no effect in this
-experiment because `next_state=None` is used for every training update.
+The fixed-action runtime simulator is tested against each standalone implementation on
+hand-built and seeded random traces (all six metric outcomes, context switches, idle time,
+and trace slices).
 
-### State and decision-time availability
+## Online learning and predeclared heuristic
 
-| State variable | Definition from the full workload | Default range and scale |
-|---|---|---|
-| `burst_profile` | Conventional median CPU burst | 1–50, logarithmic |
-| `burst_dispersion` | Population standard deviation of bursts divided by their mean (coefficient of variation) | 0–1.5, linear |
-| `offered_load` | Total burst time divided by `max(1, latest_arrival − earliest_arrival)` | 0.5–60, logarithmic |
-| `priority_spread` | Population standard deviation of process priorities | 0–2, linear |
+The causal encoder discretizes five current/history-only features into `3 × 3 × 3 × 3 × 2
+= 162` states: ready-queue size (1, 2–3, 4+), completed count (0, 1–3, 4+), median ready
+remaining burst (`<=q`, `<=4q`, `>4q`), mean arrival age of currently ready jobs
+(`<=q`, `<=4q`, `>4q`), and whether priority spread among arrived jobs is zero. Arrival age
+is `current_time - arrival_time`; it includes prior CPU service and is not accumulated
+ready-queue waiting. The encoder does not use total workload size or unarrived values.
 
-These values use only the generated workload description, not a simulated schedule or
-metric. The full workload includes future arrivals, so this state is appropriate only for
-the documented batch/offline setting. CPU utilization, ready-queue length, and waiting time
-are outcomes of execution and are not treated as pre-execution observations.
+A training **episode is a sequential trace**, not a whole-workload selection. The
+controller repeatedly observes, chooses among the four policies, runs the next segment,
+receives a nonterminal/terminal reward, and updates the tabular Q values. For an observed
+waiting-time increment `ΔW_t`, reward is `r_t = -ΔW_t / max(1,q)`. The runtime experiment
+default uses `gamma = 1`: for a finite completed workload, the undiscounted episode return
+is exactly `-total_waiting_time / q`. There is no per-decision or simulated-time discount.
+Rewards are scaled by the positive quantum to keep their numeric magnitude smaller; gamma 1
+can still produce larger cumulative values on longer traces, but episodes are finite and
+Python floating-point Q values are used. A custom `gamma < 1` would optimize discounted
+per-decision waiting increments instead and would not be the stated total-waiting objective.
 
-Each variable uses 3 bins, giving `3⁴ = 81` states and a Q-table of shape **81 × 4 = 324
-values per training seed**. The default interior edges are:
+The update is `Q(s,a) += alpha * (r + gamma * max_known_a' Q(s',a') - Q(s,a))`; terminal
+transitions omit the bootstrap. State-action visit counts are explicit. Training uses an
+episode-level epsilon schedule and forces a random action on a state’s first visit;
+greedy training/evaluation and bootstrapping mask unvisited actions. Evaluation is
+deterministic and read-only. In a wholly unseen state, the runtime Q controller reports an
+explicit fallback to the causal heuristic; the offline selector’s FCFS tie fallback is not
+silently reused.
 
-| Variable | Interior edges | Binning |
-|---|---:|---|
-| `burst_profile` | 3.684031, 13.572088 | logarithmic, equal multiplicative factors |
-| `burst_dispersion` | 0.5, 1.0 | linear, equal widths |
-| `offered_load` | 2.466212, 12.164404 | logarithmic, equal multiplicative factors |
-| `priority_spread` | 0.666667, 1.333333 | linear, equal widths |
+A predeclared non-RL baseline applies the same observation boundary and these fixed rules:
 
-A value exactly on an edge enters the upper bin. Values outside the configured range are
-clamped to the lowest or highest open-ended bin. The first listed state variable is the
-most significant digit when the four bin indices are flattened into a Q-table row.
+1. Round Robin if at least three processes are ready and their mean arrival age is at least
+   one quantum; this is an age-based proxy, not measured accumulated ready-queue wait.
+2. Otherwise Priority if at least two ready processes have different priorities.
+3. Otherwise SJF if the largest visible remaining burst is at least twice the smallest.
+4. Otherwise FCFS.
 
-Every Q value starts at **0.0** (neutral, not optimistic). For an unvisited state, all four
-actions remain tied; deterministic `argmax` selects the lowest action index, FCFS. Such a
-decision is an **untrained fallback**, not evidence of learning. Evaluation rows mark
-`state_seen_in_training`; state coverage and fallback counts are reported explicitly.
+No test-set tuning or complete-workload features are used by this heuristic.
 
-Exploration uses `ε = max(ε_min, ε_start × decay^episode)` with default ε start 1.0,
-minimum 0.05, and multiplicative decay 0.995. With probability ε the agent samples
-uniformly from the four actions; otherwise it selects the greedy action. The reported
-exploration rate is the observed fraction of episodes that used the random-action branch;
-it is not the fraction of actions differing from greedy. Evaluation uses ε = 0, is
-repeatable, and is checked not to mutate either Q values or visit counts.
+## Default experiment and measured final-test results
 
-## Reward and comparison objective
+Run `python main.py runtime-experiment` to train five independent agents (seeds 7101–7105),
+each for 1,200 sequential episodes. For an isolated regeneration, use
+`python main.py runtime-experiment --results-dir /tmp/os-project-runtime`. The design uses
+140 validation workloads and 210 final-test workloads across seven families; six families
+are used for
+training. The validation split is used for reporting and a predeclared illustrative-demo
+selection rule, not for model or hyperparameter tuning. The demo is selected before the
+final-test workloads are generated. Train/validation/test fingerprint overlap is checked
+and rejected.
 
-For each metric `m`, divide the chosen policy's value by the arithmetic mean across exactly
-**FCFS, SJF, Round Robin, and Priority on the same workload**. Clip the ratio above at 2.0;
-when the reference is zero, define the ratio as 1.0. Lower is better for mean waiting,
-turnaround and response time and context switches per process. Higher is better for CPU
-utilization and throughput. The one implementation used by both training and reporting is:
+The prior final test (master seed 9301) was examined in the independent audit and informed
+the queue/reward methodology changes below. It is retired as a final claim. The revised,
+untouched final set uses master seed **19301**. All means below are equal-weight across its
+210 workloads; Q-learning averages five trained models. The declared one-unit switch cost
+is included.
 
-```text
-reward = Σ cost_weight    × (1 − clipped(chosen / four-policy-mean))
-       + Σ benefit_weight × (clipped(chosen / four-policy-mean) − 1)
-```
-
-| Reward term | Default weight |
-|---|---:|
-| Mean waiting time (cost) | 0.30 |
-| Mean turnaround time (cost) | 0.25 |
-| Mean response time (cost) | 0.20 |
-| Context switches per process (cost) | 0.10 |
-| CPU utilization (benefit) | 0.075 |
-| Throughput (benefit) | 0.075 |
-
-Weights sum to one. A reward of zero means the selected policy matches the four-policy
-reference mean on every metric. A positive reward denotes a better weighted net under this
-objective; it does not imply every metric improved or that all policies must score
-non-positive. The reward is workload-relative, which avoids rewarding a policy merely
-because a workload is easy. The reward itself is not claimed to be a universal OS objective.
-
-## Metrics
-
-All four baselines and the selector are measured on the same workload object. Definitions
-are implemented in one place and independently checked against hand-computed schedules.
-
-| Metric | Definition |
-|---|---|
-| Waiting time | Per-process `turnaround − burst`, averaged over processes. |
-| Turnaround time | Per-process `completion − arrival`, averaged over processes. |
-| Response time | Per-process `first execution − arrival`, averaged over processes. |
-| CPU utilization | `100 × CPU busy time / total elapsed time` (percent). |
-| Throughput | Completed processes / total elapsed time. |
-| Context switches | Changes of the running process in the execution trace. |
-
-The derived `context_switches_per_process` is also recorded and is the reward's normalized
-context-switch input; it is not a seventh required metric. Idle time includes intervals
-before the first process arrives. Empty workloads yield zero metrics. The generated
-`results/report.md` and `results/metrics.csv` provide measured results and per-seed
-variability; no headline result is transcribed manually here.
-
-## Experiment design and checked-in results
-
-The default experiment trains **five independent agents** with seeds 42–46, 1,200 terminal
-episodes per seed, cycling through six declared workload conditions. Each evaluation run
-uses the same independent evaluation seed stream (master seed 2024) and evaluates 30 unique
-workloads per condition across all seven conditions. `poisson_arrivals` is excluded from
-training and is a held-out evaluation condition. The pipeline checks fingerprint
-separation, exact one-to-one workload pairing, deterministic greedy evaluation, and
-Q-table/visit-count immutability.
-
-Baseline metric rows are repeated per model seed to keep every selector decision explicitly
-paired with all four baselines. This does **not** increase the unique-workload count. The
-summary and report distinguish unique workloads, model-decision rows, and metric rows.
-
-The tables below are generated from the tracked `results/summary.json`; the detailed report
-is [`results/report.md`](results/report.md), and each CSV/JSON can be inspected independently.
-
-<!-- BEGIN GENERATED RESULTS -->
-**Run design:** 210 unique workloads, 1050 model decisions across 5 independently trained seeds (42, 43, 44, 45, 46); 30 workloads per condition. Repeated model decisions are not counted as additional workloads.
-
-Mean ± sample SD. Baseline SD is across unique workloads; selector SD is across training-seed × workload pairs.
-
-| Method | Waiting time | Turnaround time | Response time | CPU utilization (%) | Throughput | Context switches | n |
+| Method | Mean wait | Mean turnaround | Mean response | CPU utilization % | Throughput | Context switches | Policy changes / trace |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| FCFS | 123.39 ± 80.71 | 142.34 ± 91.49 | 123.39 ± 80.71 | 97.84 ± 6.19 | 0.08 ± 0.07 | 14.00 ± 0.00 | 210 |
-| SJF | 88.10 ± 67.11 | 107.06 ± 77.80 | 88.10 ± 67.11 | 97.84 ± 6.19 | 0.08 ± 0.07 | 14.00 ± 0.00 | 210 |
-| Round Robin | 167.57 ± 135.06 | 186.52 ± 145.75 | 19.38 ± 8.22 | 97.84 ± 6.19 | 0.08 ± 0.07 | 75.40 ± 40.91 | 210 |
-| Priority | 122.22 ± 81.44 | 141.17 ± 92.25 | 122.22 ± 81.44 | 97.84 ± 6.19 | 0.08 ± 0.07 | 14.00 ± 0.00 | 210 |
-| Offline Policy Selector (Q-Learning) | 88.66 ± 67.89 | 107.61 ± 78.54 | 88.11 ± 68.47 | 97.84 ± 6.17 | 0.08 ± 0.07 | 15.53 ± 4.04 | 1050 |
+| FCFS | 127.797 | 146.612 | 127.797 | 92.237 | 0.077 | 14.000 | 0.000 |
+| SJF | 93.345 | 112.161 | 93.345 | 92.237 | 0.077 | 14.000 | 0.000 |
+| Round Robin | 215.729 | 234.544 | 26.220 | 78.216 | 0.068 | 74.767 | 0.000 |
+| Priority | 129.207 | 148.022 | 129.207 | 92.237 | 0.077 | 14.000 | 0.000 |
+| Causal heuristic | 203.404 | 222.220 | 40.070 | 80.481 | 0.071 | 67.371 | 3.210 |
+| Runtime Q-learning | 104.789 | 123.604 | 86.341 | 90.836 | 0.076 | 17.322 | 4.729 |
 
-**Selected policies by workload condition** (counts across independent models):
+These generator-specific results do not show Q-learning beating SJF on mean waiting time:
+Q minus SJF is **+11.443** (95% crossed-bootstrap interval **[+5.022, +19.297]**). Q
+has lower mean waiting time than the heuristic by **98.616** (**[−106.097, −90.192]**),
+but its mean response time is higher than the heuristic by **46.272** (**[+43.472,
++49.100]**). Q also has fewer context switches than the heuristic (−50.050) but more
+than SJF (+3.322). These are conditional comparisons over the declared workloads and five
+model seeds, not claims about general OS workloads.
 
-| Condition | Unique workloads | Model decisions | FCFS | SJF | Round Robin | Priority | Unseen-state fallbacks |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| short_jobs | 30 | 150 | 3 | 117 | 30 | 0 | 2 |
-| long_jobs | 30 | 150 | 5 | 145 | 0 | 0 | 4 |
-| mixed | 30 | 150 | 0 | 150 | 0 | 0 | 0 |
-| cpu_bursty | 30 | 150 | 0 | 150 | 0 | 0 | 0 |
-| priority_skewed | 30 | 150 | 4 | 144 | 0 | 2 | 0 |
-| staggered_interactive | 30 | 150 | 0 | 0 | 150 | 0 | 0 |
-| poisson_arrivals | 30 | 150 | 46 | 104 | 0 | 0 | 32 |
+The illustrative example is selected from validation, not final test: training seed 7103,
+`staggered_interactive` repetition 0, fingerprint `275409d7458331f6`, with 15 policy
+changes across 23 decisions. It is selected by the documented validation-only maximum-switch
+rule, generated by the actual controller, and explicitly **not representative** of typical
+performance. Its process definition, observations, actions, switch times, and trace are in
+`results/runtime/runtime_learned_switch_demo.json`.
 
-Full generated results, including per-seed decisions, held-out coverage, variability and reproducibility metadata: [`results/report.md`](results/report.md).
-<!-- END GENERATED RESULTS -->
+With `gamma=1`, the runtime learner uses the undiscounted episodic waiting-cost objective:
+its summed reward is exactly negative total waiting time divided by the RR quantum. The
+five models visited 267–276 of 648 possible state/action pairs (41.2–42.6%). Across final
+evaluation, 1–3 decisions per model used the explicit unseen-state fallback. Per-trace
+controller timings are host-dependent and are reported in `runtime_report.md`, not treated
+as simulated CPU costs.
 
-### Generated files
+## Artifacts
 
-- `results/config.json` — complete configuration, Q/state details, exact software versions,
-  platform metadata and dependency-lock checksum.
-- `results/workloads.csv` — one row per unique generated workload, with state features.
-- `results/training_history.json` — episode-level data for each training seed.
-- `results/q_table.json` — all 81 state rows for each seed, including visit coverage.
-- `results/metrics.csv` — paired baseline/selector metric rows.
-- `results/decisions.csv` — one decision per workload per trained model, including state
-  coverage and greedy/random-action metadata.
-- `results/summary.json` and `results/report.md` — generated summaries, variability,
-  workload reductions, per-condition selections, and held-out limitations.
-- `figures/` — six optional plots from the default run.
+`results/runtime/` contains:
 
-## Installation and use
+- `runtime_training_metrics.csv` — sequential training outcomes and separate timing fields;
+- `runtime_validation_metrics.csv` and `runtime_final_test_metrics.csv` — all six existing
+  metrics, policy-switch counts, decision counts and runtime overhead;
+- `runtime_validation_decisions.csv` and `runtime_final_test_decisions.csv` — large causal
+  event logs generated by the CLI but intentionally gitignored; all decision logs are
+  reproducible from the recorded configuration and seeds;
+- `runtime_workload_manifest.csv` — split, generator seeds and workload fingerprints;
+- `runtime_state_action_coverage.csv` and `runtime_q_table.csv` — state/action counts,
+  Q values, unseen-state fallback counts and unvisited-action exposure;
+- `runtime_paired_comparisons.csv`, summary tables, `runtime_summary.json` and the
+  generated `runtime_report.md`;
+- `runtime_learned_switch_demo.json` — an illustrative validation-split trace selected by
+  a documented validation-only rule; it records the workload definition/fingerprint, model
+  seed, visible observations, actions, switch times and execution trace. It is not
+  representative of typical performance.
 
-The fully resolved environment is recorded in `requirements.lock`; direct exact dependency
-pins are also listed in `requirements.txt`. The checked-in run was produced with Python
-3.11.2. For a reproducible local environment:
+Observation construction, action selection, Q updates and total simulator wall time are
+measured separately and are not charged to simulated time. Controller timing is host
+specific; schedule outcomes and policy decisions are seeded and deterministic.
+
+## Legacy offline reference
+
+`python main.py experiment` (and `python main.py train`) still runs the prior offline
+whole-workload selector. That selector sees complete-workload features and uses
+counterfactual policy metrics for its reward. Its historical outputs under `results/`
+remain explicitly offline and are not mixed into the causal runtime comparison. The
+runtime experiment does not claim a fair head-to-head comparison against that
+information-leaking reference.
+
+## Installation, commands and tests
 
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.lock
+python -m pytest -q
+python main.py runtime-experiment
 ```
 
-Run tests and the full experiment:
-
-```bash
-python -m pytest
-python main.py experiment
-```
-
-Skip the optional plotting dependency at import/use time while still writing all tables and
-the report:
-
-```bash
-python main.py experiment --no-figures
-```
-
-Train only the configured independent seeds, without evaluation:
-
-```bash
-python main.py train
-```
-
-The CLI accepts `--results-dir` and `--figures-dir` for alternate output locations. A run
-using the repository's default `results/` directory regenerates the marked result tables in
-this README directly from `summary.json`.
-
-## Reproducibility and limitations
-
-All synthetic workloads and exploration streams use a SHA-256 child-seed derivation and
-NumPy's `default_rng`. The exact dependencies are pinned in `requirements.lock`; the
-runtime package versions and lock checksum are recorded in each generated run. Repeated
-runs are byte-identical in the same software/platform environment; plot bytes may depend on
-platform fonts and rendering libraries.
-
-This is a synthetic single-CPU model: it omits I/O blocking, multicore execution, memory,
-real traces, deadlines, priority aging, and OS-level overhead except for the optional
-configured context-switch cost. The state space is coarse and many of its 81 states are not
-visited during a training run. A held-out Poisson family probes limited generalization, but
-its states may be unseen and use the declared FCFS tie fallback; results do not support a
-claim of broad out-of-distribution generalization. `staggered_interactive` is a synthetic
-training condition designed to represent one long-running task plus staggered short jobs;
-it makes a useful contrast for the fixed reward but is not a real trace or independent
-external validation set. All conclusions are limited to the declared workload generator,
-state discretization, scheduler variants, and reward.
-
-For implementation rationale, exact workload parameters, state equations, boundary
-conventions, and further limitations, see [`docs/DESIGN_AND_CHOICES.md`](docs/DESIGN_AND_CHOICES.md).
+The event-driven simulator is synthetic and single-core. It omits I/O/blocking, multicore
+interference, deadlines, priority aging, actual burst-time prediction error, kernel
+integration, and physical switch latency. The state abstraction is coarse, so a substantial
+fraction of state-action pairs remain unvisited. All conclusions are limited to the
+specified generated workload families, fixed quantum/action set, switch-cost model,
+heuristic and waiting-time reward.

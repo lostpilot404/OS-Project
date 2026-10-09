@@ -444,22 +444,23 @@ def build_schedule_result(
     cpu_busy_time = sum(slice_.duration for slice_ in ordered)
     total_elapsed_time = max((slice_.end_time for slice_ in ordered), default=0)
 
-    # Work conservation: beyond one optional switch cost, the CPU must never be idle
-    # while some process is pending.  A process is pending somewhere inside a time window
-    # when it has arrived before the window ends and completes after the window starts.
+    # Work conservation: the CPU must never be idle while a process is pending, except
+    # for the actual context-switch interval immediately before the next slice. A switch
+    # may follow an idle wait for the next arrival, so it is not necessarily the prefix of
+    # the entire gap. Check only the gap prefix before that suffix switch interval.
     for previous, current in zip(ordered, ordered[1:]):
-        gap = current.start_time - previous.end_time
-        if gap <= switching_cost:
+        switch_allowance = switching_cost if previous.pid != current.pid else 0
+        idle_end = current.start_time - switch_allowance
+        if idle_end <= previous.end_time:
             continue
-        window_start = previous.end_time + switching_cost
         pending = [
             p.pid
             for p in workload.processes
-            if p.arrival_time < current.start_time and last_completion[p.pid] > window_start
+            if p.arrival_time < idle_end and last_completion[p.pid] > previous.end_time
         ]
         if pending:
             raise ValidationError(
-                f"CPU idle from {window_start} to {current.start_time} although pids "
+                f"CPU idle from {previous.end_time} to {idle_end} although pids "
                 f"{pending} were pending"
             )
 

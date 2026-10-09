@@ -1,0 +1,1477 @@
+{
+  "configuration": {
+    "bootstrap_replicates": 1000,
+    "bootstrap_seed": 104729,
+    "burst_information_assumption": "exact burst is known on arrival for arrived processes, matching the standalone SJF simulator",
+    "demonstration_selection_rule": "validation only: maximize policy switches among Q traces with zero unseen-state fallbacks; if none qualify, use all validation Q traces; break ties by ascending training seed, family, then repetition",
+    "experiment": "causal_event_driven_runtime_policy_adaptation",
+    "final_test_repetitions": 30,
+    "final_test_seed": 19301,
+    "learning_objective": "maximize undiscounted episodic return; with gamma=1, sum_t r_t equals negative total waiting time divided by RR quantum",
+    "priority_convention": "lower numeric value is higher priority by default",
+    "q_learning": {
+      "discount_factor": 1.0,
+      "epsilon_decay_per_episode": 0.997,
+      "epsilon_min": 0.05,
+      "epsilon_start": 1.0,
+      "initial_value": 0.0,
+      "learning_rate": 0.1
+    },
+    "ready_queue_contract": "FCFS/RR use live FIFO insertion order; SJF/Priority ties preserve that order; arrivals at a service endpoint enter before an unfinished RR job is requeued",
+    "reward": "r_t = -incremental_total_waiting_time / max(1, RR_quantum)",
+    "scheduler": {
+      "lower_priority_number_is_higher_priority": true,
+      "round_robin_quantum": 4,
+      "switching_cost": 1
+    },
+    "state_encoder": {
+      "features": [
+        "ready_count(1,2-3,4+)",
+        "completed_count(0,1-3,4+)",
+        "median_ready_remaining_burst(<=q,<=4q,>4q)",
+        "mean_ready_arrival_age(<=q,<=4q,>4q)",
+        "arrived_work_priority_spread(zero,nonzero)"
+      ],
+      "state_count": 162
+    },
+    "training_episodes_per_seed": 1200,
+    "training_families": [
+      "short_jobs",
+      "long_jobs",
+      "mixed",
+      "cpu_bursty",
+      "priority_skewed",
+      "staggered_interactive"
+    ],
+    "training_seeds": [
+      7101,
+      7102,
+      7103,
+      7104,
+      7105
+    ],
+    "validation_and_test_families": [
+      "short_jobs",
+      "long_jobs",
+      "mixed",
+      "cpu_bursty",
+      "priority_skewed",
+      "staggered_interactive",
+      "poisson_arrivals"
+    ],
+    "validation_repetitions": 20,
+    "validation_seed": 8201,
+    "workload_family_parameters": [
+      {
+        "arrival_pattern": "uniform",
+        "arrival_rate": 0.5,
+        "arrival_window": 20,
+        "burst_distribution": "bimodal",
+        "burst_time_max": 50,
+        "burst_time_min": 1,
+        "description": "Short-job-heavy: 80% of bursts drawn from 1-5 time units.",
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7,
+        "name": "short_jobs",
+        "num_processes": 15,
+        "priority_max": 5,
+        "priority_min": 1,
+        "priority_pattern": "uniform",
+        "short_burst_fraction": 0.8,
+        "short_burst_max": 5,
+        "staggered_gap_max": 6,
+        "staggered_gap_min": 4
+      },
+      {
+        "arrival_pattern": "uniform",
+        "arrival_rate": 0.5,
+        "arrival_window": 20,
+        "burst_distribution": "bimodal",
+        "burst_time_max": 50,
+        "burst_time_min": 1,
+        "description": "Long-job-heavy: 20% of bursts drawn from 1-5 time units.",
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7,
+        "name": "long_jobs",
+        "num_processes": 15,
+        "priority_max": 5,
+        "priority_min": 1,
+        "priority_pattern": "uniform",
+        "short_burst_fraction": 0.2,
+        "short_burst_max": 5,
+        "staggered_gap_max": 6,
+        "staggered_gap_min": 4
+      },
+      {
+        "arrival_pattern": "uniform",
+        "arrival_rate": 0.5,
+        "arrival_window": 20,
+        "burst_distribution": "uniform",
+        "burst_time_max": 50,
+        "burst_time_min": 1,
+        "description": "Uniform mix of bursts over the full 1-50 range.",
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7,
+        "name": "mixed",
+        "num_processes": 15,
+        "priority_max": 5,
+        "priority_min": 1,
+        "priority_pattern": "uniform",
+        "short_burst_fraction": 0.7,
+        "short_burst_max": 5,
+        "staggered_gap_max": 6,
+        "staggered_gap_min": 4
+      },
+      {
+        "arrival_pattern": "uniform",
+        "arrival_rate": 0.5,
+        "arrival_window": 15,
+        "burst_distribution": "uniform",
+        "burst_time_max": 50,
+        "burst_time_min": 20,
+        "description": "Long CPU bursts (20-50) with dense uniform arrivals.",
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7,
+        "name": "cpu_bursty",
+        "num_processes": 15,
+        "priority_max": 5,
+        "priority_min": 1,
+        "priority_pattern": "uniform",
+        "short_burst_fraction": 0.7,
+        "short_burst_max": 5,
+        "staggered_gap_max": 6,
+        "staggered_gap_min": 4
+      },
+      {
+        "arrival_pattern": "uniform",
+        "arrival_rate": 0.5,
+        "arrival_window": 20,
+        "burst_distribution": "uniform",
+        "burst_time_max": 50,
+        "burst_time_min": 1,
+        "description": "Uniform bursts; 70% of priorities lie in the 1-2 band.",
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7,
+        "name": "priority_skewed",
+        "num_processes": 15,
+        "priority_max": 5,
+        "priority_min": 1,
+        "priority_pattern": "high_priority_skewed",
+        "short_burst_fraction": 0.7,
+        "short_burst_max": 5,
+        "staggered_gap_max": 6,
+        "staggered_gap_min": 4
+      },
+      {
+        "arrival_pattern": "staggered",
+        "arrival_rate": 0.5,
+        "arrival_window": 20,
+        "burst_distribution": "staggered_interactive",
+        "burst_time_max": 50,
+        "burst_time_min": 25,
+        "description": "One long process at time zero plus 14 short processes arriving at integer gaps of 4-6 time units.",
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7,
+        "name": "staggered_interactive",
+        "num_processes": 15,
+        "priority_max": 1,
+        "priority_min": 1,
+        "priority_pattern": "uniform",
+        "short_burst_fraction": 0.7,
+        "short_burst_max": 3,
+        "staggered_gap_max": 6,
+        "staggered_gap_min": 4
+      },
+      {
+        "arrival_pattern": "poisson",
+        "arrival_rate": 0.5,
+        "arrival_window": 20,
+        "burst_distribution": "uniform",
+        "burst_time_max": 20,
+        "burst_time_min": 1,
+        "description": "Held-out evaluation condition: Poisson arrivals (rate 0.5) and uniform bursts from 1-20.",
+        "high_priority_cutoff": 2,
+        "high_priority_fraction": 0.7,
+        "name": "poisson_arrivals",
+        "num_processes": 15,
+        "priority_max": 5,
+        "priority_min": 1,
+        "priority_pattern": "uniform",
+        "short_burst_fraction": 0.7,
+        "short_burst_max": 5,
+        "staggered_gap_max": 6,
+        "staggered_gap_min": 4
+      }
+    ]
+  },
+  "demo": {
+    "actions": [
+      "Round Robin",
+      "Round Robin",
+      "FCFS",
+      "SJF",
+      "Round Robin",
+      "SJF",
+      "Round Robin",
+      "SJF",
+      "SJF",
+      "Round Robin",
+      "SJF",
+      "SJF",
+      "SJF",
+      "Round Robin",
+      "SJF",
+      "SJF",
+      "SJF",
+      "Round Robin",
+      "SJF",
+      "Round Robin",
+      "SJF",
+      "SJF",
+      "FCFS"
+    ],
+    "decision_count": 23,
+    "fallback_decisions": 0,
+    "family": "staggered_interactive",
+    "illustrative_not_representative": true,
+    "path": "runtime_learned_switch_demo.json",
+    "policy_switch_count": 15,
+    "policy_switch_times": [
+      8,
+      11,
+      14,
+      19,
+      21,
+      26,
+      32,
+      37,
+      46,
+      51,
+      59,
+      64,
+      66,
+      71,
+      76
+    ],
+    "repetition": 0,
+    "selection_rule": "validation only: maximize policy switches among Q traces with zero unseen-state fallbacks; if none qualify, use all validation Q traces; break ties by ascending training seed, family, then repetition",
+    "source_split": "validation",
+    "training_seed": 7103,
+    "workload_fingerprint": "275409d7458331f6",
+    "workload_seed": 8508850933161832709
+  },
+  "final_test_means": {
+    "Causal heuristic": {
+      "avg_response_time": 40.06952380952381,
+      "avg_turnaround_time": 222.21968253968254,
+      "avg_waiting_time": 203.40444444444444,
+      "context_switches": 67.37142857142857,
+      "cpu_utilization": 80.48141673190953,
+      "decision_count": 68.37142857142857,
+      "mean_controller_overhead_ms": 1.677219319047619,
+      "mean_observation_ms": 1.5311191666666668,
+      "mean_q_update_ms": 0.0,
+      "mean_selection_ms": 0.1461001523809524,
+      "mean_simulator_wall_ms": 2.2450880238095237,
+      "policy_switch_count": 3.2095238095238097,
+      "throughput": 0.07101505815361386
+    },
+    "FCFS": {
+      "avg_response_time": 127.7968253968254,
+      "avg_turnaround_time": 146.6120634920635,
+      "avg_waiting_time": 127.7968253968254,
+      "context_switches": 14.0,
+      "cpu_utilization": 92.2370318679517,
+      "decision_count": 0.0,
+      "policy_switch_count": 0.0,
+      "throughput": 0.07731991283216914
+    },
+    "Priority": {
+      "avg_response_time": 129.2069841269841,
+      "avg_turnaround_time": 148.0222222222222,
+      "avg_waiting_time": 129.2069841269841,
+      "context_switches": 14.0,
+      "cpu_utilization": 92.2370318679517,
+      "decision_count": 0.0,
+      "policy_switch_count": 0.0,
+      "throughput": 0.07731991283216914
+    },
+    "Round Robin": {
+      "avg_response_time": 26.219682539682537,
+      "avg_turnaround_time": 234.54380952380956,
+      "avg_waiting_time": 215.72857142857143,
+      "context_switches": 74.76666666666667,
+      "cpu_utilization": 78.21553219187568,
+      "decision_count": 0.0,
+      "policy_switch_count": 0.0,
+      "throughput": 0.06812175767155801
+    },
+    "Runtime Q-learning": {
+      "avg_response_time": 86.34114285714286,
+      "avg_turnaround_time": 123.60380952380953,
+      "avg_waiting_time": 104.78857142857143,
+      "context_switches": 17.32190476190476,
+      "cpu_utilization": 90.83550636749438,
+      "decision_count": 18.527619047619048,
+      "mean_controller_overhead_ms": 0.6472105923809525,
+      "mean_observation_ms": 0.25369897238095235,
+      "mean_q_update_ms": 0.0,
+      "mean_selection_ms": 0.39351161999999995,
+      "mean_simulator_wall_ms": 0.9674149571428572,
+      "policy_switch_count": 4.728571428571429,
+      "throughput": 0.07558138337146202
+    },
+    "SJF": {
+      "avg_response_time": 93.34539682539682,
+      "avg_turnaround_time": 112.16063492063493,
+      "avg_waiting_time": 93.34539682539682,
+      "context_switches": 14.0,
+      "cpu_utilization": 92.2370318679517,
+      "decision_count": 0.0,
+      "policy_switch_count": 0.0,
+      "throughput": 0.07731991283216914
+    }
+  },
+  "final_test_metric_summary": [
+    {
+      "mean": 203.40444444444444,
+      "method": "Causal heuristic",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 159.2264788920645
+    },
+    {
+      "mean": 222.21968253968254,
+      "method": "Causal heuristic",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 169.84975314428215
+    },
+    {
+      "mean": 40.06952380952381,
+      "method": "Causal heuristic",
+      "metric": "avg_response_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 17.04785060640999
+    },
+    {
+      "mean": 80.48141673190953,
+      "method": "Causal heuristic",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 2.2164217738201417
+    },
+    {
+      "mean": 0.07101505815361386,
+      "method": "Causal heuristic",
+      "metric": "throughput",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.05767574744344947
+    },
+    {
+      "mean": 67.37142857142857,
+      "method": "Causal heuristic",
+      "metric": "context_switches",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 39.488416845134026
+    },
+    {
+      "mean": 3.2095238095238097,
+      "method": "Causal heuristic",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.6662792221154271
+    },
+    {
+      "mean": 127.7968253968254,
+      "method": "FCFS",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 79.80977164250706
+    },
+    {
+      "mean": 146.6120634920635,
+      "method": "FCFS",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 90.50580545659099
+    },
+    {
+      "mean": 127.7968253968254,
+      "method": "FCFS",
+      "metric": "avg_response_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 79.80977164250706
+    },
+    {
+      "mean": 92.2370318679517,
+      "method": "FCFS",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 6.154515242593382
+    },
+    {
+      "mean": 0.07731991283216914,
+      "method": "FCFS",
+      "metric": "throughput",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.05636590644374551
+    },
+    {
+      "mean": 14.0,
+      "method": "FCFS",
+      "metric": "context_switches",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.0
+    },
+    {
+      "mean": 0.0,
+      "method": "FCFS",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.0
+    },
+    {
+      "mean": 129.2069841269841,
+      "method": "Priority",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 80.80852641534311
+    },
+    {
+      "mean": 148.0222222222222,
+      "method": "Priority",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 91.52825480865604
+    },
+    {
+      "mean": 129.2069841269841,
+      "method": "Priority",
+      "metric": "avg_response_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 80.80852641534311
+    },
+    {
+      "mean": 92.2370318679517,
+      "method": "Priority",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 6.154515242593382
+    },
+    {
+      "mean": 0.07731991283216914,
+      "method": "Priority",
+      "metric": "throughput",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.05636590644374551
+    },
+    {
+      "mean": 14.0,
+      "method": "Priority",
+      "metric": "context_switches",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.0
+    },
+    {
+      "mean": 0.0,
+      "method": "Priority",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.0
+    },
+    {
+      "mean": 215.72857142857143,
+      "method": "Round Robin",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 172.82258968412216
+    },
+    {
+      "mean": 234.54380952380956,
+      "method": "Round Robin",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 183.4459120093604
+    },
+    {
+      "mean": 26.219682539682537,
+      "method": "Round Robin",
+      "metric": "avg_response_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 9.152622496839715
+    },
+    {
+      "mean": 78.21553219187568,
+      "method": "Round Robin",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 1.8979095915721835
+    },
+    {
+      "mean": 0.06812175767155801,
+      "method": "Round Robin",
+      "metric": "throughput",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.05391758439463063
+    },
+    {
+      "mean": 74.76666666666667,
+      "method": "Round Robin",
+      "metric": "context_switches",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 40.69889237449057
+    },
+    {
+      "mean": 0.0,
+      "method": "Round Robin",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.0
+    },
+    {
+      "mean": 104.78857142857143,
+      "method": "Runtime Q-learning",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 1050,
+      "n_unique_workloads": 210,
+      "sd": 71.43482580695158
+    },
+    {
+      "mean": 123.60380952380953,
+      "method": "Runtime Q-learning",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 1050,
+      "n_unique_workloads": 210,
+      "sd": 81.85665617426278
+    },
+    {
+      "mean": 86.34114285714286,
+      "method": "Runtime Q-learning",
+      "metric": "avg_response_time",
+      "n_metric_rows": 1050,
+      "n_unique_workloads": 210,
+      "sd": 59.824137658912136
+    },
+    {
+      "mean": 90.83550636749438,
+      "method": "Runtime Q-learning",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 1050,
+      "n_unique_workloads": 210,
+      "sd": 7.03977526367293
+    },
+    {
+      "mean": 0.07558138337146202,
+      "method": "Runtime Q-learning",
+      "metric": "throughput",
+      "n_metric_rows": 1050,
+      "n_unique_workloads": 210,
+      "sd": 0.054331193391233316
+    },
+    {
+      "mean": 17.32190476190476,
+      "method": "Runtime Q-learning",
+      "metric": "context_switches",
+      "n_metric_rows": 1050,
+      "n_unique_workloads": 210,
+      "sd": 4.660361232401325
+    },
+    {
+      "mean": 4.728571428571429,
+      "method": "Runtime Q-learning",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 1050,
+      "n_unique_workloads": 210,
+      "sd": 2.8253318991687157
+    },
+    {
+      "mean": 93.34539682539682,
+      "method": "SJF",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 68.78406172776081
+    },
+    {
+      "mean": 112.16063492063493,
+      "method": "SJF",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 79.39162197076197
+    },
+    {
+      "mean": 93.34539682539682,
+      "method": "SJF",
+      "metric": "avg_response_time",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 68.78406172776081
+    },
+    {
+      "mean": 92.2370318679517,
+      "method": "SJF",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 6.154515242593382
+    },
+    {
+      "mean": 0.07731991283216914,
+      "method": "SJF",
+      "metric": "throughput",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.05636590644374551
+    },
+    {
+      "mean": 14.0,
+      "method": "SJF",
+      "metric": "context_switches",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.0
+    },
+    {
+      "mean": 0.0,
+      "method": "SJF",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 210,
+      "n_unique_workloads": 210,
+      "sd": 0.0
+    }
+  ],
+  "final_test_unique_workloads": 210,
+  "mean_runtime_q_observation_ms": 0.25369897238095235,
+  "mean_runtime_q_observation_us_per_decision": 13.693015369589801,
+  "mean_runtime_q_selection_ms": 0.39351161999999995,
+  "mean_runtime_q_selection_us_per_decision": 21.239189935231828,
+  "mean_training_q_update_ms": 0.018124356075688738,
+  "mean_training_q_update_us_per_transition": 18.124356075688738,
+  "paired_comparisons": [
+    {
+      "ci95_high": 114.03208730158731,
+      "ci95_low": 106.21883333333335,
+      "direction_note": "negative favors target",
+      "mean_difference": 110.05904761904763,
+      "metric": "avg_waiting_time",
+      "reference": "SJF",
+      "target": "Causal heuristic"
+    },
+    {
+      "ci95_high": 113.97149206349205,
+      "ci95_low": 106.04242063492063,
+      "direction_note": "negative favors target",
+      "mean_difference": 110.05904761904763,
+      "metric": "avg_turnaround_time",
+      "reference": "SJF",
+      "target": "Causal heuristic"
+    },
+    {
+      "ci95_high": -50.872547619047616,
+      "ci95_low": -56.02597619047619,
+      "direction_note": "negative favors target",
+      "mean_difference": -53.27587301587301,
+      "metric": "avg_response_time",
+      "reference": "SJF",
+      "target": "Causal heuristic"
+    },
+    {
+      "ci95_high": -11.518498389558435,
+      "ci95_low": -11.992115062749795,
+      "direction_note": "positive favors target",
+      "mean_difference": -11.755615136042168,
+      "metric": "cpu_utilization",
+      "reference": "SJF",
+      "target": "Causal heuristic"
+    },
+    {
+      "ci95_high": -0.006145525522390679,
+      "ci95_low": -0.00647274305322722,
+      "direction_note": "positive favors target",
+      "mean_difference": -0.006304854678555276,
+      "metric": "throughput",
+      "reference": "SJF",
+      "target": "Causal heuristic"
+    },
+    {
+      "ci95_high": 55.190714285714286,
+      "ci95_low": 51.66571428571428,
+      "direction_note": "negative favors target",
+      "mean_difference": 53.371428571428574,
+      "metric": "context_switches",
+      "reference": "SJF",
+      "target": "Causal heuristic"
+    },
+    {
+      "ci95_high": 36.53969047619048,
+      "ci95_low": 32.640047619047614,
+      "direction_note": "negative favors target",
+      "mean_difference": 34.45142857142856,
+      "metric": "avg_waiting_time",
+      "reference": "SJF",
+      "target": "FCFS"
+    },
+    {
+      "ci95_high": 36.37656349206349,
+      "ci95_low": 32.54763492063492,
+      "direction_note": "negative favors target",
+      "mean_difference": 34.451428571428586,
+      "metric": "avg_turnaround_time",
+      "reference": "SJF",
+      "target": "FCFS"
+    },
+    {
+      "ci95_high": 36.440349206349204,
+      "ci95_low": 32.60476190476191,
+      "direction_note": "negative favors target",
+      "mean_difference": 34.45142857142856,
+      "metric": "avg_response_time",
+      "reference": "SJF",
+      "target": "FCFS"
+    },
+    {
+      "ci95_high": 0.0,
+      "ci95_low": 0.0,
+      "direction_note": "positive favors target",
+      "mean_difference": 0.0,
+      "metric": "cpu_utilization",
+      "reference": "SJF",
+      "target": "FCFS"
+    },
+    {
+      "ci95_high": 0.0,
+      "ci95_low": 0.0,
+      "direction_note": "positive favors target",
+      "mean_difference": 0.0,
+      "metric": "throughput",
+      "reference": "SJF",
+      "target": "FCFS"
+    },
+    {
+      "ci95_high": 0.0,
+      "ci95_low": 0.0,
+      "direction_note": "negative favors target",
+      "mean_difference": 0.0,
+      "metric": "context_switches",
+      "reference": "SJF",
+      "target": "FCFS"
+    },
+    {
+      "ci95_high": 37.68357936507937,
+      "ci95_low": 33.98718253968254,
+      "direction_note": "negative favors target",
+      "mean_difference": 35.8615873015873,
+      "metric": "avg_waiting_time",
+      "reference": "SJF",
+      "target": "Priority"
+    },
+    {
+      "ci95_high": 37.90688888888888,
+      "ci95_low": 34.12729365079366,
+      "direction_note": "negative favors target",
+      "mean_difference": 35.8615873015873,
+      "metric": "avg_turnaround_time",
+      "reference": "SJF",
+      "target": "Priority"
+    },
+    {
+      "ci95_high": 37.822833333333335,
+      "ci95_low": 33.955880952380944,
+      "direction_note": "negative favors target",
+      "mean_difference": 35.8615873015873,
+      "metric": "avg_response_time",
+      "reference": "SJF",
+      "target": "Priority"
+    },
+    {
+      "ci95_high": 0.0,
+      "ci95_low": 0.0,
+      "direction_note": "positive favors target",
+      "mean_difference": 0.0,
+      "metric": "cpu_utilization",
+      "reference": "SJF",
+      "target": "Priority"
+    },
+    {
+      "ci95_high": 0.0,
+      "ci95_low": 0.0,
+      "direction_note": "positive favors target",
+      "mean_difference": 0.0,
+      "metric": "throughput",
+      "reference": "SJF",
+      "target": "Priority"
+    },
+    {
+      "ci95_high": 0.0,
+      "ci95_low": 0.0,
+      "direction_note": "negative favors target",
+      "mean_difference": 0.0,
+      "metric": "context_switches",
+      "reference": "SJF",
+      "target": "Priority"
+    },
+    {
+      "ci95_high": 127.3153253968254,
+      "ci95_low": 117.61871428571429,
+      "direction_note": "negative favors target",
+      "mean_difference": 122.3831746031746,
+      "metric": "avg_waiting_time",
+      "reference": "SJF",
+      "target": "Round Robin"
+    },
+    {
+      "ci95_high": 126.8963253968254,
+      "ci95_low": 118.03951587301587,
+      "direction_note": "negative favors target",
+      "mean_difference": 122.38317460317462,
+      "metric": "avg_turnaround_time",
+      "reference": "SJF",
+      "target": "Round Robin"
+    },
+    {
+      "ci95_high": -64.28546825396826,
+      "ci95_low": -70.21924603174602,
+      "direction_note": "negative favors target",
+      "mean_difference": -67.12571428571428,
+      "metric": "avg_response_time",
+      "reference": "SJF",
+      "target": "Round Robin"
+    },
+    {
+      "ci95_high": -13.759806736254196,
+      "ci95_low": -14.241227946280539,
+      "direction_note": "positive favors target",
+      "mean_difference": -14.021499676076024,
+      "metric": "cpu_utilization",
+      "reference": "SJF",
+      "target": "Round Robin"
+    },
+    {
+      "ci95_high": -0.008893064581749965,
+      "ci95_low": -0.009502571852152225,
+      "direction_note": "positive favors target",
+      "mean_difference": -0.00919815516061113,
+      "metric": "throughput",
+      "reference": "SJF",
+      "target": "Round Robin"
+    },
+    {
+      "ci95_high": 62.49107142857143,
+      "ci95_low": 58.995000000000005,
+      "direction_note": "negative favors target",
+      "mean_difference": 60.76666666666666,
+      "metric": "context_switches",
+      "reference": "SJF",
+      "target": "Round Robin"
+    },
+    {
+      "ci95_high": 19.297201587301586,
+      "ci95_low": 5.022080952380952,
+      "direction_note": "negative favors target",
+      "mean_difference": 11.443174603174608,
+      "metric": "avg_waiting_time",
+      "reference": "SJF",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": 18.899473015873014,
+      "ci95_low": 4.940609523809523,
+      "direction_note": "negative favors target",
+      "mean_difference": 11.443174603174603,
+      "metric": "avg_turnaround_time",
+      "reference": "SJF",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": -4.305373015873018,
+      "ci95_low": -9.541112698412697,
+      "direction_note": "negative favors target",
+      "mean_difference": -7.004253968253963,
+      "metric": "avg_response_time",
+      "reference": "SJF",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": -1.004649449943663,
+      "ci95_low": -1.8432998312256554,
+      "direction_note": "positive favors target",
+      "mean_difference": -1.401525500457335,
+      "metric": "cpu_utilization",
+      "reference": "SJF",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": -0.001382565982557569,
+      "ci95_low": -0.002083265737292673,
+      "direction_note": "positive favors target",
+      "mean_difference": -0.0017385294607071302,
+      "metric": "throughput",
+      "reference": "SJF",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": 4.555357142857142,
+      "ci95_low": 2.209452380952381,
+      "direction_note": "negative favors target",
+      "mean_difference": 3.321904761904762,
+      "metric": "context_switches",
+      "reference": "SJF",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": -90.19206031746033,
+      "ci95_low": -106.09677777777777,
+      "direction_note": "negative favors target",
+      "mean_difference": -98.615873015873,
+      "metric": "avg_waiting_time",
+      "reference": "Causal heuristic",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": -90.11513015873015,
+      "ci95_low": -106.28574285714284,
+      "direction_note": "negative favors target",
+      "mean_difference": -98.615873015873,
+      "metric": "avg_turnaround_time",
+      "reference": "Causal heuristic",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": 49.09972222222223,
+      "ci95_low": 43.47188253968255,
+      "direction_note": "negative favors target",
+      "mean_difference": 46.27161904761905,
+      "metric": "avg_response_time",
+      "reference": "Causal heuristic",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": 10.834359075593413,
+      "ci95_low": 9.8904303534033,
+      "direction_note": "positive favors target",
+      "mean_difference": 10.354089635584833,
+      "metric": "cpu_utilization",
+      "reference": "Causal heuristic",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": 0.004974100507636837,
+      "ci95_low": 0.004198064133168958,
+      "direction_note": "positive favors target",
+      "mean_difference": 0.004566325217848146,
+      "metric": "throughput",
+      "reference": "Causal heuristic",
+      "target": "Runtime Q-learning"
+    },
+    {
+      "ci95_high": -48.066428571428574,
+      "ci95_low": -51.92909523809524,
+      "direction_note": "negative favors target",
+      "mean_difference": -50.04952380952381,
+      "metric": "context_switches",
+      "reference": "Causal heuristic",
+      "target": "Runtime Q-learning"
+    }
+  ],
+  "software": {
+    "packages": {
+      "matplotlib": "3.11.2",
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "pytest": "9.1.1"
+    },
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+    "python": "3.11.2 (main, Apr  8 2026, 01:58:00) [GCC 12.2.0]"
+  },
+  "split_fingerprint_overlap": false,
+  "split_fingerprints": {
+    "final_test_sha256": "9fa14bbae79d39c470174fdc2e99a467e171677f146bc755ae11ad89a8f82554",
+    "training_union_sha256": "e974835c99b6247c0d84b43d9b565a0b99bc28db6ac3e3d5ee2bb0f956e098be",
+    "validation_sha256": "d5925901863d4063b8df7083837aacc5ddf77e73813362a870c918784d7d33a2"
+  },
+  "training_fingerprint_count_union": 6000,
+  "training_models": [
+    {
+      "episodes": 1200,
+      "q_update_ms": 423.955219,
+      "state_action_coverage": 0.41203703703703703,
+      "training_seed": 7101,
+      "training_wall_ms": 2021.982604,
+      "training_workload_fingerprints": 1200
+    },
+    {
+      "episodes": 1200,
+      "q_update_ms": 426.367751,
+      "state_action_coverage": 0.41975308641975306,
+      "training_seed": 7102,
+      "training_wall_ms": 2050.245069,
+      "training_workload_fingerprints": 1200
+    },
+    {
+      "episodes": 1200,
+      "q_update_ms": 416.857331,
+      "state_action_coverage": 0.4212962962962963,
+      "training_seed": 7103,
+      "training_wall_ms": 1977.203596,
+      "training_workload_fingerprints": 1200
+    },
+    {
+      "episodes": 1200,
+      "q_update_ms": 430.630445,
+      "state_action_coverage": 0.42592592592592593,
+      "training_seed": 7104,
+      "training_wall_ms": 2044.261265,
+      "training_workload_fingerprints": 1200
+    },
+    {
+      "episodes": 1200,
+      "q_update_ms": 432.417321,
+      "state_action_coverage": 0.4243827160493827,
+      "training_seed": 7105,
+      "training_wall_ms": 2041.978708,
+      "training_workload_fingerprints": 1200
+    }
+  ],
+  "training_workloads": 6000,
+  "validation_means": {
+    "Causal heuristic": {
+      "avg_response_time": 39.41190476190476,
+      "avg_turnaround_time": 228.34095238095242,
+      "avg_waiting_time": 209.36571428571426,
+      "context_switches": 68.5,
+      "cpu_utilization": 80.41029003729307,
+      "decision_count": 69.5,
+      "mean_controller_overhead_ms": 2.0798402214285714,
+      "mean_observation_ms": 1.8936582285714287,
+      "mean_q_update_ms": 0.0,
+      "mean_selection_ms": 0.18618199285714285,
+      "mean_simulator_wall_ms": 2.8186926214285717,
+      "policy_switch_count": 2.9571428571428573,
+      "throughput": 0.07261519022455878
+    },
+    "FCFS": {
+      "avg_response_time": 128.4095238095238,
+      "avg_turnaround_time": 147.38476190476192,
+      "avg_waiting_time": 128.4095238095238,
+      "context_switches": 14.0,
+      "cpu_utilization": 92.19818156964128,
+      "decision_count": 0.0,
+      "policy_switch_count": 0.0,
+      "throughput": 0.07888648740625406
+    },
+    "Priority": {
+      "avg_response_time": 129.84714285714284,
+      "avg_turnaround_time": 148.82238095238097,
+      "avg_waiting_time": 129.84714285714284,
+      "context_switches": 14.0,
+      "cpu_utilization": 92.19818156964128,
+      "decision_count": 0.0,
+      "policy_switch_count": 0.0,
+      "throughput": 0.07888648740625406
+    },
+    "Round Robin": {
+      "avg_response_time": 26.38666666666667,
+      "avg_turnaround_time": 239.3090476190476,
+      "avg_waiting_time": 220.33380952380952,
+      "context_switches": 75.39285714285714,
+      "cpu_utilization": 78.28788903523619,
+      "decision_count": 0.0,
+      "policy_switch_count": 0.0,
+      "throughput": 0.06989393668961669
+    },
+    "Runtime Q-learning": {
+      "avg_response_time": 88.68961904761905,
+      "avg_turnaround_time": 123.87142857142857,
+      "avg_waiting_time": 104.89619047619048,
+      "context_switches": 17.064285714285713,
+      "cpu_utilization": 90.87414143998754,
+      "decision_count": 18.268571428571427,
+      "mean_controller_overhead_ms": 0.8518842885714285,
+      "mean_observation_ms": 0.4051167214285714,
+      "mean_q_update_ms": 0.0,
+      "mean_selection_ms": 0.44676756714285715,
+      "mean_simulator_wall_ms": 1.2065584714285715,
+      "policy_switch_count": 4.591428571428572,
+      "throughput": 0.07716017389314435
+    },
+    "SJF": {
+      "avg_response_time": 95.79714285714287,
+      "avg_turnaround_time": 114.77238095238096,
+      "avg_waiting_time": 95.79714285714287,
+      "context_switches": 14.0,
+      "cpu_utilization": 92.19818156964128,
+      "decision_count": 0.0,
+      "policy_switch_count": 0.0,
+      "throughput": 0.07888648740625406
+    }
+  },
+  "validation_metric_summary": [
+    {
+      "mean": 209.36571428571426,
+      "method": "Causal heuristic",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 161.93532385429768
+    },
+    {
+      "mean": 228.34095238095242,
+      "method": "Causal heuristic",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 172.71037141865355
+    },
+    {
+      "mean": 39.41190476190476,
+      "method": "Causal heuristic",
+      "metric": "avg_response_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 15.743299018048278
+    },
+    {
+      "mean": 80.41029003729307,
+      "method": "Causal heuristic",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 2.2838800001625095
+    },
+    {
+      "mean": 0.07261519022455878,
+      "method": "Causal heuristic",
+      "metric": "throughput",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.06164272088926696
+    },
+    {
+      "mean": 68.5,
+      "method": "Causal heuristic",
+      "metric": "context_switches",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 40.55363266468441
+    },
+    {
+      "mean": 2.9571428571428573,
+      "method": "Causal heuristic",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.5982159155382685
+    },
+    {
+      "mean": 128.4095238095238,
+      "method": "FCFS",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 80.56314762946303
+    },
+    {
+      "mean": 147.38476190476192,
+      "method": "FCFS",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 91.45420744992884
+    },
+    {
+      "mean": 128.4095238095238,
+      "method": "FCFS",
+      "metric": "avg_response_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 80.56314762946303
+    },
+    {
+      "mean": 92.19818156964128,
+      "method": "FCFS",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 6.286264124635951
+    },
+    {
+      "mean": 0.07888648740625406,
+      "method": "FCFS",
+      "metric": "throughput",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.06067976640443868
+    },
+    {
+      "mean": 14.0,
+      "method": "FCFS",
+      "metric": "context_switches",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.0
+    },
+    {
+      "mean": 0.0,
+      "method": "FCFS",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.0
+    },
+    {
+      "mean": 129.84714285714284,
+      "method": "Priority",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 80.74656149964663
+    },
+    {
+      "mean": 148.82238095238097,
+      "method": "Priority",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 91.6138891835329
+    },
+    {
+      "mean": 129.84714285714284,
+      "method": "Priority",
+      "metric": "avg_response_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 80.74656149964663
+    },
+    {
+      "mean": 92.19818156964128,
+      "method": "Priority",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 6.286264124635951
+    },
+    {
+      "mean": 0.07888648740625406,
+      "method": "Priority",
+      "metric": "throughput",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.06067976640443868
+    },
+    {
+      "mean": 14.0,
+      "method": "Priority",
+      "metric": "context_switches",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.0
+    },
+    {
+      "mean": 0.0,
+      "method": "Priority",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.0
+    },
+    {
+      "mean": 220.33380952380952,
+      "method": "Round Robin",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 175.81440826862723
+    },
+    {
+      "mean": 239.3090476190476,
+      "method": "Round Robin",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 186.5913786524334
+    },
+    {
+      "mean": 26.38666666666667,
+      "method": "Round Robin",
+      "metric": "avg_response_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 9.194093958027228
+    },
+    {
+      "mean": 78.28788903523619,
+      "method": "Round Robin",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 1.8923145603028173
+    },
+    {
+      "mean": 0.06989393668961669,
+      "method": "Round Robin",
+      "metric": "throughput",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.05842527929901348
+    },
+    {
+      "mean": 75.39285714285714,
+      "method": "Round Robin",
+      "metric": "context_switches",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 41.615177161647075
+    },
+    {
+      "mean": 0.0,
+      "method": "Round Robin",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.0
+    },
+    {
+      "mean": 104.89619047619048,
+      "method": "Runtime Q-learning",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 700,
+      "n_unique_workloads": 140,
+      "sd": 71.5294665108794
+    },
+    {
+      "mean": 123.87142857142857,
+      "method": "Runtime Q-learning",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 700,
+      "n_unique_workloads": 140,
+      "sd": 82.11268182101321
+    },
+    {
+      "mean": 88.68961904761905,
+      "method": "Runtime Q-learning",
+      "metric": "avg_response_time",
+      "n_metric_rows": 700,
+      "n_unique_workloads": 140,
+      "sd": 61.18416269426225
+    },
+    {
+      "mean": 90.87414143998754,
+      "method": "Runtime Q-learning",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 700,
+      "n_unique_workloads": 140,
+      "sd": 7.183993345516975
+    },
+    {
+      "mean": 0.07716017389314435,
+      "method": "Runtime Q-learning",
+      "metric": "throughput",
+      "n_metric_rows": 700,
+      "n_unique_workloads": 140,
+      "sd": 0.05854754168912556
+    },
+    {
+      "mean": 17.064285714285713,
+      "method": "Runtime Q-learning",
+      "metric": "context_switches",
+      "n_metric_rows": 700,
+      "n_unique_workloads": 140,
+      "sd": 4.514181618370009
+    },
+    {
+      "mean": 4.591428571428572,
+      "method": "Runtime Q-learning",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 700,
+      "n_unique_workloads": 140,
+      "sd": 2.953901561824758
+    },
+    {
+      "mean": 95.79714285714287,
+      "method": "SJF",
+      "metric": "avg_waiting_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 68.53627435926897
+    },
+    {
+      "mean": 114.77238095238096,
+      "method": "SJF",
+      "metric": "avg_turnaround_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 79.31691424140183
+    },
+    {
+      "mean": 95.79714285714287,
+      "method": "SJF",
+      "metric": "avg_response_time",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 68.53627435926897
+    },
+    {
+      "mean": 92.19818156964128,
+      "method": "SJF",
+      "metric": "cpu_utilization",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 6.286264124635951
+    },
+    {
+      "mean": 0.07888648740625406,
+      "method": "SJF",
+      "metric": "throughput",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.06067976640443868
+    },
+    {
+      "mean": 14.0,
+      "method": "SJF",
+      "metric": "context_switches",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.0
+    },
+    {
+      "mean": 0.0,
+      "method": "SJF",
+      "metric": "policy_switch_count",
+      "n_metric_rows": 140,
+      "n_unique_workloads": 140,
+      "sd": 0.0
+    }
+  ],
+  "validation_unique_workloads": 140
+}

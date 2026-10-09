@@ -1,17 +1,12 @@
-"""Central configuration for the whole project.
+"""Common scheduler settings and configuration for the legacy offline experiment.
 
-Every tunable value used anywhere in the simulator, the Q-learning agent, the
-experiment pipeline and the plots is declared **once**, here.  No module hard-codes an
-experimental value: modules receive their configuration objects explicitly.
+The four preserved schedulers and legacy whole-workload selector use the dataclasses in
+this module. Runtime-adaptation training and split defaults are declared separately in
+:mod:`experiments.runtime_config`; both paths receive configuration objects explicitly.
 
-Implementation choices that the project brief left unspecified are defined in
-``docs/DESIGN_AND_CHOICES.md``; the values below are the declared defaults for the
-reported experiment. They can be changed by constructing a different
-:class:`ExperimentConfig`, in which case the generated configuration snapshot records the
-changed design.
-
-The module deliberately imports nothing from the rest of the project except the
-project's exception types, so it can never take part in an import cycle.
+Implementation choices are described in ``docs/DESIGN_AND_CHOICES.md`` and serialized in
+their respective run summaries. This module deliberately imports nothing from the rest of
+the project except its exception types, so it cannot take part in an import cycle.
 """
 
 from __future__ import annotations
@@ -390,8 +385,9 @@ class QLearningConfig:
 
     Attributes:
         learning_rate: Step size alpha of the Q-learning update, in (0, 1].
-        discount_factor: Generic discount gamma. The default experiment has terminal
-            one-step episodes, so its training updates do not use this value.
+        discount_factor: Discount gamma used by nonterminal runtime Q-learning updates.
+            The legacy offline selector uses terminal one-step episodes and therefore does
+            not use this value.
         epsilon_start: Initial epsilon of the epsilon-greedy exploration.
         epsilon_min: Lower bound epsilon never decays below.
         epsilon_decay_per_episode: Multiplicative epsilon decay applied once per

@@ -1,0 +1,832 @@
+{
+  "all_choices_from_trained_state": true,
+  "controller_training_updates": 23596,
+  "decision_count": 23,
+  "decisions": [
+    {
+      "action": 2,
+      "chosen_pid": 1,
+      "decision_index": 0,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 0.0,
+      "policy": "Round Robin",
+      "policy_switch": false,
+      "previous_policy": null,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 47
+        }
+      ],
+      "state_index": 12,
+      "time": 0,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 2,
+      "chosen_pid": 1,
+      "decision_index": 1,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 4.0,
+      "policy": "Round Robin",
+      "policy_switch": false,
+      "previous_policy": 2,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 43
+        }
+      ],
+      "state_index": 12,
+      "time": 4,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 0,
+      "chosen_pid": 2,
+      "decision_index": 2,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 5.0,
+      "policy": "FCFS",
+      "policy_switch": true,
+      "previous_policy": 2,
+      "ready": [
+        {
+          "arrival_time": 6,
+          "pid": 2,
+          "priority": 1,
+          "remaining_burst": 2
+        },
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 39
+        }
+      ],
+      "state_index": 68,
+      "time": 8,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 3,
+      "decision_index": 3,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 5.5,
+      "policy": "SJF",
+      "policy_switch": true,
+      "previous_policy": 0,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 39
+        },
+        {
+          "arrival_time": 11,
+          "pid": 3,
+          "priority": 1,
+          "remaining_burst": 2
+        }
+      ],
+      "state_index": 86,
+      "time": 11,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 2,
+      "chosen_pid": 1,
+      "decision_index": 4,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 14.0,
+      "policy": "Round Robin",
+      "policy_switch": true,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 39
+        }
+      ],
+      "state_index": 32,
+      "time": 14,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 4,
+      "decision_index": 5,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 11.0,
+      "policy": "SJF",
+      "policy_switch": true,
+      "previous_policy": 2,
+      "ready": [
+        {
+          "arrival_time": 16,
+          "pid": 4,
+          "priority": 1,
+          "remaining_burst": 1
+        },
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 35
+        }
+      ],
+      "state_index": 86,
+      "time": 19,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 2,
+      "chosen_pid": 1,
+      "decision_index": 6,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 21.0,
+      "policy": "Round Robin",
+      "policy_switch": true,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 35
+        }
+      ],
+      "state_index": 34,
+      "time": 21,
+      "unvisited_action_count": 2
+    },
+    {
+      "action": 1,
+      "chosen_pid": 5,
+      "decision_index": 7,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 15.0,
+      "policy": "SJF",
+      "policy_switch": true,
+      "previous_policy": 2,
+      "ready": [
+        {
+          "arrival_time": 22,
+          "pid": 5,
+          "priority": 1,
+          "remaining_burst": 3
+        },
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 31
+        }
+      ],
+      "state_index": 86,
+      "time": 26,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 6,
+      "decision_index": 8,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 16.5,
+      "policy": "SJF",
+      "policy_switch": false,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 31
+        },
+        {
+          "arrival_time": 27,
+          "pid": 6,
+          "priority": 1,
+          "remaining_burst": 1
+        }
+      ],
+      "state_index": 100,
+      "time": 30,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 2,
+      "chosen_pid": 1,
+      "decision_index": 9,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 16.0,
+      "policy": "Round Robin",
+      "policy_switch": true,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 31
+        },
+        {
+          "arrival_time": 32,
+          "pid": 7,
+          "priority": 1,
+          "remaining_burst": 1
+        }
+      ],
+      "state_index": 98,
+      "time": 32,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 7,
+      "decision_index": 10,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 21.0,
+      "policy": "SJF",
+      "policy_switch": true,
+      "previous_policy": 2,
+      "ready": [
+        {
+          "arrival_time": 32,
+          "pid": 7,
+          "priority": 1,
+          "remaining_burst": 1
+        },
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 27
+        }
+      ],
+      "state_index": 100,
+      "time": 37,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 8,
+      "decision_index": 11,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 20.0,
+      "policy": "SJF",
+      "policy_switch": false,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 27
+        },
+        {
+          "arrival_time": 38,
+          "pid": 8,
+          "priority": 1,
+          "remaining_burst": 3
+        }
+      ],
+      "state_index": 100,
+      "time": 39,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 9,
+      "decision_index": 12,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 21.5,
+      "policy": "SJF",
+      "policy_switch": false,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 27
+        },
+        {
+          "arrival_time": 43,
+          "pid": 9,
+          "priority": 1,
+          "remaining_burst": 2
+        }
+      ],
+      "state_index": 100,
+      "time": 43,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 2,
+      "chosen_pid": 1,
+      "decision_index": 13,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 46.0,
+      "policy": "Round Robin",
+      "policy_switch": true,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 27
+        }
+      ],
+      "state_index": 52,
+      "time": 46,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 10,
+      "decision_index": 14,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 27.0,
+      "policy": "SJF",
+      "policy_switch": true,
+      "previous_policy": 2,
+      "ready": [
+        {
+          "arrival_time": 48,
+          "pid": 10,
+          "priority": 1,
+          "remaining_burst": 1
+        },
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 23
+        }
+      ],
+      "state_index": 100,
+      "time": 51,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 11,
+      "decision_index": 15,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 27.0,
+      "policy": "SJF",
+      "policy_switch": false,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 23
+        },
+        {
+          "arrival_time": 52,
+          "pid": 11,
+          "priority": 1,
+          "remaining_burst": 3
+        }
+      ],
+      "state_index": 100,
+      "time": 53,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 12,
+      "decision_index": 16,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 29.0,
+      "policy": "SJF",
+      "policy_switch": false,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 23
+        },
+        {
+          "arrival_time": 56,
+          "pid": 12,
+          "priority": 1,
+          "remaining_burst": 1
+        }
+      ],
+      "state_index": 100,
+      "time": 57,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 2,
+      "chosen_pid": 1,
+      "decision_index": 17,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 59.0,
+      "policy": "Round Robin",
+      "policy_switch": true,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 23
+        }
+      ],
+      "state_index": 52,
+      "time": 59,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 13,
+      "decision_index": 18,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 33.5,
+      "policy": "SJF",
+      "policy_switch": true,
+      "previous_policy": 2,
+      "ready": [
+        {
+          "arrival_time": 61,
+          "pid": 13,
+          "priority": 1,
+          "remaining_burst": 1
+        },
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 19
+        }
+      ],
+      "state_index": 100,
+      "time": 64,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 2,
+      "chosen_pid": 1,
+      "decision_index": 19,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 66.0,
+      "policy": "Round Robin",
+      "policy_switch": true,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 19
+        }
+      ],
+      "state_index": 52,
+      "time": 66,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 14,
+      "decision_index": 20,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 37.5,
+      "policy": "SJF",
+      "policy_switch": true,
+      "previous_policy": 2,
+      "ready": [
+        {
+          "arrival_time": 67,
+          "pid": 14,
+          "priority": 1,
+          "remaining_burst": 1
+        },
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 15
+        }
+      ],
+      "state_index": 100,
+      "time": 71,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 1,
+      "chosen_pid": 15,
+      "decision_index": 21,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 36.5,
+      "policy": "SJF",
+      "policy_switch": false,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 15
+        },
+        {
+          "arrival_time": 73,
+          "pid": 15,
+          "priority": 1,
+          "remaining_burst": 2
+        }
+      ],
+      "state_index": 100,
+      "time": 73,
+      "unvisited_action_count": 0
+    },
+    {
+      "action": 0,
+      "chosen_pid": 1,
+      "decision_index": 22,
+      "fallback_reason": null,
+      "mean_ready_arrival_age": 76.0,
+      "policy": "FCFS",
+      "policy_switch": true,
+      "previous_policy": 1,
+      "ready": [
+        {
+          "arrival_time": 0,
+          "pid": 1,
+          "priority": 1,
+          "remaining_burst": 15
+        }
+      ],
+      "state_index": 46,
+      "time": 76,
+      "unvisited_action_count": 3
+    }
+  ],
+  "evaluation_updates": 0,
+  "fallback_decisions": 0,
+  "family": "staggered_interactive",
+  "illustrative_not_representative": true,
+  "metrics": {
+    "avg_response_time": 2.933333333333333,
+    "avg_turnaround_time": 10.666666666666666,
+    "avg_waiting_time": 5.933333333333334,
+    "context_switches": 21,
+    "context_switches_per_process": 1.4,
+    "cpu_busy_time": 71,
+    "cpu_idle_time": 0,
+    "cpu_utilization": 77.17391304347827,
+    "num_processes": 15,
+    "policy_name": "Runtime Q-learning",
+    "throughput": 0.16304347826086957,
+    "total_elapsed_time": 92,
+    "total_response_time": 44,
+    "total_turnaround_time": 160,
+    "total_waiting_time": 89,
+    "workload_fingerprint": "275409d7458331f6",
+    "workload_name": "staggered_interactive"
+  },
+  "policy_switch_count": 15,
+  "policy_switch_times": [
+    8,
+    11,
+    14,
+    19,
+    21,
+    26,
+    32,
+    37,
+    46,
+    51,
+    59,
+    64,
+    66,
+    71,
+    76
+  ],
+  "repetition": 0,
+  "selection_rule": "validation only: maximize policy switches among Q traces with zero unseen-state fallbacks; if none qualify, use all validation Q traces; break ties by ascending training seed, family, then repetition",
+  "source_split": "validation",
+  "status": "verified_learned_runtime_policy_switch",
+  "trace": [
+    {
+      "end": 8,
+      "pid": 1,
+      "start": 0
+    },
+    {
+      "end": 11,
+      "pid": 2,
+      "start": 9
+    },
+    {
+      "end": 14,
+      "pid": 3,
+      "start": 12
+    },
+    {
+      "end": 19,
+      "pid": 1,
+      "start": 15
+    },
+    {
+      "end": 21,
+      "pid": 4,
+      "start": 20
+    },
+    {
+      "end": 26,
+      "pid": 1,
+      "start": 22
+    },
+    {
+      "end": 30,
+      "pid": 5,
+      "start": 27
+    },
+    {
+      "end": 32,
+      "pid": 6,
+      "start": 31
+    },
+    {
+      "end": 37,
+      "pid": 1,
+      "start": 33
+    },
+    {
+      "end": 39,
+      "pid": 7,
+      "start": 38
+    },
+    {
+      "end": 43,
+      "pid": 8,
+      "start": 40
+    },
+    {
+      "end": 46,
+      "pid": 9,
+      "start": 44
+    },
+    {
+      "end": 51,
+      "pid": 1,
+      "start": 47
+    },
+    {
+      "end": 53,
+      "pid": 10,
+      "start": 52
+    },
+    {
+      "end": 57,
+      "pid": 11,
+      "start": 54
+    },
+    {
+      "end": 59,
+      "pid": 12,
+      "start": 58
+    },
+    {
+      "end": 64,
+      "pid": 1,
+      "start": 60
+    },
+    {
+      "end": 66,
+      "pid": 13,
+      "start": 65
+    },
+    {
+      "end": 71,
+      "pid": 1,
+      "start": 67
+    },
+    {
+      "end": 73,
+      "pid": 14,
+      "start": 72
+    },
+    {
+      "end": 76,
+      "pid": 15,
+      "start": 74
+    },
+    {
+      "end": 92,
+      "pid": 1,
+      "start": 77
+    }
+  ],
+  "training_seed": 7103,
+  "workload_fingerprint": "275409d7458331f6",
+  "workload_processes": [
+    {
+      "arrival_time": 0,
+      "burst_time": 47,
+      "pid": 1,
+      "priority": 1
+    },
+    {
+      "arrival_time": 6,
+      "burst_time": 2,
+      "pid": 2,
+      "priority": 1
+    },
+    {
+      "arrival_time": 11,
+      "burst_time": 2,
+      "pid": 3,
+      "priority": 1
+    },
+    {
+      "arrival_time": 16,
+      "burst_time": 1,
+      "pid": 4,
+      "priority": 1
+    },
+    {
+      "arrival_time": 22,
+      "burst_time": 3,
+      "pid": 5,
+      "priority": 1
+    },
+    {
+      "arrival_time": 27,
+      "burst_time": 1,
+      "pid": 6,
+      "priority": 1
+    },
+    {
+      "arrival_time": 32,
+      "burst_time": 1,
+      "pid": 7,
+      "priority": 1
+    },
+    {
+      "arrival_time": 38,
+      "burst_time": 3,
+      "pid": 8,
+      "priority": 1
+    },
+    {
+      "arrival_time": 43,
+      "burst_time": 2,
+      "pid": 9,
+      "priority": 1
+    },
+    {
+      "arrival_time": 48,
+      "burst_time": 1,
+      "pid": 10,
+      "priority": 1
+    },
+    {
+      "arrival_time": 52,
+      "burst_time": 3,
+      "pid": 11,
+      "priority": 1
+    },
+    {
+      "arrival_time": 56,
+      "burst_time": 1,
+      "pid": 12,
+      "priority": 1
+    },
+    {
+      "arrival_time": 61,
+      "burst_time": 1,
+      "pid": 13,
+      "priority": 1
+    },
+    {
+      "arrival_time": 67,
+      "burst_time": 1,
+      "pid": 14,
+      "priority": 1
+    },
+    {
+      "arrival_time": 73,
+      "burst_time": 2,
+      "pid": 15,
+      "priority": 1
+    }
+  ],
+  "workload_seed": 8508850933161832709
+}
