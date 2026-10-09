@@ -1,16 +1,15 @@
-"""Tabular Q-learning for offline single-workload policy selection.
+"""Reusable tabular Q-learning agent for offline and sequential scheduling.
 
-Each episode has one state, one selected conventional policy, one scalar reward, and an
-immediate terminal transition. The project's update is therefore
-``Q(s, a) <- Q(s, a) + alpha * (reward - Q(s, a))``; the configured discount factor has no
-effect because training passes ``next_state=None``. Epsilon-greedy exploration uses a
-multiplicative per-episode decay. At epsilon zero, ties resolve to the lowest action index
-and evaluation is deterministic.
+The legacy offline selector supplies terminal one-step transitions, while the runtime
+controller supplies nonterminal transitions so the configured discount factor affects
+future-state targets. State and state-action visits are tracked separately; runtime callers
+can mask unvisited actions without changing the legacy agent defaults. Epsilon-greedy
+action selection is deterministic at epsilon zero, with ties resolved by lowest index.
 """
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Sequence
 
 import numpy as np
 
@@ -110,6 +109,9 @@ class QLearningAgent:
         self._n_actions = int(n_actions)
         self._q_table = np.full((self._n_states, self._n_actions), float(initial_value))
         self._visit_counts = np.zeros(self._n_states, dtype=np.int64)
+        self._state_action_visit_counts = np.zeros(
+            (self._n_states, self._n_actions), dtype=np.int64
+        )
         self._rng = np.random.default_rng(seed)
         self._epsilon = EpsilonSchedule(
             config.epsilon_start, config.epsilon_min, config.epsilon_decay_per_episode
@@ -146,6 +148,32 @@ class QLearningAgent:
         view.flags.writeable = False
         return view
 
+    @property
+    def state_action_visit_counts(self) -> np.ndarray:
+        """Read-only ``(state, action)`` counts for transitions used in learning."""
+        view = self._state_action_visit_counts.view()
+        view.flags.writeable = False
+        return view
+
+    def visited_actions(self, state: int) -> tuple[int, ...]:
+        """Return actions tried in ``state``, ordered by action index."""
+        self._check_state(state)
+        return tuple(
+            int(action)
+            for action in np.flatnonzero(self._state_action_visit_counts[state] > 0)
+        )
+
+    def greedy_visited_action(self, state: int) -> Optional[int]:
+        """Return the highest-valued tried action, or ``None`` if none was tried.
+
+        This is intentionally different from :meth:`greedy_action`: runtime evaluation
+        must not silently treat the initial value of an unvisited action as evidence.
+        """
+        actions = self.visited_actions(state)
+        if not actions:
+            return None
+        return max(actions, key=lambda action: (self._q_table[state, action], -action))
+
     def state_action_value(self, state: int, action: int) -> float:
         """Return ``Q(state, action)``.
 
@@ -167,13 +195,24 @@ class QLearningAgent:
         return int(np.argmax(self._q_table[state]))
 
     # -- acting ----------------------------------------------------------------------
-    def select_action(self, state: int, epsilon: float) -> int:
+    def select_action(
+        self,
+        state: int,
+        epsilon: float,
+        greedy_actions: Optional[Sequence[int]] = None,
+    ) -> int:
         """Choose an action with epsilon-greedy exploration.
+
+        By default the greedy branch considers the full action space, preserving the
+        legacy selector's behavior. Runtime callers pass the actions already tried in
+        this state; random exploration still samples the full action space.
 
         Args:
             state: The current state index.
             epsilon: Probability of choosing a uniformly random action instead of the
                 greedy one.
+            greedy_actions: Optional subset used only for the greedy branch. This lets a
+                runtime controller avoid treating unvisited action values as evidence.
 
         Returns:
             The chosen action index.
@@ -184,11 +223,18 @@ class QLearningAgent:
         self._check_state(state)
         if not 0.0 <= epsilon <= 1.0:
             raise ValidationError(f"epsilon must lie in [0, 1], got {epsilon}")
+        candidates = tuple(range(self._n_actions)) if greedy_actions is None else tuple(
+            int(action) for action in greedy_actions
+        )
+        if not candidates:
+            raise ValidationError("greedy_actions must not be empty")
+        for action in candidates:
+            self._check_action(action)
         if epsilon > 0.0 and self._rng.random() < epsilon:
             self._last_action_was_random_exploration = True
             return int(self._rng.integers(0, self._n_actions))
         self._last_action_was_random_exploration = False
-        return self.greedy_action(state)
+        return max(candidates, key=lambda action: (self._q_table[state, action], -action))
 
     @property
     def last_action_was_random_exploration(self) -> bool:
@@ -210,6 +256,7 @@ class QLearningAgent:
         action: int,
         reward: float,
         next_state: Optional[int] = None,
+        mask_unvisited_next_actions: bool = False,
     ) -> float:
         """Apply one Q-learning update and return the temporal-difference error.
 
@@ -219,6 +266,10 @@ class QLearningAgent:
             reward: Reward received.
             next_state: State reached afterwards, or ``None`` for a terminal transition,
                 in which case no discounted future value is added.
+            mask_unvisited_next_actions: When true, bootstrap only from actions already
+                tried in ``next_state``. This is used by runtime learning so zero-valued
+                placeholders for unseen actions are not treated as estimates. The legacy
+                offline learner keeps its original all-actions default.
 
         Returns:
             The temporal-difference error ``target - Q(state, action)`` *before* the
@@ -234,12 +285,24 @@ class QLearningAgent:
         if next_state is not None:
             self._check_state(next_state)
 
+        if not isinstance(mask_unvisited_next_actions, bool):
+            raise ValidationError("mask_unvisited_next_actions must be a bool")
         target = reward
         if next_state is not None:
-            target += self._config.discount_factor * self.best_value(next_state)
+            if mask_unvisited_next_actions:
+                known = self.visited_actions(next_state)
+                next_value = (
+                    max(float(self._q_table[next_state, candidate]) for candidate in known)
+                    if known
+                    else 0.0
+                )
+            else:
+                next_value = self.best_value(next_state)
+            target += self._config.discount_factor * next_value
         error = target - float(self._q_table[state, action])
         self._q_table[state, action] += self._config.learning_rate * error
         self._visit_counts[state] += 1
+        self._state_action_visit_counts[state, action] += 1
         return float(error)
 
     # -- helpers ---------------------------------------------------------------------

@@ -1,0 +1,37 @@
+target,reference,metric,mean_difference,ci95_low,ci95_high,direction_note
+Causal heuristic,SJF,avg_waiting_time,112.02253968253969,108.6809126984127,115.64986507936507,negative favors target
+Causal heuristic,SJF,avg_turnaround_time,112.0225396825397,108.33371428571428,115.72300793650791,negative favors target
+Causal heuristic,SJF,avg_response_time,-53.58952380952379,-56.0615873015873,-51.21244444444444,negative favors target
+Causal heuristic,SJF,cpu_utilization,-11.844434089562634,-12.062595919885636,-11.63553844645532,positive favors target
+Causal heuristic,SJF,throughput,-0.006266536273741209,-0.006452154509617838,-0.006074471154474238,positive favors target
+Causal heuristic,SJF,context_switches,54.66190476190476,53.24285714285715,56.143214285714286,negative favors target
+FCFS,SJF,avg_waiting_time,35.94031746031745,34.09968253968254,37.783595238095245,negative favors target
+FCFS,SJF,avg_turnaround_time,35.94031746031747,34.27213492063492,37.9526984126984,negative favors target
+FCFS,SJF,avg_response_time,35.94031746031745,34.128634920634916,37.68223015873015,negative favors target
+FCFS,SJF,cpu_utilization,0.0,0.0,0.0,positive favors target
+FCFS,SJF,throughput,0.0,0.0,0.0,positive favors target
+FCFS,SJF,context_switches,0.0,0.0,0.0,negative favors target
+Priority,SJF,avg_waiting_time,35.10507936507938,33.220952380952376,37.05436507936507,negative favors target
+Priority,SJF,avg_turnaround_time,35.10507936507937,33.06163492063492,37.08428571428571,negative favors target
+Priority,SJF,avg_response_time,35.10507936507938,33.14515079365079,37.08065079365079,negative favors target
+Priority,SJF,cpu_utilization,0.0,0.0,0.0,positive favors target
+Priority,SJF,throughput,0.0,0.0,0.0,positive favors target
+Priority,SJF,context_switches,0.0,0.0,0.0,negative favors target
+Round Robin,SJF,avg_waiting_time,123.3688888888889,119.35388888888887,127.30942063492061,negative favors target
+Round Robin,SJF,avg_turnaround_time,123.36888888888889,119.37844444444443,127.21815873015873,negative favors target
+Round Robin,SJF,avg_response_time,-68.26285714285714,-70.72034920634923,-65.56983333333334,negative favors target
+Round Robin,SJF,cpu_utilization,-14.267221522682375,-14.449238414319247,-14.067717847381184,positive favors target
+Round Robin,SJF,throughput,-0.009474698922103456,-0.00971479972882148,-0.009230426929198747,positive favors target
+Round Robin,SJF,context_switches,62.080952380952375,60.51904761904762,63.39166666666667,negative favors target
+Runtime Q-learning,SJF,avg_waiting_time,90.17638095238094,79.1482904761905,99.4090126984127,negative favors target
+Runtime Q-learning,SJF,avg_turnaround_time,90.17638095238098,78.76726825396825,100.02886984126984,negative favors target
+Runtime Q-learning,SJF,avg_response_time,-53.21999999999999,-57.53456984126983,-48.53427936507937,negative favors target
+Runtime Q-learning,SJF,cpu_utilization,-10.751101501713572,-11.740831084695547,-9.36595708491266,positive favors target
+Runtime Q-learning,SJF,throughput,-0.006039951444099883,-0.006966489036607647,-0.005058534500318275,positive favors target
+Runtime Q-learning,SJF,context_switches,49.15428571428571,43.21611904761905,53.36192857142857,negative favors target
+Runtime Q-learning,Causal heuristic,avg_waiting_time,-21.84615873015874,-32.933241269841275,-12.647726984126994,negative favors target
+Runtime Q-learning,Causal heuristic,avg_turnaround_time,-21.846158730158717,-33.0449873015873,-12.250890476190479,negative favors target
+Runtime Q-learning,Causal heuristic,avg_response_time,0.3695238095238122,-3.7125285714285714,3.980493650793649,negative favors target
+Runtime Q-learning,Causal heuristic,cpu_utilization,1.093332587849062,0.07151713365625162,2.394144714312616,positive favors target
+Runtime Q-learning,Causal heuristic,throughput,0.0002265848296413273,-0.0006922259563850771,0.0012213934579371206,positive favors target
+Runtime Q-learning,Causal heuristic,context_switches,-5.507619047619047,-11.362619047619049,-1.6385,negative favors target
