@@ -205,6 +205,28 @@ remain explicitly offline and are not mixed into the causal runtime comparison. 
 runtime experiment does not claim a fair head-to-head comparison against that
 information-leaking reference.
 
+## Review 2 report PDF
+
+`Review_2_Report.pdf` (with a copy at `docs/Review_2_Report.pdf`) is the Review 2
+deliverable: a ~23-page report covering the problem statement, objectives, literature
+survey, requirement analysis, system design and architecture, algorithms, implementation,
+experimental protocol, held-out results with bootstrap intervals, testing, limitations and
+references.
+
+The PDF is generated **from the committed artifacts only** — it never re-runs the
+experiment, so the numbers in the report cannot drift from `results/`. It does re-run
+`pytest` while building so the reported test count is the one measured on the build host.
+
+```bash
+python -m pip install -r requirements-report.txt   # adds reportlab
+python tools/build_review2_report.py               # rewrites both PDF copies + figures/review2/
+python tools/build_review2_report.py --skip-tests  # skip the pytest re-run
+```
+
+`tools/build_review2_report.py` reads `results/runtime/*.csv|json` and `results/*.json`,
+draws the figures with Matplotlib into `figures/review2/`, and lays out the document with
+ReportLab. Useful switches: `--output`, `--docs-copy`, `--figures-dir`, `--root`.
+
 ## Installation, commands and tests
 
 ```bash

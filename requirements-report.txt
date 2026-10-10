@@ -1,0 +1,3 @@
+# Extra dependency needed only to regenerate the Review 2 report PDF.
+# The simulator, experiments and tests need requirements.lock instead.
+reportlab==5.0.1
