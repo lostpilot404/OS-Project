@@ -628,3 +628,131 @@ def legacy_training(history: Dict, path: Path) -> Path:
 
 def wrap(text: str, width: int) -> str:
     return "\n".join(textwrap.wrap(text, width))
+
+
+# --------------------------------------------------------------------------
+# Review 2 rubric figures: methodology pipeline, module workflows, dataset
+# --------------------------------------------------------------------------
+def methodology_pipeline(path: Path) -> Path:
+    """Eight-stage methodology pipeline of the proposed system."""
+    _style()
+    stages = [
+        ("1. Dataset", "7 seeded families\n15 processes each"),
+        ("2. Simulation", "single-CPU event-driven\nFIFO ready queue"),
+        ("3. Observation", "arrived work only\n(causal contract)"),
+        ("4. Encoding", "5 features\n162 states"),
+        ("5. Decision", "Q-learning picks\nFCFS/SJF/RR/Prio"),
+        ("6. Execution", "segment runs, switches\nare charged"),
+        ("7. Reward", "r = -ΔW / q\n(γ = 1)"),
+        ("8. Evaluation", "held-out test + paired\nbootstrap CIs"),
+    ]
+    fig, ax = plt.subplots(figsize=(7.4, 2.5))
+    ax.set_xlim(0, 8)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+    width = 0.90
+    gap = 0.10
+    for i, (title, body) in enumerate(stages):
+        x = i * (width + gap)
+        _box(ax, x, 0.30, width, 0.46, title, body, fs=7.2,
+             facecolor=LIGHT if i % 2 == 0 else "#EAF0FA")
+        if i < len(stages) - 1:
+            _arrow(ax, x + width + 0.005, 0.53, x + width + gap - 0.005, 0.53)
+    _arrow(ax, 0.02, 0.16, 7.9, 0.16, ls="--",
+           label="offline loop: validate on 140 workloads, test once on 210")
+    ax.text(4.0, 0.90, "Methodology pipeline (Review 2)", ha="center",
+            fontsize=9, fontweight="bold", color=NAVY)
+    ax.text(4.0, 0.06,
+            "stages 3-7 repeat at every dispatch or quantum boundary inside one trace",
+            ha="center", fontsize=7.4, color=GREY)
+    return _finish(fig, path)
+
+
+def module_workflow(path: Path, steps: Sequence[Tuple[str, str]], title: str,
+                    subtitle: str = "") -> Path:
+    """Generic numbered workflow diagram for one module."""
+    _style()
+    height = 0.42 * len(steps) + 0.85
+    fig, ax = plt.subplots(figsize=(4.7, height))
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.axis("off")
+    top = 0.94
+    step_h = 0.80 / len(steps)
+    for i, (label, detail) in enumerate(steps):
+        y = top - (i + 1) * step_h
+        _box(ax, 0.05, y, 0.90, step_h * 0.78, f"{i + 1}. {label}", detail,
+             fs=7.4, facecolor="#F5F8FD" if i % 2 == 0 else "#EAF0FA")
+        if i < len(steps) - 1:
+            _arrow(ax, 0.5, y - 0.004, 0.5, y - step_h * 0.22 + 0.004)
+    ax.text(0.5, 0.985, title, ha="center", fontsize=8.6, fontweight="bold",
+            color=NAVY)
+    if subtitle:
+        ax.text(0.5, 0.955, subtitle, ha="center", fontsize=6.6, color=GREY)
+    return _finish(fig, path)
+
+
+def dataset_profile(processes: pd.DataFrame, workloads: pd.DataFrame,
+                    path: Path, families: Sequence[str]) -> Path:
+    """Real statistics of the generated dataset (one row per process)."""
+    _style()
+    fig, axes = plt.subplots(2, 2, figsize=(7.4, 4.3))
+    labels = [f.replace("_", "\n") for f in families]
+
+    ax = axes[0][0]
+    data = [processes.loc[processes["family"] == f, "burst_time"].to_numpy() for f in families]
+    box = ax.boxplot(data, tick_labels=labels, patch_artist=True, widths=0.6,
+                     showfliers=False, medianprops=dict(color="black"))
+    for patch in box["boxes"]:
+        patch.set_facecolor("#8DA0CB")
+        patch.set_edgecolor("#333333")
+        patch.set_linewidth(0.6)
+    ax.set_title("CPU burst time per process")
+    ax.set_ylabel("time units")
+    ax.tick_params(labelsize=6.4)
+
+    ax = axes[0][1]
+    data = [processes.loc[processes["family"] == f, "arrival_time"].to_numpy() for f in families]
+    box = ax.boxplot(data, tick_labels=labels, patch_artist=True, widths=0.6,
+                     showfliers=False, medianprops=dict(color="black"))
+    for patch in box["boxes"]:
+        patch.set_facecolor("#66C2A5")
+        patch.set_edgecolor("#333333")
+        patch.set_linewidth(0.6)
+    ax.set_title("Arrival time per process")
+    ax.set_ylabel("time units")
+    ax.tick_params(labelsize=6.4)
+
+    ax = axes[1][0]
+    means = [workloads.loc[workloads["family"] == f, "total_burst"].mean() for f in families]
+    sds = [workloads.loc[workloads["family"] == f, "total_burst"].std(ddof=1) for f in families]
+    ax.bar(labels, means, yerr=sds, color=NAVY, edgecolor="#333333", linewidth=0.4,
+           capsize=2, error_kw=dict(linewidth=0.7))
+    ax.set_title("Total work per workload (mean ± SD)")
+    ax.set_ylabel("sum of burst times")
+    ax.tick_params(labelsize=6.4)
+    ax.grid(axis="x", visible=False)
+    for i, mean in enumerate(means):
+        ax.text(i, mean, f"{mean:.0f}", ha="center", va="bottom", fontsize=6.3)
+
+    ax = axes[1][1]
+    highs = [
+        100.0 * (processes.loc[processes["family"] == f, "priority"] <= 2).mean()
+        for f in families
+    ]
+    ax.bar(labels, highs, color="#FC8D62", edgecolor="#333333", linewidth=0.4)
+    ax.set_title("Share of high-priority processes (priority <= 2)")
+    ax.set_ylabel("% of processes")
+    ax.set_ylim(0, 100)
+    ax.tick_params(labelsize=6.4)
+    ax.grid(axis="x", visible=False)
+    for i, value in enumerate(highs):
+        ax.text(i, value + 1, f"{value:.0f}%", ha="center", fontsize=6.3)
+
+    fig.suptitle(
+        "Generated dataset profile — 210 held-out workloads x 15 processes "
+        "= 3,150 processes (rebuilt from the declared seeds)",
+        fontsize=8.4, color=GREY,
+    )
+    fig.tight_layout(rect=(0, 0, 1, 0.955))
+    return _finish(fig, path)

@@ -208,14 +208,26 @@ information-leaking reference.
 ## Review 2 report PDF
 
 `Review_2_Report.pdf` (with a copy at `docs/Review_2_Report.pdf`) is the Review 2
-deliverable: a ~23-page report covering the problem statement, objectives, literature
-survey, requirement analysis, system design and architecture, algorithms, implementation,
-experimental protocol, held-out results with bootstrap intervals, testing, limitations and
-references.
+deliverable for *Methodology and Partial Implementation*. It follows the review rubric
+item by item, and nothing else is included:
+
+1. Detailed methodology of the proposed system (pipeline, causal observation contract,
+   state abstraction, learning objective, methodological controls)
+2. Overall conceptual, architectural and pipeline diagram
+3. Description of the major modules
+4. Workflow diagram for each major module
+5. Dataset details and data collection procedure
+6. Tools, technologies, algorithms and frameworks used
+7. Experimental plan and evaluation metrics
+8. Implementation progress (completed modules demonstrated with valid outputs)
+9. Challenges encountered and plan for completing the remaining work
 
 The PDF is generated **from the committed artifacts only** — it never re-runs the
-experiment, so the numbers in the report cannot drift from `results/`. It does re-run
-`pytest` while building so the reported test count is the one measured on the build host.
+experiment, so the reported numbers cannot drift from `results/`. Two things *are*
+recomputed at build time: `pytest` is re-run so the reported test count is measured on the
+build host, and the dataset statistics in §5.4 / Figure 5.1 are rebuilt with the project's
+own seeded generator from the declared seeds. Only comparisons that the experiment itself
+produced are reported, so no interval is recomputed at build time.
 
 ```bash
 python -m pip install -r requirements-report.txt   # adds reportlab
