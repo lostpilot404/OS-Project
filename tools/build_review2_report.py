@@ -73,6 +73,7 @@ from review2_data import (  # noqa: E402
     METHOD_ORDER,
     MODULES,
     SHORT_NAME,
+    module_outputs,
     WORKFLOWS,
     Artifacts,
     ci_of,
@@ -478,6 +479,18 @@ def toc_page() -> List:
 # --------------------------------------------------------------------------
 def section_methodology(data: Artifacts, figures: Dict[str, Path]) -> List:
     story = [h1("1. Detailed methodology of the proposed system")]
+    story.append(
+        para(
+            "<b>The proposed system</b> is a single-CPU, event-driven, runtime-adaptive CPU "
+            "scheduler. Instead of committing one policy for the lifetime of a workload, it re-"
+            "decides at every dispatch or Round-Robin quantum boundary which of four classical "
+            "policies should govern the next execution segment of the same evolving trace, and "
+            "does so from a strictly causal view of the machine. The rest of this section states "
+            "the questions the system is built to answer, the pipeline that implements it, the "
+            "information contract that keeps it honest, the state abstraction and objective it "
+            "learns from, and the controls applied to every comparison."
+        )
+    )
     story.append(h2("1.1 Research questions"))
     questions = [
         ["RQ1", "Can a single-CPU scheduler switch between FCFS, SJF, Round Robin and Priority at "
@@ -1390,7 +1403,20 @@ def section_progress(data: Artifacts, figures: Dict[str, Path],
             "are extensions beyond the proposed scope."
         )
     )
-    story.append(h2("8.1 Demonstration 1 — automated verification"))
+    story.append(h2("8.1 Outputs demonstrated by each module"))
+    story.append(
+        para("Each module is demonstrated by the output it actually produced in the recorded run:")
+    )
+    story.append(
+        make_table(
+            [["Module", "Demonstrated output"]]
+            + [[module_id, text] for module_id, text in module_outputs(data)],
+            widths=[CONTENT_W * 0.08, CONTENT_W * 0.92],
+        )
+    )
+    story.append(Spacer(1, 3))
+    story.append(caption("Table 8.2: Concrete output produced by each implemented module."))
+    story.append(h2("8.2 Demonstration 1 — automated verification"))
     if test_rows:
         story.append(
             make_table(
@@ -1402,14 +1428,14 @@ def section_progress(data: Artifacts, figures: Dict[str, Path],
         story.append(Spacer(1, 3))
         story.append(
             caption(
-                f"Table 8.2: Test inventory, {sum(int(r[1]) for r in test_rows)} checks collected "
+                f"Table 8.3: Test inventory, {sum(int(r[1]) for r in test_rows)} checks collected "
                 "and executed while building this report."
             )
         )
     story.append(Spacer(1, 3))
     story.append(code_block(pytest_block, font_size=6.8))
     story.append(Spacer(1, 5))
-    story.append(h2("8.2 Demonstration 2 — end-to-end run output"))
+    story.append(h2("8.3 Demonstration 2 — end-to-end run output"))
     story.append(
         para(
             "The full pipeline (training, validation, held-out testing, artifact export) is "
@@ -1420,7 +1446,7 @@ def section_progress(data: Artifacts, figures: Dict[str, Path],
     )
     story.append(code_block(cli_block, font_size=6.6))
     story.append(Spacer(1, 5))
-    story.append(h2("8.3 Demonstration 3 — learned behaviour and artifacts"))
+    story.append(h2("8.4 Demonstration 3 — learned behaviour and artifacts"))
     story.extend(
         figure(figures["coverage"],
                "Figure 8.1: Learned state-action visitation pooled over the five agents (left) and "
@@ -1472,7 +1498,7 @@ def section_progress(data: Artifacts, figures: Dict[str, Path],
         )
     )
     story.append(Spacer(1, 3))
-    story.append(caption("Table 8.3: Artifacts produced by the completed modules."))
+    story.append(caption("Table 8.4: Artifacts produced by the completed modules."))
     return story
 
 

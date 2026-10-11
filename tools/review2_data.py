@@ -166,68 +166,105 @@ MODULES = [
 
 WORKFLOWS = [
     ("M1. Workload generator and dataset builder",
-     "workload/generator.py → workload/models.py",
+     "workload/generator.py -> workload/models.py",
      [
          ("Select family configuration", "7 frozen parameter sets (burst, arrival, priority)"),
          ("Derive the workload seed", "SHA-256 (master seed, split tag, family index, repetition)"),
          ("Sample 15 processes", "burst, arrival time and priority drawn per family rules"),
          ("Validate the workload", "positive bursts, ordered arrivals, priority bounds"),
-         ("Fingerprint and tag", "SHA-256 workload fingerprint + split/repetition metadata"),
+         ("Fingerprint and tag", "SHA-256 workload fingerprint plus split and repetition metadata"),
          ("Assemble the split", "6,000 train / 140 validation / 210 held-out workloads"),
      ]),
     ("M2. Discrete-event runtime environment",
-     "scheduler/runtime.py — one iteration per decision epoch",
+     "scheduler/runtime.py - one iteration per decision epoch",
      [
          ("Advance to the next epoch", "dispatch point, completion or Round-Robin quantum boundary"),
-         ("Admit arrivals", "all arrivals at or before the epoch, in (arrival_time, pid) order"),
-         ("Freeze the observation", "arrived/ready work only — the future stays private"),
+         ("Admit arrivals", "all arrivals at or before the epoch, in (arrival time, pid) order"),
+         ("Freeze the observation", "arrived and ready work only, the future stays private"),
          ("Ask the controller for an action", "FCFS, SJF, Round Robin or Priority"),
-         ("Charge the switch cost", "1 unit if the running PID changes; first dispatch is free"),
+         ("Charge the switch cost", "1 unit if the running PID changes; the first dispatch is free"),
          ("Execute the segment", "min(quantum, remaining) for RR, otherwise to completion"),
          ("Settle the endpoint", "admit arrivals, then RR tail re-enqueue or mark completed"),
-         ("Return the interval reward", "r = −ΔW / q, measured by the environment"),
+         ("Return the interval reward", "r = -dW / q, measured by the environment"),
      ]),
     ("M3. Causal observation and state encoder",
      "rl/runtime_state.py",
      [
-         ("Receive the observation", "immutable RuntimeObservation (no Workload object)"),
+         ("Receive the observation", "immutable RuntimeObservation, never a Workload object"),
          ("Extract five causal features", "ready count, completed count, median remaining burst, "
                                           "mean arrival age, priority spread"),
          ("Discretise each feature", "bin edges expressed relative to the quantum q = 4"),
-         ("Flatten in mixed-radix order", "3 × 3 × 3 × 3 × 2 → one integer"),
-         ("Return the state index", "s ∈ [0, 162); consumed by the controller only"),
+         ("Flatten in mixed-radix order", "3 x 3 x 3 x 3 x 2 collapses to one integer"),
+         ("Return the state index", "s in [0, 162), consumed by the controller only"),
      ]),
     ("M4. Sequential Q-learning controller",
      "rl/runtime_controller.py",
      [
          ("Encode the observation", "s = encoder(observation)"),
-         ("Select an action", "training: ε-greedy + forced random on first visit; "
+         ("Select an action", "training: epsilon-greedy plus forced random on first visit; "
                               "evaluation: greedy over visited actions"),
-         ("Handle unseen states", "explicit fallback to the causal heuristic (counted and reported)"),
-         ("Receive the reward", "r = −ΔW / q from the environment"),
-         ("Update the table", "Q(s,a) += α(r + γ max_visited Q(s′,·) − Q(s,a)); "
-                              "terminal omits the bootstrap"),
+         ("Handle unseen states", "explicit fallback to the causal heuristic, counted and reported"),
+         ("Receive the reward", "r = -dW / q from the environment"),
+         ("Update the table", "Q(s,a) += alpha * (r + gamma * max over visited a' of Q(s',a') "
+                              "- Q(s,a)); terminal omits the bootstrap"),
          ("Persist Q values and visits", "written to runtime_q_table.csv per training seed"),
      ]),
-    ("M5. Experiment orchestration and evaluation",
-     "experiments/runtime_experiment.py",
+    ("M5. Predeclared heuristic controller",
+     "rl/runtime_heuristic.py - fixed rules, no learning",
      [
-         ("Build the three splits", "independent seeded streams per split"),
-         ("Assert split disjointness", "zero SHA-256 fingerprint overlap (fails loudly otherwise)"),
-         ("Train five agents", "1,200 sequential episodes per seed, six families"),
-         ("Validate", "140 workloads — reporting and demo selection only, never tuning"),
-         ("Run the held-out test", "210 untouched workloads, greedy and read-only"),
-         ("Compare pairwise", "paired differences + 1,000-replicate crossed bootstrap"),
-         ("Write the artifacts", "CSV/JSON tables, Q table, coverage, demo trace, report"),
+         ("Receive the observation", "the same frozen RuntimeObservation the learner sees"),
+         ("Test the Round Robin rule", "at least 3 ready jobs and mean arrival age >= quantum"),
+         ("Test the Priority rule", "at least 2 ready jobs with distinct priorities"),
+         ("Test the SJF rule", "largest visible remaining burst >= 2 x smallest visible burst"),
+         ("Fall through to FCFS", "the default when none of the three rules fires"),
+         ("Return the action", "deterministic; no state, no Q update, identical in training and "
+                               "evaluation"),
      ]),
-    ("M6. Metrics and reporting",
-     "evaluation/metrics.py, evaluation/comparison.py",
+    ("M6. Experiment orchestration, metrics and reporting",
+     "experiments/runtime_experiment.py, evaluation/metrics.py",
      [
-         ("Collect the schedule trace", "start/end time per (pid, segment)"),
-         ("Derive per-process times", "waiting, turnaround and response per process"),
-         ("Aggregate per workload", "means, CPU utilisation, throughput, context switches"),
-         ("Aggregate per method and family", "mean ± SD across workloads (and model seeds)"),
-         ("Compute paired differences", "target − reference per workload, per seed for Q-learning"),
-         ("Render the outputs", "CSV tables, summary JSON, markdown report, figures"),
+         ("Build the three splits", "independent seeded streams for training, validation and test"),
+         ("Assert split disjointness", "zero SHA-256 fingerprint overlap, fails loudly otherwise"),
+         ("Train five agents", "1,200 sequential episodes per seed over six families"),
+         ("Validate", "140 workloads, used for reporting and demo selection only"),
+         ("Run the held-out test", "210 untouched workloads, greedy and read-only"),
+         ("Derive metrics from the traces", "waiting, turnaround, response, utilisation, "
+                                            "throughput and context switches per workload"),
+         ("Compare pairwise", "paired differences plus a 1,000-replicate crossed bootstrap"),
+         ("Write the artifacts", "CSV tables, Q table, coverage, demo trace, summary JSON and the "
+                                 "generated report"),
      ]),
 ]
+
+
+def module_outputs(data) -> List[Tuple[str, str]]:
+    """Concrete evidence, per module, that the module runs and produces output."""
+    train = data.coverage[data.coverage["split"] == "training"]
+    test = data.coverage[data.coverage["split"] == "final_test"]
+    heuristic_rows = int((data.final["method"] == "Causal heuristic").sum())
+    return [
+        ("M1", f"{len(data.manifest):,} manifest rows; {len(data.workloads):,} held-out workloads "
+               f"({len(data.processes):,} processes) regenerated from the declared seeds, with the "
+               f"measured burst, arrival and priority statistics of section 5"),
+        ("M2", f"{len(data.final):,} final-test metric rows produced from simulated traces; "
+               f"fixed-action runs reproduce the standalone FCFS, SJF, Round Robin and Priority "
+               f"schedules exactly in the test suite"),
+        ("M3", f"162-state encoder; {int(train['visited_states'].min())}-"
+               f"{int(train['visited_states'].max())} distinct states visited per agent during "
+               f"training"),
+        ("M4", f"{len(data.q_table):,} Q values stored; "
+               f"{int(train['visited_state_actions'].min())}-"
+               f"{int(train['visited_state_actions'].max())} of 648 state-action pairs visited; "
+               f"{int(test['unseen_state_decisions'].min())}-"
+               f"{int(test['unseen_state_decisions'].max())} counted unseen-state fallbacks per "
+               f"model on the held-out test"),
+        ("M5", f"heuristic rows present for all {heuristic_rows:,} held-out workloads; mean "
+               f"waiting "
+               f"{fmt(data.summary_mean('final', 'Causal heuristic', 'avg_waiting_time'))} with "
+               f"{fmt(data.summary_mean('final', 'Causal heuristic', 'policy_switch_count'), 2)} "
+               f"policy switches per trace"),
+        ("M6", f"{len(data.paired):,} paired comparisons with 95% bootstrap intervals, the "
+               f"coverage table, the learned-switch demo trace and the generated "
+               f"runtime_report.md"),
+    ]
+

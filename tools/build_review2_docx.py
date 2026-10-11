@@ -40,6 +40,7 @@ from review2_data import (  # noqa: E402
     WORKFLOWS,
     Artifacts,
     ci_of,
+    module_outputs,
     fmt,
 )
 
@@ -283,6 +284,15 @@ def add_contents(document: Document) -> None:
 
 def section_methodology(document: Document, data: Artifacts) -> None:
     document.add_heading("1. Detailed methodology of the proposed system", level=1)
+    para(document,
+         "The proposed system is a single-CPU, event-driven, runtime-adaptive CPU scheduler. "
+         "Instead of committing one policy for the lifetime of a workload, it re-decides at every "
+         "dispatch or Round-Robin quantum boundary which of four classical policies should govern "
+         "the next execution segment of the same evolving trace, and does so from a strictly "
+         "causal view of the machine. The rest of this section states the questions the system is "
+         "built to answer, the pipeline that implements it, the information contract that keeps "
+         "it honest, the state abstraction and objective it learns from, and the controls applied "
+         "to every comparison.")
 
     document.add_heading("1.1 Research questions", level=2)
     for question in [
@@ -302,7 +312,7 @@ def section_methodology(document: Document, data: Artifacts) -> None:
          "The method is a closed loop between a discrete-event environment that owns the "
          "future and a controller that may see only the past and the present. Stages 3 to 7 "
          "run once per decision epoch inside a single trace; stage 8 runs once per experiment.")
-    mermaid(document, mermaid_pipeline(), "methodology pipeline (Figure 1.1)")
+    mermaid(document, mermaid_pipeline(), "methodology pipeline (section 1.2)")
     for stage, where, what, out in [
         ("Stage 1 — Dataset", "workload/generator.py",
          "generate seven seeded families of 15-process workloads with SHA-256 derived seeds",
@@ -437,7 +447,7 @@ def section_architecture(document: Document, data: Artifacts) -> None:
          "conventional: the environment owns the future and the accounting, the controller only "
          "ever receives a frozen snapshot of arrived work, and the controller's reply is a "
          "single policy name. It cannot touch the queue, the bursts or the event list.")
-    mermaid(document, mermaid_architecture(), "system architecture (Figure 2.1)")
+    mermaid(document, mermaid_architecture(), "system architecture (section 2)")
     for layer, components, role in [
         ("Data layer", "workload/models.py, workload/generator.py",
          "defines Process and Workload objects and generates the seven seeded families with "
@@ -502,7 +512,7 @@ def section_workflows(document: Document) -> None:
     for index, (title, subtitle, steps) in enumerate(WORKFLOWS, start=1):
         document.add_heading(title, level=2)
         para(document, subtitle, italic=True)
-        mermaid(document, mermaid_workflow(steps), f"{title} (Figure 4.{index})")
+        mermaid(document, mermaid_workflow(steps), f"{title} (section 4)")
         for step_index, (label, detail) in enumerate(steps, start=1):
             bullet(document, f"{label} — {detail}.", bold_prefix=f"Step {step_index}: ")
 
@@ -777,10 +787,10 @@ def section_experiment(document: Document, data: Artifacts) -> None:
     mermaid(document, mermaid_results(
         data, "avg_waiting_time",
         "Mean waiting time by method", "time units"),
-        "final-test mean waiting time (Figure 7.1)")
+        "final-test mean waiting time (section 7.4)")
     mermaid(document, mermaid_results(
         data, "avg_response_time", "Mean response time by method", "time units"),
-        "final-test mean response time (Figure 7.2)")
+        "final-test mean response time (section 7.4)")
 
     document.add_heading("7.5 Paired comparisons", level=2)
     pairs = [("Runtime Q-learning", "SJF"), ("Runtime Q-learning", "Causal heuristic"),
@@ -876,7 +886,13 @@ def section_progress(document: Document, data: Artifacts, test_rows: List[List[s
          "and evaluation) is complete. The items listed in section 9 are extensions beyond that "
          "scope.")
 
-    document.add_heading("8.1 Demonstration 1 — automated verification", level=2)
+    document.add_heading("8.2 Outputs demonstrated by each module", level=2)
+    para(document,
+         "Each module is demonstrated by the output it actually produced in the recorded run:")
+    for module_id, text in module_outputs(data):
+        bullet(document, text, bold_prefix=f"{module_id} - ")
+
+    document.add_heading("8.3 Demonstration 1 — automated verification", level=2)
     if test_rows:
         total = sum(int(row[1]) for row in test_rows)
         para(document,
@@ -886,14 +902,14 @@ def section_progress(document: Document, data: Artifacts, test_rows: List[List[s
             bullet(document, f"{count} checks — {protects}.", bold_prefix=f"{module}: ")
     code(document, pytest_block, label="Output of python -m pytest -q:")
 
-    document.add_heading("8.2 Demonstration 2 — end-to-end run output", level=2)
+    document.add_heading("8.4 Demonstration 2 — end-to-end run output", level=2)
     para(document,
          "The full pipeline (training, validation, held-out testing and artifact export) is "
          "reproduced by one command. The output below is from a verification run on the "
          "reporting host and matches the committed artifacts exactly.")
     code(document, cli_block, label="Output of python main.py runtime-experiment:")
 
-    document.add_heading("8.3 Demonstration 3 — learned behaviour", level=2)
+    document.add_heading("8.5 Demonstration 3 — learned behaviour", level=2)
     demo = data.demo
     para(document,
          f"The controller does switch policies inside a single trace. The example below is taken "
@@ -906,9 +922,9 @@ def section_progress(document: Document, data: Artifacts, test_rows: List[List[s
          f"{demo['metrics']['avg_response_time']:.3f}. It illustrates the mechanism and is not "
          f"a performance claim.")
     mermaid(document, mermaid_gantt(data),
-            "illustrative validation trace, bars coloured by the policy chosen (Figure 8.2)")
+            "illustrative validation trace, bars coloured by the policy chosen (section 8.5)")
 
-    document.add_heading("8.4 Artifacts produced", level=2)
+    document.add_heading("8.6 Artifacts produced", level=2)
     for artifact, size, contents in [
         ("results/runtime/runtime_final_test_metrics.csv", "2,100 rows",
          "six metrics, switch and decision counts, timings, held-out test"),
