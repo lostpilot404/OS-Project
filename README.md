@@ -205,11 +205,18 @@ remain explicitly offline and are not mixed into the causal runtime comparison. 
 runtime experiment does not claim a fair head-to-head comparison against that
 information-leaking reference.
 
-## Review 2 report PDF
+## Review 2 report (PDF and DOCX)
 
-`Review_2_Report.pdf` (with a copy at `docs/Review_2_Report.pdf`) is the Review 2
-deliverable for *Methodology and Partial Implementation*. It follows the review rubric
-item by item, and nothing else is included:
+Two renderings of the same Review 2 deliverable for *Methodology and Partial
+Implementation* are committed:
+
+- `Review_2_Report.pdf` (copy at `docs/Review_2_Report.pdf`) — the full report with
+  tables and Matplotlib figures.
+- `Review_2_Report.docx` (copy at `docs/Review_2_Report.docx`) — a text-only version:
+  no tables, no colour and no images. Every diagram is given as **Mermaid source** that
+  can be pasted into GitHub, VS Code, Obsidian or <https://mermaid.live> to render.
+
+Both follow the review rubric item by item, and nothing else is included:
 
 1. Detailed methodology of the proposed system (pipeline, causal observation contract,
    state abstraction, learning objective, methodological controls)
@@ -222,22 +229,26 @@ item by item, and nothing else is included:
 8. Implementation progress (completed modules demonstrated with valid outputs)
 9. Challenges encountered and plan for completing the remaining work
 
-The PDF is generated **from the committed artifacts only** — it never re-runs the
+Both are generated **from the committed artifacts only** — neither re-runs the
 experiment, so the reported numbers cannot drift from `results/`. Two things *are*
 recomputed at build time: `pytest` is re-run so the reported test count is measured on the
 build host, and the dataset statistics in §5.4 / Figure 5.1 are rebuilt with the project's
 own seeded generator from the declared seeds. Only comparisons that the experiment itself
-produced are reported, so no interval is recomputed at build time.
+produced are reported, so no confidence interval is recomputed at build time.
 
 ```bash
-python -m pip install -r requirements-report.txt   # adds reportlab
-python tools/build_review2_report.py               # rewrites both PDF copies + figures/review2/
-python tools/build_review2_report.py --skip-tests  # skip the pytest re-run
+python -m pip install -r requirements-report.txt   # adds reportlab + python-docx
+
+python tools/build_review2_report.py               # PDF copies + figures/review2/
+python tools/build_review2_report.py --skip-tests  # ...without the pytest re-run
+
+python tools/build_review2_docx.py                 # DOCX copies (text + Mermaid)
+python tools/build_review2_docx.py --skip-tests
 ```
 
-`tools/build_review2_report.py` reads `results/runtime/*.csv|json` and `results/*.json`,
-draws the figures with Matplotlib into `figures/review2/`, and lays out the document with
-ReportLab. Useful switches: `--output`, `--docs-copy`, `--figures-dir`, `--root`.
+`tools/review2_data.py` is the shared data layer both builders read from;
+`tools/review2_figures.py` holds the Matplotlib figures used by the PDF. Useful switches on
+both builders: `--output`, `--docs-copy`, `--root`, `--figures-dir` (PDF only).
 
 ## Installation, commands and tests
 

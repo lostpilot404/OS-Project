@@ -34,14 +34,7 @@ PALETTE: Dict[str, str] = {
     "Runtime Q-learning": NAVY,
 }
 
-METHOD_ORDER = [
-    "FCFS",
-    "SJF",
-    "Round Robin",
-    "Priority",
-    "Causal heuristic",
-    "Runtime Q-learning",
-]
+from review2_data import METHOD_ORDER  # noqa: E402
 
 POLICY_COLORS = {
     "FCFS": "#8DA0CB",
