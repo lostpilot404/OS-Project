@@ -205,50 +205,39 @@ remain explicitly offline and are not mixed into the causal runtime comparison. 
 runtime experiment does not claim a fair head-to-head comparison against that
 information-leaking reference.
 
-## Review 2 report (PDF and DOCX)
+## Review 2 report (DOCX and PDF)
 
-Two renderings of the same Review 2 deliverable for *Methodology and Partial
-Implementation* are committed:
+The Review 2 deliverable for *Methodology and Partial Implementation (Lab Assessment 9)*
+is committed in two text-only renderings with the same content:
 
-- `Review_2_Report.pdf` (copy at `docs/Review_2_Report.pdf`) — the full report with
-  tables and Matplotlib figures.
-- `Review_2_Report.docx` (copy at `docs/Review_2_Report.docx`) — a text-only version:
-  no tables, no colour and no images. Every diagram is given as **Mermaid source** that
-  can be pasted into GitHub, VS Code, Obsidian or <https://mermaid.live> to render.
+- `Review_2_Report.docx` (copy at `docs/Review_2_Report.docx`): the source document.
+- `Review_2_Report.pdf` (copy at `docs/Review_2_Report.pdf`): rendered from the DOCX.
 
-Both follow the review rubric item by item, and nothing else is included:
+Both contain no tables, no colour and no images. Every diagram is Mermaid source that
+renders in GitHub, VS Code, Obsidian or <https://mermaid.live>. The content follows the
+nine Review 2 rubric items in order: methodology, architecture and pipeline, modules,
+module workflows, dataset, tools and algorithms, experimental plan and metrics,
+implementation progress, and challenges with the plan for remaining work.
 
-1. Detailed methodology of the proposed system (pipeline, causal observation contract,
-   state abstraction, learning objective, methodological controls)
-2. Overall conceptual, architectural and pipeline diagram
-3. Description of the major modules
-4. Workflow diagram for each major module
-5. Dataset details and data collection procedure
-6. Tools, technologies, algorithms and frameworks used
-7. Experimental plan and evaluation metrics
-8. Implementation progress (completed modules demonstrated with valid outputs)
-9. Challenges encountered and plan for completing the remaining work
-
-Both are generated **from the committed artifacts only** — neither re-runs the
-experiment, so the reported numbers cannot drift from `results/`. Two things *are*
-recomputed at build time: `pytest` is re-run so the reported test count is measured on the
-build host, and the dataset statistics in §5.4 / Figure 5.1 are rebuilt with the project's
-own seeded generator from the declared seeds. Only comparisons that the experiment itself
-produced are reported, so no confidence interval is recomputed at build time.
+Every number is read from the committed artifacts under `results/runtime/`. The
+document builder re-runs `pytest` so the test count is measured on the build host, and
+recomputes the dataset statistics (section 5.4) from the project's seeded generator.
+Only comparisons produced by the experiment are reported, so no confidence interval is
+recomputed at build time.
 
 ```bash
 python -m pip install -r requirements-report.txt   # adds reportlab + python-docx
 
-python tools/build_review2_report.py               # PDF copies + figures/review2/
-python tools/build_review2_report.py --skip-tests  # ...without the pytest re-run
+python tools/build_review2_docx.py                 # DOCX copies (root + docs/)
+python tools/build_review2_docx.py --skip-tests    # ...without the pytest re-run
 
-python tools/build_review2_docx.py                 # DOCX copies (text + Mermaid)
-python tools/build_review2_docx.py --skip-tests
+python tools/build_review2_text_pdf.py             # PDF copies (root + docs/), from the DOCX
 ```
 
-`tools/review2_data.py` is the shared data layer both builders read from;
-`tools/review2_figures.py` holds the Matplotlib figures used by the PDF. Useful switches on
-both builders: `--output`, `--docs-copy`, `--root`, `--figures-dir` (PDF only).
+`tools/review2_data.py` is the shared data layer. `tools/build_review2_report.py` and
+`tools/review2_figures.py` are the earlier PDF with tables and Matplotlib figures; they are
+no longer the submission copy and would overwrite `Review_2_Report.pdf` if run without
+`--output`. Switches on the DOCX builder: `--output`, `--docs-copy`, `--root`, `--no-dataset`.
 
 ## Installation, commands and tests
 
