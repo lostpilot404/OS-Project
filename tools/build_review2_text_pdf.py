@@ -15,6 +15,7 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import os
 import re
 from pathlib import Path
 from typing import List, Sequence
@@ -37,42 +38,62 @@ from reportlab.platypus import (
 from xml.sax.saxutils import escape
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-FONT_DIR = Path("/usr/share/fonts/truetype/dejavu")
 MONO = "Consolas"  # the DOCX monospace font name, used to recognise code paragraphs
+
+# Body text uses Carlito (metric-compatible with Calibri, the DOCX font) when it is available,
+# so the PDF paginates like the DOCX. Set REVIEW2_FONT_DIR to a folder containing
+# Carlito-Regular.ttf, Carlito-Bold.ttf and Carlito-Italic.ttf to choose the location.
+CARLITO_DIRS = [
+    Path(os.environ.get("REVIEW2_FONT_DIR", "")),
+    Path("/usr/share/fonts/truetype/crosextra"),
+    Path("/usr/share/fonts/truetype/carlito"),
+]
+DEJAVU_DIR = Path("/usr/share/fonts/truetype/dejavu")
+BODY_IS_CARLITO = False
 
 
 def _register_fonts() -> None:
-    """Register DejaVu fonts so every character in the document renders."""
-    pdfmetrics.registerFont(TTFont("Body", FONT_DIR / "DejaVuSans.ttf"))
-    pdfmetrics.registerFont(TTFont("Body-Bold", FONT_DIR / "DejaVuSans-Bold.ttf"))
-    pdfmetrics.registerFont(TTFont("Code", FONT_DIR / "DejaVuSansMono.ttf"))
-    pdfmetrics.registerFont(TTFont("Code-Bold", FONT_DIR / "DejaVuSansMono-Bold.ttf"))
+    """Register body and monospace fonts so every character in the document renders."""
+    global BODY_IS_CARLITO
     from reportlab.pdfbase.pdfmetrics import registerFontFamily
 
-    registerFontFamily("Body", normal="Body", bold="Body-Bold", italic="Body", boldItalic="Body-Bold")
+    carlito = next((d for d in CARLITO_DIRS if d and (d / "Carlito-Regular.ttf").exists()), None)
+    if carlito is not None:
+        pdfmetrics.registerFont(TTFont("Body", carlito / "Carlito-Regular.ttf"))
+        pdfmetrics.registerFont(TTFont("Body-Bold", carlito / "Carlito-Bold.ttf"))
+        pdfmetrics.registerFont(TTFont("Body-Italic", carlito / "Carlito-Italic.ttf"))
+        BODY_IS_CARLITO = True
+    else:
+        pdfmetrics.registerFont(TTFont("Body", DEJAVU_DIR / "DejaVuSans.ttf"))
+        pdfmetrics.registerFont(TTFont("Body-Bold", DEJAVU_DIR / "DejaVuSans-Bold.ttf"))
+        pdfmetrics.registerFont(TTFont("Body-Italic", DEJAVU_DIR / "DejaVuSans.ttf"))
+    pdfmetrics.registerFont(TTFont("Code", DEJAVU_DIR / "DejaVuSansMono.ttf"))
+    pdfmetrics.registerFont(TTFont("Code-Bold", DEJAVU_DIR / "DejaVuSansMono-Bold.ttf"))
+    registerFontFamily("Body", normal="Body", bold="Body-Bold", italic="Body-Italic",
+                       boldItalic="Body-Bold")
     registerFontFamily("Code", normal="Code", bold="Code-Bold", italic="Code", boldItalic="Code-Bold")
 
 
 def _styles() -> dict:
     black = "#000000"
     return {
-        "title": ParagraphStyle("title", fontName="Body-Bold", fontSize=18, leading=23,
-                                alignment=TA_CENTER, spaceAfter=10, textColor=black),
-        "cover": ParagraphStyle("cover", fontName="Body", fontSize=11, leading=15,
-                                alignment=TA_CENTER, spaceAfter=6, textColor=black),
-        "h1": ParagraphStyle("h1", fontName="Body-Bold", fontSize=14, leading=18,
-                             spaceBefore=16, spaceAfter=6, keepWithNext=1, textColor=black),
-        "h2": ParagraphStyle("h2", fontName="Body-Bold", fontSize=11.5, leading=15,
-                             spaceBefore=10, spaceAfter=4, keepWithNext=1, textColor=black),
-        "body": ParagraphStyle("body", fontName="Body", fontSize=9.8, leading=13.6,
-                               alignment=TA_LEFT, spaceAfter=5, textColor=black),
-        "bullet": ParagraphStyle("bullet", fontName="Body", fontSize=9.8, leading=13.6,
-                                 leftIndent=16, bulletIndent=4, spaceAfter=3, textColor=black),
-        "step": ParagraphStyle("step", fontName="Body", fontSize=9.8, leading=13.6,
-                               leftIndent=20, bulletIndent=0, spaceAfter=3, textColor=black),
-        "caption": ParagraphStyle("caption", fontName="Body", fontSize=8.8, leading=12,
-                                  spaceBefore=4, spaceAfter=3, keepWithNext=1, textColor=black),
-        "code": ParagraphStyle("code", fontName="Code", fontSize=7.6, leading=9.6,
+        "title": ParagraphStyle("title", fontName="Body-Bold", fontSize=20, leading=24,
+                                alignment=TA_CENTER, spaceAfter=8, textColor=black),
+        "cover": ParagraphStyle("cover", fontName="Body", fontSize=11, leading=14,
+                                alignment=TA_CENTER, spaceAfter=4, textColor=black),
+        "h1": ParagraphStyle("h1", fontName="Body-Bold", fontSize=14, leading=17,
+                             spaceBefore=12, spaceAfter=4, keepWithNext=1, textColor=black),
+        "h2": ParagraphStyle("h2", fontName="Body-Bold", fontSize=11.5, leading=14,
+                             spaceBefore=8, spaceAfter=3, keepWithNext=1, textColor=black),
+        "body": ParagraphStyle("body", fontName="Body", fontSize=10.5, leading=12.9,
+                               alignment=TA_LEFT, spaceAfter=4, textColor=black),
+        "bullet": ParagraphStyle("bullet", fontName="Body", fontSize=10.5, leading=12.9,
+                                 leftIndent=16, bulletIndent=4, spaceAfter=0, bulletFontName="Body", textColor=black),
+        "step": ParagraphStyle("step", fontName="Body", fontSize=10.5, leading=12.9,
+                               leftIndent=20, bulletIndent=0, spaceAfter=2, bulletFontName="Body", textColor=black),
+        "caption": ParagraphStyle("caption", fontName="Body-Italic", fontSize=9, leading=11.5,
+                                  spaceBefore=3, spaceAfter=2, keepWithNext=1, textColor=black),
+        "code": ParagraphStyle("code", fontName="Code", fontSize=8.5, leading=10.2,
                                leftIndent=18, spaceAfter=0, textColor=black),
     }
 
@@ -115,7 +136,7 @@ def build_flowables(docx_path: Path) -> List:
     def flush_code() -> None:
         if code_buffer:
             flow.append(Preformatted("\n".join(code_buffer), styles["code"]))
-            flow.append(Spacer(1, 6))
+            flow.append(Spacer(1, 4))
             code_buffer.clear()
 
     for paragraph in document.paragraphs:
@@ -128,7 +149,7 @@ def build_flowables(docx_path: Path) -> List:
         flush_code()
 
         if not text.strip():
-            flow.append(Spacer(1, 4))
+            flow.append(Spacer(1, 6))
             continue
 
         if style_name == "Title":
@@ -168,7 +189,7 @@ def build_flowables(docx_path: Path) -> List:
 
 def _footer(canvas, doc) -> None:
     canvas.saveState()
-    canvas.setFont("Body", 8)
+    canvas.setFont("Body", 8.5)
     canvas.drawCentredString(A4[0] / 2, 1.1 * cm,
                              f"Operating Systems Project — Review 2   |   page {doc.page}")
     canvas.restoreState()
