@@ -93,11 +93,12 @@ about a real operating system.
   incidents. Five of the eight actions have exactly zero effect from the declared start, so the
   learning problem is a three-way choice.
 * **The fairness-oriented rule is empirically wrong** on these families: mapping fairness
-  starvation to Round Robin costs a mean 126 wait units per intervention (80.9 % false
-  recoveries). It is kept in the study as a predeclared, honest negative result, not as a
-  recommended method.
+  starvation to Round Robin costs a mean 130.8 wait units per intervention on the held-out
+  split (76.7 % false recoveries; 129.1 and 83.0 % on validation). It is kept in the study as a
+  predeclared, honest negative result, not as a recommended method.
 * **Higher p95 barely improves under recovery.** P95 waiting is 258.42 (FCFS/control) → 251.88
-  (`rule_wait`) → 249.21 (SJF). Recovery moves the mean (≈8 units) more than the tail (≈5.5).
+  (`rule_wait`) → 249.20 (SJF). Recovery moves the mean (≈8 units) slightly more than the tail
+  (≈6.5 units, `rule_wait` − `detector_only`).
 * **The safe fallback fired exactly once, and only in the arm that deserves it.** At most 6
   interventions per trace; adaptation is disabled after 2 consecutive *confirmed* failures, and
   only a `rejected` window counts as a confirmed failure — an `inconclusive` window never does,
@@ -120,9 +121,10 @@ about a real operating system.
   paired, but the learned arms' five seeds are only five independent draws.
 * The action-effect probe is a diagnostic on the validation split with 21 probed incidents; its
   correlations are reported as observations, not as estimates of a population quantity.
-* `results/study/`, `results/runtime/` and `figures/study/`, `figures/` contain the preserved
+* `results/study/`, `results/runtime/` and `figures/study/` contain the preserved
   offline-study and runtime-appendix artifacts. They use their own seed streams and their own
-  protocols; their numbers must not be mixed with the healing numbers.
+  protocols; their numbers must not be mixed with the healing numbers. The legacy pipeline
+  (`main.py experiment`) generates its output on demand and none of it is committed.
 
 ## 5. Unverified ideas (explicitly not claims)
 
@@ -154,3 +156,30 @@ about a real operating system.
   regardless, and the figures are rendered *from* the tables.
 * `.venv/` is not part of the repository; recreate it from `requirements.lock` as described in
   `README.md`.
+* The artifacts under `results/healing/` and `figures/healing/` belong to the frozen run on the
+  held-out seed `23819`. They are evidence, not build output: regenerating them with a different
+  configuration or seed replaces the reported results, so run experiments into a separate
+  `--results-dir` unless the study is being re-frozen deliberately.
+
+## 7. Release status
+
+Four states are used: **Complete**, **Needs Fixing**, **Blocked**, **Not Verified**.
+
+| Item | State | Basis |
+|---|---|---|
+| Full healing lifecycle (generate → simulate → monitor → detect → diagnose → decide → apply → verify → accept/rollback/fallback → record) | **Complete** | `healing/controller.py`, exercised end to end by `tests/test_healing_controller.py` and the study run |
+| Tri-state verification (accepted / rejected / inconclusive) with declared, control-derived boundaries | **Complete** (implemented and tested); its *certification rate* is a research limitation | `healing/verifier.py`, `tests/test_healing_verification.py`, `healing_verification_models.csv` |
+| Rollback, safe fallback and repeated-detection behaviour | **Complete** | unit-tested; the fallback fired on real traces (`rule_fairness`, held-out repetition 21, episode 201, decision 20, two consecutive confirmed failures; and once on validation) |
+| Counterfactual audit (matched replay, prefix identity, separated denominators) | **Complete** | `healing_audit.csv` (`divergence_decision_index` equals the audited decision for all 1673 audited interventions), `tests/test_counterfactual.py` |
+| Causal isolation of online decisions from future/counterfactual information | **Complete** | `tests/test_healing_verification.py` (a later arrival cannot change a closed incident); the audit is computed after the run only |
+| Detector quality on controlled degradations | **Complete** (measured); the false-trigger rate itself is a limitation | `tests/test_healing_detection.py`, `healing_detection_scenarios.csv` |
+| Q-learning coverage analysis | **Complete** (analysis) | `healing_coverage.csv`, `healing_coverage_curve.csv` |
+| Reproducibility of the committed evidence | **Complete** | independent run into a separate directory reproduces 21/21 artifacts and 3/3 figures byte for byte |
+| Documentation consistent with the generated artifacts | **Complete** | every quoted number re-read from `results/healing/` |
+| The loop outperforming fixed SJF, or RL outperforming the predeclared rule | **Needs Fixing** (research level: action set, workload families and reward informativeness — no code defect identified) | `healing_comparisons.csv` |
+| Certification of ordinary improvements (only 6.7 % of helpful interventions clear the accept boundary) | **Needs Fixing** (needs several windows per action or a per-trace drain model; measured, not implemented) | `healing_summary.json` (`verification_discrimination`) |
+| Detector false triggers under stable conditions | **Needs Fixing** (documented trade-off against the congestion-gate sweep) | `healing_threshold_derivation.csv` (gate sweep), `healing_detection_scenarios.csv` |
+| Tabular-Q coverage of the reachable state-action space | **Needs Fixing** (event supply, not training budget; flat after ~900 episodes) | `healing_coverage_curve.csv` |
+| Real-OS integration, burst prediction, non-stationary arrivals, hardware measurement | **Not Verified** (out of scope; no claim made) | — |
+| Generalisation beyond the seven synthetic families and the declared seed streams | **Not Verified** | — |
+| Anything identified as blocked by compute or data | **Blocked** — nothing was blocked for the reported results | — |

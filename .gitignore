@@ -14,6 +14,10 @@ venv/
 .vscode/
 .DS_Store
 
+# Temporary/scratch output and logs
+*.log
+tmp/
+
 # Large runtime event logs are reproducible from the declared seeds and CLI.
 # Compact metrics, manifests, Q tables, summaries, reports and demo remain tracked.
 results/runtime/runtime_validation_decisions.csv
@@ -25,3 +29,24 @@ results/runtime/runtime_final_test_decisions.csv
 # tracked.
 results/study/explanations/
 results/study/training_history.csv
+
+# Legacy offline pipeline output (`python main.py experiment` with the default
+# directories). It is byte-reproducible in about eight seconds from the declared seeds
+# and is not part of the reported evidence, so it is generated on demand and not
+# tracked. The evidence of the reported study lives in results/healing/, and the
+# preserved secondary workflows keep their compact artifacts in results/study/ and
+# results/runtime/.
+/results/config.json
+/results/decisions.csv
+/results/metrics.csv
+/results/q_table.json
+/results/report.md
+/results/summary.json
+/results/training_history.json
+/results/workloads.csv
+/figures/metric_by_family.png
+/figures/metric_comparison.png
+/figures/policy_selection.png
+/figures/reward_by_family.png
+/figures/state_space.png
+/figures/training_curve.png

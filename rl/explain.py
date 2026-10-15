@@ -27,14 +27,9 @@ from typing import Dict, Mapping, Optional, Sequence, Tuple
 from config import ACTION_NAMES, RewardConfig, RiskObjectiveConfig
 from errors import ValidationError
 from evaluation.counterfactual import CounterfactualReport
-from rl.objective import (
-    OBJECTIVE_ORIGINAL,
-    OBJECTIVE_RISK_AWARE,
-    RISK_OBJECTIVE_METRICS,
-)
+from rl.objective import OBJECTIVE_ORIGINAL, OBJECTIVE_RISK_AWARE
 from rl.selector import (
     SELECTION_EPSILON,
-    SELECTION_GREEDY,
     SELECTION_UNSEEN_FALLBACK,
     EvaluationRecord,
 )
@@ -338,7 +333,6 @@ def _build_reasons(
     state_bins: Mapping[str, int],
     fingerprint: WorkloadFingerprint,
 ) -> Sequence[Reason]:
-    action = int(selection["action"])
     reasons = [_selection_basis_reason(selection)]
     reasons.append(
         _objective_rank_reason(

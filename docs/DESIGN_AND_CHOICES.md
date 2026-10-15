@@ -193,7 +193,7 @@ seeds) with and without SJF as the initial configuration.
 better than the best static choice?"; the `*_from_sjf` arms answer "does the loop damage an
 already good configuration?", which is the most realistic deployment question and, as it turns
 out, where the loop looks best: it is inert (`q_recovery_from_sjf`: 0 interventions, identical
-to SJF) or nearly so (`rule_wait_from_sjf`: +0.28 wait units).
+to SJF) or nearly so (`rule_wait_from_sjf`: +0.21 wait units).
 
 ## 7. Counterfactual audit instead of an in-run oracle
 
@@ -208,14 +208,14 @@ never heals again (`hold_forever_gain`, one row per episode).
 
 **Why.** No run-time rule can attribute an effect from a single trace. The audit can, and it is
 the only place in the repository where "the recovery helped" is a measurement rather than a
-verdict. It is also what exposes the fairness rule (*80.9 % false recoveries*) and the
-verifier's inability to certify ordinary improvements.
+verdict. It is also what exposes the fairness rule (*76.7 % false recoveries* on the held-out
+split) and the verifier's inability to certify ordinary improvements.
 
 **Denominators.** The two counterfactuals answer different questions and are reported with
 their own denominators: every rate in `healing_audit.csv` and in the per-arm summary is a
 *per-intervention* quantity (the false-recovery rate is the share of audited interventions with
 `matched_gain ≤ 0`), and the never-heal rows are aggregated per *episode* in their own table.
-The two views agree closely on the mean gain (`rule_wait` +178.78 per intervention vs +188.85
+The two views agree closely on the mean gain (`rule_wait` +188.79 per intervention vs +197.16
 per episode), which is the check that neither is an artefact of its denominator.
 
 ## 8. Seed hygiene
@@ -232,3 +232,21 @@ validation (`HealingExperimentConfig.__post_init__`).
 
 **Why.** Otherwise "held out" means nothing. The retirement is recorded in
 `experiments/healing_config.py` and in `docs/METHODOLOGY.md` §2.
+
+## 9. Defects found and fixed during the rework
+
+Kept as engineering history, because each line changed a measured number and none of them is a
+design preference. The verification, reward and audit defects are the ones that produced the
+earlier "90–98 % false recovery" reading that the counterfactual audit contradicted.
+
+| Defect | Effect | Fix |
+|---|---|---|
+| `MappedRulePolicy.select` ignored the masked action set | rule arms requested quantum changes under non-Round-Robin policies, which collapsed to no-ops and inflated the "intervention" count | the rule honours the mask, falls back to its declared alternative and then to `hold`, and records which it used |
+| The work gate compared visible remaining CPU work with `min_remaining_work_factor × reference_wait` (a waiting-time level) | two different units; the gate blocked almost every intervention | the gate compares visible work with the trace's observed mean burst, passed explicitly by the detector |
+| The verification rule used absolute improvement over the trace's normal load level | the trigger is a local maximum, so *94.6 %* of no-action windows on the training control "improved" and the rule certified noise | replaced by the normalised load closure with a control-derived threshold (measured false accept 4.6 % training / 2.1 % validation) |
+| The single-threshold closure verdict called every non-accepted window a failure | helpful interventions were treated as failures, rolled back and charged a rollback penalty — the verification mismatch | two boundaries on the phase-adjusted residual plus the explicit `inconclusive` verdict: rolled back, but not a failure, no penalty, no fallback escalation (65 of 65 accepted interventions were helpful on the held-out split) |
+| The per-arm audit summary pooled two counterfactuals | one row per intervention and one row per episode ("never heal again") shared a denominator, so `audited_interventions` and every rate were computed on a mixture | the two populations are separated (`intervention` vs `episode_level` rows, each with its own table), and a test pins that every reported rate has an intervention denominator |
+| A window still open when the trace ended was logged as `censored` with NaN evidence | the ledger mixed verdicts with censored rows and the posture for that case was undefined | `end_episode` concludes the window as `inconclusive` with reason `insufficient_evidence_window_truncated` and applies the declared rollback posture |
+| The reward charged a fixed cost for every detected event (and, earlier, 5 % per change) | high-magnitude rewards; the 5 % charge exceeded the best achievable improvement of any action, making every action worse than holding | reward = phase-adjusted residual − declared accept boundary − intervention cost (1 % per change, plus 2 % on a *confirmed* failure only) |
+| The demonstration artifact could mix controllers | it selected the arm by name, not by the training seed of the selected episode | the payload selects `(arm name, training seed)` and refuses to write unless the replay reproduces the recorded incident count |
+| No-op actions were charged and logged as recoveries | false "interventions" in the ledger | an action that cannot change the live configuration reports `changed=False` and is recorded as `held` |

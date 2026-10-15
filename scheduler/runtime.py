@@ -24,7 +24,6 @@ from config import (
 from errors import ValidationError
 from scheduler.base import Timeline
 from workload.models import (
-    ExecutionSlice,
     Process,
     ScheduleResult,
     Workload,
