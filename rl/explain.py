@@ -527,7 +527,11 @@ def _characteristics_reason(
         "state_bins": dict(state_bins),
     }
     binned = [
-        f"{name}={values[name]:.4g} (bin {state_bins[name]})"
+        (
+            f"{name}={values[name]:.4g} (bin {state_bins[name]})"
+            if name in values
+            else f"{name} (bin {state_bins[name]})"
+        )
         for name in state_bins
     ]
     statement = (

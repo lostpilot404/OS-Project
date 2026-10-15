@@ -1,10 +1,17 @@
-"""Command-line entry point for runtime adaptation and the legacy offline reference.
+"""Command-line entry point for the offline policy-selection study.
 
 Usage::
 
-    python main.py runtime-experiment   # event-driven train/validate/test/report
-    python main.py experiment           # legacy offline whole-workload selector
-    python main.py train                # train the legacy offline selector only
+    python main.py study               # full study: train, held-out test, artifacts
+    python main.py experiment          # preserved legacy offline pipeline
+    python main.py train               # preserved legacy offline training only
+    python main.py runtime-experiment  # preserved event-driven simulator appendix
+
+The project system is the **offline policy-selection and evaluation study**: one
+policy per complete workload (FCFS / SJF / Round Robin / Priority), chosen before
+execution by tabular Q-learning from workload characteristics.  It is not a runtime
+OS scheduler.  The legacy offline pipeline and the event-driven simulator remain
+runnable as preserved references.
 """
 
 from __future__ import annotations
@@ -17,6 +24,7 @@ from typing import Optional, Sequence
 from config import ACTION_NAMES, build_default_config
 from experiments.run_experiment import run_experiment
 from experiments.runtime_experiment import run_runtime_experiment
+from experiments.study import run_study
 from experiments.train import train
 
 __all__ = ["main"]
@@ -27,20 +35,22 @@ def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="main.py",
         description=(
-            "Single-CPU event-driven adaptive scheduling with causal runtime policy "
-            "decisions. The legacy offline whole-workload selector remains available as "
-            "the separate 'experiment' reference command."
+            "Offline CPU scheduling policy selection with tabular Q-learning: one "
+            "policy per workload, selected from workload characteristics and "
+            "evaluated with counterfactuals, regret and structured explanations."
         ),
     )
     parser.add_argument(
         "command",
         nargs="?",
-        default="runtime-experiment",
-        choices=("runtime-experiment", "experiment", "train"),
+        default="study",
+        choices=("study", "experiment", "train", "runtime-experiment"),
         help=(
-            "'runtime-experiment' (default) runs causal sequential training, validation, "
-            "and held-out testing; 'experiment' runs the legacy offline reference; "
-            "'train' trains the legacy selector only."
+            "'study' (default) runs the risk-aware policy-selection study with "
+            "ablations, baselines and held-out testing; 'experiment' runs the "
+            "preserved legacy offline pipeline; 'train' trains the legacy selector "
+            "only; 'runtime-experiment' runs the preserved event-driven simulator "
+            "appendix."
         ),
     )
     parser.add_argument(
@@ -120,9 +130,49 @@ def _report_evaluation(evaluation, summary) -> None:
     print("\nDetailed generated result report: results/report.md (or --results-dir/report.md).")
 
 
+def _report_study(artifacts) -> None:
+    """Print the measured study summary."""
+    summary = artifacts.summary
+    test = summary["test"]
+    design = summary["configuration"]["design"]
+    print("Offline policy-selection study (risk-aware objective)")
+    print("----------------------------------------------------")
+    print(f"  primary objective              : {design['primary_objective']}")
+    print(f"  training seeds                 : {', '.join(map(str, design['training_seeds']))}")
+    print(f"  training episodes / seed       : {design['training_episodes']}")
+    print(f"  held-out test workloads        : {test['workloads']}")
+    print(f"  best fixed policy (train only) : {design['best_fixed_action']}")
+    print()
+    print("  Test-split mean declared-objective cost / regret:")
+    for arm, values in test["arms"].items():
+        print(
+            f"    {arm:<22}: cost {values['mean_objective_cost']:.4f}   "
+            f"regret {values['mean_regret']:.4f}   "
+            f"hindsight-best {100 * values['hindsight_best_rate']:.1f}%"
+        )
+    print()
+    print("Artifacts written")
+    print("-----------------")
+    for name, path in artifacts.paths.items():
+        if name == "figures":
+            for figure in path:
+                print(f"  figure: {figure}")
+        else:
+            print(f"  {name:<22}: {path}")
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Run the command-line interface and return its exit code."""
     args = _build_parser().parse_args(argv)
+    if args.command == "study":
+        artifacts = run_study(
+            results_dir=args.results_dir or Path("results/study"),
+            figures_dir=args.figures_dir or Path("figures/study"),
+            make_figures=not args.no_figures,
+        )
+        _report_study(artifacts)
+        return 0
+
     if args.command == "runtime-experiment":
         artifacts = run_runtime_experiment(
             results_dir=args.results_dir or Path("results/runtime")
