@@ -50,16 +50,13 @@ true effect; the verifier is reported as a safety filter with a measured accept 
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
 
-import numpy as np
-
 from errors import ValidationError
 from healing.config import HealingConfig
-from healing.verifier import closure_residual, expected_closure
 from healing.controller import SelfHealingController
 from healing.policies import HoldOnlyPolicy
 from scheduler import RuntimeSimulator

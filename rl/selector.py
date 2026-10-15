@@ -31,7 +31,6 @@ from evaluation.counterfactual import (
 from rl.fingerprint_state import FingerprintStateEncoder
 from rl.objective import (
     OBJECTIVE_NAMES,
-    OBJECTIVE_ORIGINAL,
     OBJECTIVE_RISK_AWARE,
     ObjectiveBreakdown,
     compute_objective,
@@ -39,7 +38,7 @@ from rl.objective import (
 from rl.q_learning import QLearningAgent
 from rl.state import StateEncoder, observe_workload_state
 from scheduler.base import SchedulingPolicy
-from workload.fingerprint import FINGERPRINT_FEATURES, WorkloadFingerprint, fingerprint_workload
+from workload.fingerprint import WorkloadFingerprint, fingerprint_workload
 from workload.models import Workload
 
 __all__ = [

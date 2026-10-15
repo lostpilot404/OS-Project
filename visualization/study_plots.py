@@ -8,7 +8,7 @@ run without figures (``--no-figures``) without importing it.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Dict, List
+from typing import List
 
 import pandas as pd
 

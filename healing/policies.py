@@ -35,7 +35,6 @@ from healing.actions import (
     GROW_QUANTUM,
     HEALING_ACTION_NAMES,
     HOLD,
-    REVERT_TO_LAST_ACCEPTED,
     SET_PRIORITY,
     SET_ROUND_ROBIN,
     SET_SJF,

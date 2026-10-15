@@ -27,7 +27,7 @@ Predeclared fingerprint rule
 
 from __future__ import annotations
 
-from typing import Dict, Mapping, Sequence, Tuple
+from typing import Dict, Mapping, Tuple
 
 import numpy as np
 

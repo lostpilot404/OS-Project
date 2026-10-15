@@ -956,7 +956,6 @@ def _coverage_rows(
         agent = model.policy.agent
         visits = agent.state_action_visit_counts
         state_visits = np.asarray(agent.visit_counts).reshape(-1)
-        reached = visits[visits > 0]
         incidents = [incident for episode in model.episodes for incident in episode.incidents]
         interventions = [incident for incident in incidents if incident.action_changed]
         bins = [_feature_bins(incident) for incident in incidents]
