@@ -25,10 +25,14 @@ __all__ = [
     "ACTION_PRIORITY",
     "ACTION_NAMES",
     "SELECTOR_LABEL",
+    "RISK_SELECTOR_LABEL",
     "KNOWN_STATE_VARIABLES",
+    "KNOWN_FINGERPRINT_STATE_FEATURES",
     "SchedulerConfig",
     "WorkloadFamilyConfig",
     "StateConfig",
+    "FingerprintStateConfig",
+    "RiskObjectiveConfig",
     "RewardConfig",
     "QLearningConfig",
     "TrainingConfig",
@@ -76,6 +80,9 @@ ACTION_NAMES: Tuple[str, ...] = ("FCFS", "SJF", "Round Robin", "Priority")
 #: Display label for the learned offline policy selector in tables and plots.
 SELECTOR_LABEL: str = "Offline Policy Selector (Q-Learning)"
 
+#: Display label for the risk-aware offline policy selector in tables and plots.
+RISK_SELECTOR_LABEL: str = "Risk-Aware Policy Selector (Q-Learning)"
+
 #: State variables the encoder knows how to build (see :class:`StateConfig`).
 #:
 #: CPU utilisation, queue length and waiting time -- named as candidates by the project
@@ -87,6 +94,22 @@ KNOWN_STATE_VARIABLES: Tuple[str, ...] = (
     "burst_dispersion",
     "offered_load",
     "priority_spread",
+)
+
+#: Subset of the workload fingerprint features that forms the tabular state of the
+#: risk-aware selector (see :mod:`workload.fingerprint` for the feature definitions and
+#: ``docs/METHODOLOGY.md`` for why this subset keeps the tabular space usable).
+#:
+#: ``process_count`` and the arrival/burst scale features remain in the fingerprint for
+#: explanations but are not discretised into the state: the configured families share a
+#: process count and scale features are covered by the original state's profile/load
+#: variables in the ablation arm.
+KNOWN_FINGERPRINT_STATE_FEATURES: Tuple[str, ...] = (
+    "burst_cv",
+    "burst_skew",
+    "arrival_gap_cv",
+    "priority_unique_fraction",
+    "priority_burst_correlation",
 )
 
 
@@ -318,6 +341,135 @@ class StateConfig:
     def n_states(self) -> int:
         """Total number of discrete states in the tabular Q-table."""
         return int(self.bins_per_variable ** len(self.state_variables))
+
+
+@dataclass(frozen=True)
+class FingerprintStateConfig:
+    """Discretisation of the risk-aware selector's workload-fingerprint state.
+
+    A declared subset of the interpretable fingerprint features (see
+    :mod:`workload.fingerprint` and :data:`KNOWN_FINGERPRINT_STATE_FEATURES`) is binned
+    into a mixed-radix tabular state.  Every feature -- including those not discretised
+    here -- remains available to decision explanations.
+
+    Attributes:
+        state_features: Ordered tuple of fingerprint features that form the state.
+        bins_per_variable: Number of bins per feature (3 -> low / medium / high).
+        burst_cv_range: Value range of the burst coefficient of variation.
+        burst_skew_range: Value range of the Bowley burst skew.
+        arrival_gap_cv_range: Value range of the arrival-gap coefficient of variation.
+        priority_unique_fraction_range: Value range of the distinct-priority fraction.
+        priority_burst_correlation_range: Value range of the priority/burst correlation.
+    """
+
+    state_features: Tuple[str, ...] = KNOWN_FINGERPRINT_STATE_FEATURES
+    bins_per_variable: int = 3
+    burst_cv_range: Tuple[float, float] = (0.0, 1.5)
+    burst_skew_range: Tuple[float, float] = (-1.0, 1.0)
+    arrival_gap_cv_range: Tuple[float, float] = (0.0, 2.0)
+    priority_unique_fraction_range: Tuple[float, float] = (0.0, 1.0)
+    priority_burst_correlation_range: Tuple[float, float] = (-1.0, 1.0)
+
+    def __post_init__(self) -> None:
+        if not self.state_features:
+            raise ConfigurationError("state_features must not be empty")
+        if len(set(self.state_features)) != len(self.state_features):
+            raise ConfigurationError(
+                f"state_features contains duplicates: {self.state_features}"
+            )
+        unknown = [f for f in self.state_features if f not in KNOWN_FINGERPRINT_STATE_FEATURES]
+        if unknown:
+            raise ConfigurationError(
+                f"unknown fingerprint state features {unknown}; known: "
+                f"{list(KNOWN_FINGERPRINT_STATE_FEATURES)}"
+            )
+        if self.bins_per_variable < 2:
+            raise ConfigurationError(
+                f"bins_per_variable must be >= 2, got {self.bins_per_variable}"
+            )
+        for name, value_range in self.value_ranges().items():
+            low, high = value_range
+            if high <= low:
+                raise ConfigurationError(
+                    f"{name} range must satisfy high > low, got {value_range}"
+                )
+
+    def value_ranges(self) -> dict:
+        """Return the configured value range of every implemented state feature."""
+        return {
+            "burst_cv": self.burst_cv_range,
+            "burst_skew": self.burst_skew_range,
+            "arrival_gap_cv": self.arrival_gap_cv_range,
+            "priority_unique_fraction": self.priority_unique_fraction_range,
+            "priority_burst_correlation": self.priority_burst_correlation_range,
+        }
+
+    @property
+    def n_states(self) -> int:
+        """Total number of discrete states in the tabular Q-table."""
+        return int(self.bins_per_variable ** len(self.state_features))
+
+
+@dataclass(frozen=True)
+class RiskObjectiveConfig:
+    """Weights and normalisation for the risk-aware objective ``risk_aware_v1``.
+
+    The objective cost (lower is better) is
+
+    ``J = w_waiting * n(mean waiting)
+        + w_response * n(mean response)
+        + w_switch * n(context switches per process)
+        + w_tail * n(p95 per-process waiting time)``
+
+    where ``n(x) = clip(x / reference, 0, reference_clip)`` and ``reference`` is the
+    arithmetic mean of the metric over FCFS, SJF, Round Robin and Priority on the same
+    workload (a zero reference maps to ``n = 1``).  The p95 waiting term is the explicit
+    risk criterion: it penalises tail waiting, making the objective mean-tail and
+    risk-averse with respect to worst-case waiting times.  The default weights spend a
+    quarter of the objective on that tail term.
+
+    Attributes:
+        weight_waiting_time: Weight of normalised mean waiting time.
+        weight_response_time: Weight of normalised mean response time.
+        weight_context_switches: Weight of normalised context switches per process.
+        weight_tail_waiting: Weight of normalised p95 waiting time (the risk term).
+        tail_quantile: Quantile used for the risk term (nearest-rank on per-process
+            waiting times).
+        reference_clip: Normalised metric values are clipped to this maximum.
+    """
+
+    weight_waiting_time: float = 0.35
+    weight_response_time: float = 0.25
+    weight_context_switches: float = 0.15
+    weight_tail_waiting: float = 0.25
+    tail_quantile: float = 0.95
+    reference_clip: float = 2.0
+
+    def __post_init__(self) -> None:
+        weights = self.weights()
+        if any(w < 0.0 for w in weights):
+            raise ConfigurationError("risk-objective weights must be >= 0")
+        if abs(sum(weights) - 1.0) > 1e-9:
+            raise ConfigurationError(
+                f"risk-objective weights must sum to 1.0, got {sum(weights)!r}"
+            )
+        if not 0.0 < self.tail_quantile < 1.0:
+            raise ConfigurationError(
+                f"tail_quantile must lie in (0, 1), got {self.tail_quantile!r}"
+            )
+        if self.reference_clip <= 0.0:
+            raise ConfigurationError(
+                f"reference_clip must be > 0, got {self.reference_clip!r}"
+            )
+
+    def weights(self) -> Tuple[float, float, float, float]:
+        """Weights in metric order: waiting, response, switches, tail waiting."""
+        return (
+            self.weight_waiting_time,
+            self.weight_response_time,
+            self.weight_context_switches,
+            self.weight_tail_waiting,
+        )
 
 
 @dataclass(frozen=True)
