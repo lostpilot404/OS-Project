@@ -111,7 +111,7 @@ threshold is derived as the *95th percentile of that statistic under the no-acti
 
 Laxer boundaries would certify no-change windows at the same rate: both operative boundaries
 are percentile points of the control residual (*95th and 5th*), and their measured error is
-*3.4 % / 3.1 %* on the training control and *2.1 % / 1.1 %* out of sample on the 98 control
+*3.4 % / 3.1 %* on the training control and *2.1 % / 1.1 %* out of sample on the 95 judgeable control
 windows of the validation split. A rule that accepted the helpful 98 % would have to accept
 roughly the same share of windows in which nothing happened, and the ledger would stop meaning
 anything. The conservative gate plus an honest `inconclusive` category was chosen over a

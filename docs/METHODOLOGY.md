@@ -168,13 +168,23 @@ derives:
   of the null closure's spread (residual sd 0.160 vs 0.806 raw), which is what makes the
   residual comparable across traces. The comparison of candidate specifications — including the
   free closure fit this replaced — is written to `results/healing/healing_verification_models.csv`
-  by the run itself.
+  by the run itself, together with the *paired* uncertainty of the decision-relevant metric
+  (2000-draw cluster bootstrap over workload traces, fixed seed, reference = the declared
+  specification). That comparison is what makes "no richer reference" a measurement rather than
+  an assertion: on the 700 judged validation interventions the two-load-geometry reference and
+  the earlier free closure fit certify **fewer** helpful interventions (−0.084 [−0.169, −0.005]
+  and −0.084 [−0.168, −0.004]), a ready-count-only reference (+0.021 [−0.021, +0.065]) and
+  clock-augmented references (+0.000) include zero, and a monitor-window-augmented reference
+  certifies more (+0.043 [+0.010, +0.087]) but is **not** adopted: it conditions the expectation
+  on the monitor's own window maturity instead of the workload phase, and the declared reference
+  already certifies 15.0 % of helpful validation windows while certifying none of the 117
+  harmful ones.
 * `accept_residual_factor` / `reject_residual_factor`: the two operative boundaries, declared
   at the **95th and 5th percentiles of the same control residual** (measured +0.263 / −0.257 →
   declared +0.30 / −0.30, i.e. rounded outward to the declared step of 0.05). The measured
   false-accept / false-reject rates are 3.4 % / 3.1 % on the training control and 2.1 % / 1.1 %
-  out of sample on the 98 control windows of the validation split — the split that took no part
-  in the fit.
+  out of sample on the 95 judgeable control windows of the validation split (of its 98 declared
+  events) — the split that took no part in the fit.
 
 The verification rule is therefore a *conservative safety gate*, not a claim of benefit; the
 audit supplies the benefit measurement, and `healing_summary.json` reports the measured

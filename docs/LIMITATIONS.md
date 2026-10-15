@@ -81,11 +81,11 @@ about a real operating system.
   traces per seed visit 29–33 of 648 states — 1.1–1.3 % of the declared 5184-pair table, and
   3.8–7.2 % of the pairs *reachable at all* from the training contexts (864 of them for four
   seeds, 1728 for seed 7104, whose traces expose a second starting-policy bin). The coverage
-  curve is flat after ~900 episodes: seed 7101 gains one new state-action pair between episodes
-  900 and 1200 (`healing_coverage_curve.csv`). 13–17 visited states ever saw a single action,
-  and 8.8–13.8 % of decisions could only fall back to the initial value. The state space is larger than the
-  event supply of this study; that is a limitation of the design, and it is reported rather
-  than papered over with a more complex algorithm.
+  curve is flat after ~900 episodes: over the last 300 episodes seed 7101 gains no new pair
+  and the other seeds gain 1–4 (`healing_coverage_curve.csv`). 13–17 visited states ever saw a
+  single action, and 9.1–13.8 % of decisions could only fall back to the initial value. The
+  state space is larger than the event supply of this study; that is a limitation of the
+  design, and it is reported rather than papered over with a more complex algorithm.
 * **The reward is a weak proxy for the size of an effect, and a decent one for its sign.**
   Pooled Pearson correlation with the counterfactually measured per-process effect is 0.10
   (different traces have different scales); within an incident, the mean rank correlation is
@@ -96,16 +96,19 @@ about a real operating system.
   starvation to Round Robin costs a mean 126 wait units per intervention (80.9 % false
   recoveries). It is kept in the study as a predeclared, honest negative result, not as a
   recommended method.
-* **Higher p95 barely improves under recovery.** P95 waiting is 258.22 (FCFS/control) → 252.66
-  (`rule_wait`) → 248.10 (SJF). Recovery moves the mean (≈8 units) more than the tail (≈5.5).
-* **The safe fallback never fired in the frozen study.** At most 6 interventions per trace;
-  adaptation is disabled after 2 consecutive *confirmed* failures, and only a `rejected`
-  window counts as a confirmed failure — an `inconclusive` window never does, so ambiguity
-  cannot disable the loop. Reaching the fallback therefore requires two consecutive confirmed
-  failures in one trace, which the 210-trace held-out split never produced in any arm (0 of
-  210 traces; `healing_detection_summary.csv`). The mechanism is exercised by unit tests
-  (`tests/test_healing_controller.py`), but its effect on a whole trace is not measured — a
-  limitation, stated rather than implied.
+* **Higher p95 barely improves under recovery.** P95 waiting is 258.42 (FCFS/control) → 251.88
+  (`rule_wait`) → 249.21 (SJF). Recovery moves the mean (≈8 units) more than the tail (≈5.5).
+* **The safe fallback fired exactly once, and only in the arm that deserves it.** At most 6
+  interventions per trace; adaptation is disabled after 2 consecutive *confirmed* failures, and
+  only a `rejected` window counts as a confirmed failure — an `inconclusive` window never does,
+  so ambiguity cannot disable the loop. On the held-out split that combination occurred once,
+  in `rule_fairness` (repetition 21, second confirmed failure at decision 20 of episode 201;
+  one fallback episode of 210 traces), and once on the validation split in the same arm — the
+  arm whose interventions are mostly harmful (false-recovery rate 0.767). No other arm reached
+  it, because none of them accumulated two confirmed failures in a trace. The mechanism is also
+  exercised by unit tests (`tests/test_healing_controller.py`); the effect of one fallback on a
+  whole trace is a single observation, not a measured distribution — a limitation, stated
+  rather than implied.
 
 ## 4. Statistical scope
 

@@ -135,10 +135,16 @@ posture (rolled back, but not counted as a failure — `healing.config.inconclus
 
 | Arm | Interventions | Accepted | Rejected | Inconclusive | Confirmed failures | Episodes hitting the fallback |
 |---|---:|---:|---:|---:|---:|---:|
-| `rule_fairness` | 150 | 2 (1.3 %) | 31 (20.7 %) | 117 (78.0 %) | 31 | 0 |
+| `rule_fairness` | 150 | 2 (1.3 %) | 31 (20.7 %) | 117 (78.0 %) | 31 | 1 |
 | `rule_wait` | 141 | 12 (8.5 %) | 0 | 129 (91.5 %) | 0 | 0 |
 | `q_recovery` | 678 | 51 (7.5 %) | 2 (0.3 %) | 625 (92.2 %) | 2 | 0 |
 | `rule_wait_from_sjf` | 4 | 0 | 1 (25 %) | 3 (75 %) | 1 | 0 |
+
+The single fallback episode is `rule_fairness` on repetition 21 (`poisson_arrivals`): its
+second consecutive confirmed failure in that trace occurs at decision 20, so the arm pins the
+last accepted configuration and records `fallback_triggered = true` in the incident ledger
+(`healing_incidents_final_test.csv`). The same arm records one fallback episode on the
+validation split.
 
 Against the matched counterfactual:
 
@@ -235,7 +241,7 @@ no failure counter and no rollback penalty are attached to an inconclusive windo
 | derived / declared `accept_residual_factor` | 0.30 / 0.30 |
 | derived / declared `reject_residual_factor` | −0.30 / −0.30 |
 | measured false-accept / false-reject of the declared rule on the control | 0.034 / 0.031 |
-| out-of-sample (validation control, 98 windows) false-accept / false-reject | 0.021 / 0.011 |
+| out-of-sample (validation control: 95 judgeable windows of 98 declared events) false-accept / false-reject | 0.021 / 0.011 |
 
 Both operative boundaries are therefore percentile points of the *same* control distribution
 (95th and 5th, rounded outward to the declared step of 0.05), and the out-of-sample check stays
@@ -351,7 +357,7 @@ the replay does not reproduce the recorded incident count).
 
 | Step | Observed |
 |---|---|
-| workload | `long_jobs`, validation repetition 6, fingerprint `2cc74cad24d7c29d`, arm `q_recovery` seed 7105 |
+| workload | `long_jobs`, validation repetition 0 (ledger episode 20), fingerprint `2cc74cad24d7c29d`, arm `q_recovery` seed 7105 |
 | detection | incident at decision 6 (t = 142), `fairness_starvation`, window mean above `reference + 1.25·band` |
 | decision | `set_sjf` — FCFS → SJF (subject to the mask) |
 | verification | window closes with `closure_fraction = 2.324` against an expected closure of `2.010` for this trigger phase (trigger load 10.77, reference 10.60, band 2.36, 9 ready processes holding 234 work units) |
