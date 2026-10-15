@@ -92,5 +92,15 @@ cd /home/user/OS-Project
 
 ## 8. Git state at the end of the session
 
-Filled in after the commit and push; see the session's final report for the exact SHA, branch
-and independently verified remote state.
+| Item | Value |
+|---|---|
+| Working branch | `arena/befa2b94-os-project` |
+| Commit | `e2bd701cb1946b7bf92b4ea9644006b6167e057d` ("Self-healing CPU scheduler: healing loop, study harness, tests, docs, artifacts") |
+| Push | `git push -u origin arena/befa2b94-os-project` — new branch created on the remote, no force, no history rewrite |
+| Remote verification | `git fetch` + `gh api repos/lostpilot404/OS-Project/branches/arena/befa2b94-os-project` → `e2bd701…`, identical to the local HEAD; the remote tree lists the 8 `healing/` modules and the 17 artifacts under `results/healing/` |
+| `main` | untouched at `c26e2a4` (`gh api .../branches/main`) |
+| Cross-process determinism | two separate runs of `main.py healing-study` into isolated directories produced byte-identical `healing_comparisons.csv` (same md5) |
+
+The documentation numbers were re-checked against the regenerated artifacts after the last code
+change (arms' mean waiting, audit gains and false-recovery rates, threshold derivation,
+paired intervals): all match.

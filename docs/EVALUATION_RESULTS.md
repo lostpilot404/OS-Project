@@ -60,14 +60,14 @@ the target).
 
 | Target | Reference | Metric | Difference | 95 % CI |
 |---|---|---|---:|---|
-| `rule_wait` | `detector_only` | mean waiting | **−7.70** | [−8.69, −6.71] |
+| `rule_wait` | `detector_only` | mean waiting | **−7.70** | [−8.68, −6.68] |
 | `rule_wait` | `fixed_fcfs` | mean waiting | **−7.70** | [−8.71, −6.67] |
 | `rule_wait` | `fixed_sjf` | mean waiting | +25.65 | [+23.67, +27.71] |
 | `q_recovery` | `fixed_fcfs` | mean waiting | **−6.62** | [−8.03, −5.12] |
 | `q_recovery` | `fixed_sjf` | mean waiting | +26.74 | [+24.46, +28.92] |
 | `q_recovery` | `rule_wait` | mean waiting | +1.09 | [+0.12, +2.51] |
 | `rule_fairness` | `fixed_fcfs` | mean waiting | +6.72 | [+5.42, +8.11] |
-| `q_recovery_from_sjf` | `fixed_sjf` | mean waiting | 0.0000 | [0.00, 0.00] |
+| `q_recovery_from_sjf` | `fixed_sjf` | mean waiting | −0.0000 | [0.0000, 0.0000] |
 | `rule_wait_from_sjf` | `fixed_sjf` | mean waiting | +0.24 | [+0.04, +0.54] |
 
 Every interval excludes zero except the deliberately identical pair, so the ordering

@@ -177,13 +177,13 @@ their 5 independent training seeds (1050 traces).
 
 Paired, family-stratified bootstrap over identical workloads (1000 replicates):
 
-* `rule_wait` − `detector_only` = **−7.70** wait units, 95 % CI [−8.69, −6.71] → the
+* `rule_wait` − `detector_only` = **−7.70** wait units, 95 % CI [−8.68, −6.68] → the
   recovery loop's changes do help relative to doing nothing.
 * `q_recovery` − `fixed_fcfs` = **−6.62**, CI [−8.03, −5.12] → the learned controller also
   improves on its own starting configuration.
-* `rule_wait` − `fixed_sjf` = **+25.65**, CI [23.67, 27.71]; `q_recovery` − `fixed_sjf` =
-  **+26.74**, CI [24.46, 28.92] → **neither recovery arm reaches the fixed SJF baseline.**
-* `q_recovery` − `rule_wait` = **+1.09**, CI [0.12, 2.51] → the learned controller is
+* `rule_wait` − `fixed_sjf` = **+25.65**, CI [+23.67, +27.71]; `q_recovery` − `fixed_sjf` =
+  **+26.74**, CI [+24.46, +28.92] → **neither recovery arm reaches the fixed SJF baseline.**
+* `q_recovery` − `rule_wait` = **+1.09**, CI [+0.12, +2.51] → the learned controller is
   marginally *worse* than the predeclared rule.
 * `q_recovery_from_sjf` − `fixed_sjf` = **0.0000** (CI [0, 0]): started from the strongest
   fixed configuration the loop intervenes **zero** times and reproduces SJF exactly.
