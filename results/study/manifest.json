@@ -1,0 +1,17 @@
+{
+  "artifacts": {
+    "counterfactuals": "results/study/counterfactuals.csv",
+    "decisions": "results/study/decisions.csv",
+    "design.json": "results/study/design.json",
+    "explanations_dir": "results/study/explanations",
+    "explanations_examples": "results/study/explanations_examples.json",
+    "report": "results/study/report.md",
+    "robustness": "results/study/robustness.csv",
+    "summary.json": "results/study/summary.json",
+    "training_history": "results/study/training_history.csv"
+  },
+  "config_digest": "aaa9b1f94ad45cc8",
+  "counterfactual_rows": 1472,
+  "decision_rows": 9936,
+  "training_rows": 72000
+}

@@ -1,0 +1,1004 @@
+[
+  {
+    "criterion": "hindsight_best",
+    "explanation": {
+      "counterfactual_objectives": {
+        "FCFS": {
+          "costs": {
+            "original": 0.12390662289539507,
+            "risk_aware_v1": 1.1232013837584638
+          },
+          "metrics": {
+            "avg_response_time": 41.666666666666664,
+            "avg_turnaround_time": 50.666666666666664,
+            "avg_waiting_time": 41.666666666666664,
+            "context_switches_per_process": 0.9333333333333333,
+            "cpu_utilization": 98.54014598540147,
+            "p95_waiting_time": 112.0,
+            "throughput": 0.10948905109489052
+          },
+          "policy_name": "FCFS",
+          "terms": {
+            "original": {
+              "avg_response_time": 1.337613697164259,
+              "avg_turnaround_time": 1.1351755041075429,
+              "avg_waiting_time": 1.1693171188026192,
+              "context_switches_per_process": 0.717948717948718,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 1.337613697164259,
+              "avg_waiting_time": 1.1693171188026192,
+              "context_switches_per_process": 0.717948717948718,
+              "p95_waiting_time": 1.087378640776699
+            }
+          }
+        },
+        "Priority": {
+          "costs": {
+            "original": 0.23019890729681813,
+            "risk_aware_v1": 1.2475641009175396
+          },
+          "metrics": {
+            "avg_response_time": 46.86666666666667,
+            "avg_turnaround_time": 55.86666666666667,
+            "avg_waiting_time": 46.86666666666667,
+            "context_switches_per_process": 0.9333333333333333,
+            "cpu_utilization": 98.54014598540147,
+            "p95_waiting_time": 125.0,
+            "throughput": 0.10948905109489052
+          },
+          "policy_name": "Priority",
+          "terms": {
+            "original": {
+              "avg_response_time": 1.5045478865703585,
+              "avg_turnaround_time": 1.251680358476475,
+              "avg_waiting_time": 1.3152478952291862,
+              "context_switches_per_process": 0.717948717948718,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 1.5045478865703585,
+              "avg_waiting_time": 1.3152478952291862,
+              "context_switches_per_process": 0.717948717948718,
+              "p95_waiting_time": 1.2135922330097086
+            }
+          }
+        },
+        "Round Robin": {
+          "costs": {
+            "original": -0.04466668591257618,
+            "risk_aware_v1": 0.9475163824777015
+          },
+          "metrics": {
+            "avg_response_time": 15.6,
+            "avg_turnaround_time": 42.53333333333333,
+            "avg_waiting_time": 33.53333333333333,
+            "context_switches_per_process": 2.4,
+            "cpu_utilization": 98.54014598540147,
+            "p95_waiting_time": 89.0,
+            "throughput": 0.10948905109489052
+          },
+          "policy_name": "Round Robin",
+          "terms": {
+            "original": {
+              "avg_response_time": 0.5008025682182986,
+              "avg_turnaround_time": 0.9529499626587005,
+              "avg_waiting_time": 0.941066417212348,
+              "context_switches_per_process": 1.846153846153846,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 0.5008025682182986,
+              "avg_waiting_time": 0.941066417212348,
+              "context_switches_per_process": 1.846153846153846,
+              "p95_waiting_time": 0.8640776699029126
+            }
+          }
+        },
+        "SJF": {
+          "costs": {
+            "original": -0.3094388442796371,
+            "risk_aware_v1": 0.6817181328462948
+          },
+          "metrics": {
+            "avg_response_time": 20.466666666666665,
+            "avg_turnaround_time": 29.466666666666665,
+            "avg_waiting_time": 20.466666666666665,
+            "context_switches_per_process": 0.9333333333333333,
+            "cpu_utilization": 98.54014598540147,
+            "p95_waiting_time": 86.0,
+            "throughput": 0.10948905109489052
+          },
+          "policy_name": "SJF",
+          "terms": {
+            "original": {
+              "avg_response_time": 0.6570358480470839,
+              "avg_turnaround_time": 0.6601941747572815,
+              "avg_waiting_time": 0.5743685687558465,
+              "context_switches_per_process": 0.717948717948718,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 0.6570358480470839,
+              "avg_waiting_time": 0.5743685687558465,
+              "context_switches_per_process": 0.717948717948718,
+              "p95_waiting_time": 0.8349514563106796
+            }
+          }
+        }
+      },
+      "decision": {
+        "action": 1,
+        "action_visits": {
+          "FCFS": 10,
+          "Priority": 9,
+          "Round Robin": 16,
+          "SJF": 245
+        },
+        "epsilon": 0.0,
+        "explored": false,
+        "greedy_action": 1,
+        "greedy_policy_name": "SJF",
+        "policy_name": "SJF",
+        "q_values": {
+          "FCFS": -0.7666001932114421,
+          "Priority": -0.75112856084912,
+          "Round Robin": -0.7195528753766738,
+          "SJF": -0.6443311175685486
+        },
+        "selection_kind": "q_learning",
+        "selection_rule": "greedy"
+      },
+      "declared_objective": {
+        "description": "risk_aware_v1: J = w_waiting*n(mean waiting) + w_response*n(mean response) + w_switch*n(context switches per process) + w_tail*n(p95 per-process waiting); n(x) = clip(x/reference, 0, clip), reference = four-policy arithmetic mean on the same workload. Cost is J (lower is better).",
+        "name": "risk_aware_v1",
+        "normalization": "per-metric ratio to the four-policy arithmetic mean on the same workload, clipped above (zero reference maps to 1)",
+        "risk_criterion": "Explicit tail-risk term: nearest-rank p95 of per-process waiting times, weight w_tail. The objective is mean-tail and risk-averse with respect to waiting-time outliers.",
+        "tail_quantile": 0.95,
+        "weights": {
+          "context_switches": 0.15,
+          "response": 0.25,
+          "tail_waiting": 0.25,
+          "waiting": 0.35
+        }
+      },
+      "information_boundary": "The offline selector decides from the declared process table only: (pid, arrival_time, burst_time, priority) per process. Schedule outcomes, metrics and counterfactual results are never decision inputs; counterfactual objective values in this explanation are computed after the decision and are evaluation evidence only.",
+      "reasons": [
+        {
+          "evidence": {
+            "action_visits": {
+              "FCFS": 10,
+              "Priority": 9,
+              "Round Robin": 16,
+              "SJF": 245
+            },
+            "greedy_policy_name": "SJF",
+            "policy_name": "SJF",
+            "q_margin": 0.07522175780812523,
+            "q_values": {
+              "FCFS": -0.7666001932114421,
+              "Priority": -0.75112856084912,
+              "Round Robin": -0.7195528753766738,
+              "SJF": -0.6443311175685486
+            },
+            "runner_up_policy": "Round Robin",
+            "runner_up_q": -0.7195528753766738,
+            "selection_kind": "q_learning",
+            "selection_rule": "greedy"
+          },
+          "kind": "selection_basis",
+          "statement": "Greedy selection among visited actions: Q(state, SJF)=-0.644331 was the highest learned value (visits=245); margin over Round Robin was 0.075222. Unvisited actions are not treated as estimates."
+        },
+        {
+          "evidence": {
+            "best_cost": 0.6817181328462948,
+            "best_policy": "SJF",
+            "chosen_cost": 0.6817181328462948,
+            "costs": {
+              "FCFS": 1.1232013837584638,
+              "Priority": 1.2475641009175396,
+              "Round Robin": 0.9475163824777015,
+              "SJF": 0.6817181328462948
+            },
+            "margin": 0.26579824963140675,
+            "objective": "risk_aware_v1",
+            "policy_name": "SJF",
+            "regret": 0.0,
+            "runner_up_cost": 0.9475163824777015,
+            "runner_up_policy": "Round Robin"
+          },
+          "kind": "objective_rank",
+          "statement": "Post-hoc counterfactual evidence under risk_aware_v1: SJF achieved the lowest cost (0.681718) of the four policies; runner-up Round Robin scored 0.947516 (margin 0.265798)."
+        },
+        {
+          "evidence": {
+            "favorable_terms": {
+              "avg_waiting_time": {
+                "chosen_term": 0.5743685687558465,
+                "terms": {
+                  "FCFS": 1.1693171188026192,
+                  "Priority": 1.3152478952291862,
+                  "Round Robin": 0.941066417212348,
+                  "SJF": 0.5743685687558465
+                }
+              },
+              "p95_waiting_time": {
+                "chosen_term": 0.8349514563106796,
+                "terms": {
+                  "FCFS": 1.087378640776699,
+                  "Priority": 1.2135922330097086,
+                  "Round Robin": 0.8640776699029126,
+                  "SJF": 0.8349514563106796
+                }
+              }
+            },
+            "objective": "risk_aware_v1",
+            "policy_name": "SJF"
+          },
+          "kind": "term_comparison",
+          "statement": "Under the declared objective, SJF had the strictly lowest normalised term for: avg_waiting_time, p95_waiting_time."
+        },
+        {
+          "evidence": {
+            "objective": "risk_aware_v1",
+            "policy_name": "SJF",
+            "tradeoff_terms": {
+              "avg_response_time": {
+                "best_policy": "Round Robin",
+                "best_term": 0.5008025682182986,
+                "chosen_term": 0.6570358480470839
+              }
+            }
+          },
+          "kind": "term_tradeoff",
+          "statement": "Trade-offs: terms where SJF was not the lowest under risk_aware_v1 -- avg_response_time: 0.657036 vs best 0.500803 (Round Robin)."
+        },
+        {
+          "evidence": {
+            "features": {
+              "arrival_gap_cv": 0.90267093384844,
+              "arrival_rate": 0.8333333333333334,
+              "arrival_span": 18.0,
+              "burst_cv": 1.1352924243950935,
+              "burst_mean": 9.0,
+              "burst_skew": 0.84,
+              "first_arrival_burst_ratio": 0.75,
+              "priority_burst_correlation": 0.11961893360484699,
+              "priority_std": 1.2000000000000002,
+              "priority_unique_fraction": 0.3333333333333333,
+              "process_count": 15.0
+            },
+            "state_bins": {
+              "arrival_gap_cv": 1,
+              "burst_cv": 2,
+              "first_arrival_burst_ratio": 0,
+              "priority_burst_correlation": 1
+            }
+          },
+          "kind": "workload_characteristics",
+          "statement": "Workload characteristics used for the decision: burst_cv=1.135 (bin 2), first_arrival_burst_ratio=0.75 (bin 0), arrival_gap_cv=0.9027 (bin 1), priority_burst_correlation=0.1196 (bin 1)."
+        }
+      ],
+      "regret": {
+        "is_hindsight_best": true,
+        "regret": 0.0,
+        "regret_best_action": 1,
+        "regret_best_cost": 0.6817181328462948,
+        "regret_chosen_action": 1,
+        "regret_chosen_cost": 0.6817181328462948,
+        "regret_objective": "risk_aware_v1"
+      },
+      "schema_version": "1.0",
+      "workload_characteristics": {
+        "arrival_gap_cv": {
+          "in_state": true,
+          "state_bin": 1,
+          "value": 0.90267093384844
+        },
+        "arrival_rate": {
+          "in_state": false,
+          "value": 0.8333333333333334
+        },
+        "arrival_span": {
+          "in_state": false,
+          "value": 18.0
+        },
+        "burst_cv": {
+          "in_state": true,
+          "state_bin": 2,
+          "value": 1.1352924243950935
+        },
+        "burst_mean": {
+          "in_state": false,
+          "value": 9.0
+        },
+        "burst_skew": {
+          "in_state": false,
+          "value": 0.84
+        },
+        "first_arrival_burst_ratio": {
+          "in_state": true,
+          "state_bin": 0,
+          "value": 0.75
+        },
+        "priority_burst_correlation": {
+          "in_state": true,
+          "state_bin": 1,
+          "value": 0.11961893360484699
+        },
+        "priority_std": {
+          "in_state": false,
+          "value": 1.2000000000000002
+        },
+        "priority_unique_fraction": {
+          "in_state": false,
+          "value": 0.3333333333333333
+        },
+        "process_count": {
+          "in_state": false,
+          "value": 15.0
+        }
+      },
+      "workload_fingerprint": "12be7b1c61b3222d",
+      "workload_name": "short_jobs"
+    }
+  },
+  {
+    "criterion": "regret",
+    "explanation": {
+      "counterfactual_objectives": {
+        "FCFS": {
+          "costs": {
+            "original": 0.06989994644781598,
+            "risk_aware_v1": 1.0534216302371362
+          },
+          "metrics": {
+            "avg_response_time": 32.0,
+            "avg_turnaround_time": 36.8,
+            "avg_waiting_time": 32.0,
+            "context_switches_per_process": 0.9333333333333333,
+            "cpu_utilization": 100.0,
+            "p95_waiting_time": 51.0,
+            "throughput": 0.20833333333333334
+          },
+          "policy_name": "FCFS",
+          "terms": {
+            "original": {
+              "avg_response_time": 1.1421772754312909,
+              "avg_turnaround_time": 1.0876847290640395,
+              "avg_waiting_time": 1.1021814006888635,
+              "context_switches_per_process": 0.8888888888888888,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 1.1421772754312909,
+              "avg_waiting_time": 1.1021814006888635,
+              "context_switches_per_process": 0.8888888888888888,
+              "p95_waiting_time": 0.9951219512195122
+            }
+          }
+        },
+        "Priority": {
+          "costs": {
+            "original": 0.1925461708592507,
+            "risk_aware_v1": 1.2056954052780986
+          },
+          "metrics": {
+            "avg_response_time": 36.93333333333333,
+            "avg_turnaround_time": 41.733333333333334,
+            "avg_waiting_time": 36.93333333333333,
+            "context_switches_per_process": 0.9333333333333333,
+            "cpu_utilization": 100.0,
+            "p95_waiting_time": 61.0,
+            "throughput": 0.20833333333333334
+          },
+          "policy_name": "Priority",
+          "terms": {
+            "original": {
+              "avg_response_time": 1.3182629387269482,
+              "avg_turnaround_time": 1.233497536945813,
+              "avg_waiting_time": 1.272101033295063,
+              "context_switches_per_process": 0.8888888888888888,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 1.3182629387269482,
+              "avg_waiting_time": 1.272101033295063,
+              "context_switches_per_process": 0.8888888888888888,
+              "p95_waiting_time": 1.1902439024390243
+            }
+          }
+        },
+        "Round Robin": {
+          "costs": {
+            "original": -0.23787532332985845,
+            "risk_aware_v1": 0.7866913317000773
+          },
+          "metrics": {
+            "avg_response_time": 14.933333333333334,
+            "avg_turnaround_time": 23.8,
+            "avg_waiting_time": 19.0,
+            "context_switches_per_process": 1.4,
+            "cpu_utilization": 100.0,
+            "p95_waiting_time": 46.0,
+            "throughput": 0.20833333333333334
+          },
+          "policy_name": "Round Robin",
+          "terms": {
+            "original": {
+              "avg_response_time": 0.5330160618679358,
+              "avg_turnaround_time": 0.703448275862069,
+              "avg_waiting_time": 0.6544202066590127,
+              "context_switches_per_process": 1.3333333333333333,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 0.5330160618679358,
+              "avg_waiting_time": 0.6544202066590127,
+              "context_switches_per_process": 1.3333333333333333,
+              "p95_waiting_time": 0.8975609756097561
+            }
+          }
+        },
+        "SJF": {
+          "costs": {
+            "original": -0.024570793977208107,
+            "risk_aware_v1": 0.9541916327846877
+          },
+          "metrics": {
+            "avg_response_time": 28.2,
+            "avg_turnaround_time": 33.0,
+            "avg_waiting_time": 28.2,
+            "context_switches_per_process": 0.9333333333333333,
+            "cpu_utilization": 100.0,
+            "p95_waiting_time": 47.0,
+            "throughput": 0.20833333333333334
+          },
+          "policy_name": "SJF",
+          "terms": {
+            "original": {
+              "avg_response_time": 1.006543723973825,
+              "avg_turnaround_time": 0.975369458128079,
+              "avg_waiting_time": 0.9712973593570609,
+              "context_switches_per_process": 0.8888888888888888,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 1.006543723973825,
+              "avg_waiting_time": 0.9712973593570609,
+              "context_switches_per_process": 0.8888888888888888,
+              "p95_waiting_time": 0.9170731707317074
+            }
+          }
+        }
+      },
+      "decision": {
+        "action": 1,
+        "action_visits": {
+          "FCFS": 0,
+          "Priority": 0,
+          "Round Robin": 0,
+          "SJF": 5
+        },
+        "epsilon": 0.0,
+        "explored": false,
+        "greedy_action": 1,
+        "greedy_policy_name": "SJF",
+        "policy_name": "SJF",
+        "q_values": {
+          "FCFS": 0.0,
+          "Priority": 0.0,
+          "Round Robin": 0.0,
+          "SJF": -0.33524175608447787
+        },
+        "selection_kind": "q_learning",
+        "selection_rule": "greedy"
+      },
+      "declared_objective": {
+        "description": "risk_aware_v1: J = w_waiting*n(mean waiting) + w_response*n(mean response) + w_switch*n(context switches per process) + w_tail*n(p95 per-process waiting); n(x) = clip(x/reference, 0, clip), reference = four-policy arithmetic mean on the same workload. Cost is J (lower is better).",
+        "name": "risk_aware_v1",
+        "normalization": "per-metric ratio to the four-policy arithmetic mean on the same workload, clipped above (zero reference maps to 1)",
+        "risk_criterion": "Explicit tail-risk term: nearest-rank p95 of per-process waiting times, weight w_tail. The objective is mean-tail and risk-averse with respect to waiting-time outliers.",
+        "tail_quantile": 0.95,
+        "weights": {
+          "context_switches": 0.15,
+          "response": 0.25,
+          "tail_waiting": 0.25,
+          "waiting": 0.35
+        }
+      },
+      "information_boundary": "The offline selector decides from the declared process table only: (pid, arrival_time, burst_time, priority) per process. Schedule outcomes, metrics and counterfactual results are never decision inputs; counterfactual objective values in this explanation are computed after the decision and are evaluation evidence only.",
+      "reasons": [
+        {
+          "evidence": {
+            "action_visits": {
+              "FCFS": 0,
+              "Priority": 0,
+              "Round Robin": 0,
+              "SJF": 5
+            },
+            "greedy_policy_name": "SJF",
+            "policy_name": "SJF",
+            "q_values": {
+              "FCFS": 0.0,
+              "Priority": 0.0,
+              "Round Robin": 0.0,
+              "SJF": -0.33524175608447787
+            },
+            "selection_kind": "q_learning",
+            "selection_rule": "greedy"
+          },
+          "kind": "selection_basis",
+          "statement": "Greedy selection: SJF was the only visited action in this state (Q=-0.335242, visits=5)."
+        },
+        {
+          "evidence": {
+            "best_cost": 0.7866913317000773,
+            "best_policy": "Round Robin",
+            "chosen_cost": 0.9541916327846877,
+            "costs": {
+              "FCFS": 1.0534216302371362,
+              "Priority": 1.2056954052780986,
+              "Round Robin": 0.7866913317000773,
+              "SJF": 0.9541916327846877
+            },
+            "objective": "risk_aware_v1",
+            "policy_name": "SJF",
+            "regret": 0.16750030108461034
+          },
+          "kind": "objective_rank",
+          "statement": "Post-hoc counterfactual evidence under risk_aware_v1: SJF scored 0.954192, which was not the hindsight minimum; Round Robin scored 0.786691 (regret 0.167500). The selector did not know these outcomes at decision time."
+        },
+        {
+          "evidence": {
+            "objective": "risk_aware_v1",
+            "policy_name": "SJF",
+            "tradeoff_terms": {
+              "avg_response_time": {
+                "best_policy": "Round Robin",
+                "best_term": 0.5330160618679358,
+                "chosen_term": 1.006543723973825
+              },
+              "avg_waiting_time": {
+                "best_policy": "Round Robin",
+                "best_term": 0.6544202066590127,
+                "chosen_term": 0.9712973593570609
+              },
+              "p95_waiting_time": {
+                "best_policy": "Round Robin",
+                "best_term": 0.8975609756097561,
+                "chosen_term": 0.9170731707317074
+              }
+            }
+          },
+          "kind": "term_tradeoff",
+          "statement": "Trade-offs: terms where SJF was not the lowest under risk_aware_v1 -- avg_response_time: 1.006544 vs best 0.533016 (Round Robin); avg_waiting_time: 0.971297 vs best 0.654420 (Round Robin); p95_waiting_time: 0.917073 vs best 0.897561 (Round Robin)."
+        },
+        {
+          "evidence": {
+            "features": {
+              "arrival_gap_cv": 0.7737027316450533,
+              "arrival_rate": 0.8823529411764706,
+              "arrival_span": 17.0,
+              "burst_cv": 1.2596847048192477,
+              "burst_mean": 4.8,
+              "burst_skew": 0.5555555555555556,
+              "first_arrival_burst_ratio": 8.666666666666666,
+              "priority_burst_correlation": -0.5275974279935531,
+              "priority_std": 1.4544949486180951,
+              "priority_unique_fraction": 0.3333333333333333,
+              "process_count": 15.0
+            },
+            "state_bins": {
+              "arrival_gap_cv": 1,
+              "burst_cv": 2,
+              "first_arrival_burst_ratio": 2,
+              "priority_burst_correlation": 0
+            }
+          },
+          "kind": "workload_characteristics",
+          "statement": "Workload characteristics used for the decision: burst_cv=1.26 (bin 2), first_arrival_burst_ratio=8.667 (bin 2), arrival_gap_cv=0.7737 (bin 1), priority_burst_correlation=-0.5276 (bin 0)."
+        }
+      ],
+      "regret": {
+        "is_hindsight_best": false,
+        "regret": 0.16750030108461034,
+        "regret_best_action": 2,
+        "regret_best_cost": 0.7866913317000773,
+        "regret_chosen_action": 1,
+        "regret_chosen_cost": 0.9541916327846877,
+        "regret_objective": "risk_aware_v1"
+      },
+      "schema_version": "1.0",
+      "workload_characteristics": {
+        "arrival_gap_cv": {
+          "in_state": true,
+          "state_bin": 1,
+          "value": 0.7737027316450533
+        },
+        "arrival_rate": {
+          "in_state": false,
+          "value": 0.8823529411764706
+        },
+        "arrival_span": {
+          "in_state": false,
+          "value": 17.0
+        },
+        "burst_cv": {
+          "in_state": true,
+          "state_bin": 2,
+          "value": 1.2596847048192477
+        },
+        "burst_mean": {
+          "in_state": false,
+          "value": 4.8
+        },
+        "burst_skew": {
+          "in_state": false,
+          "value": 0.5555555555555556
+        },
+        "first_arrival_burst_ratio": {
+          "in_state": true,
+          "state_bin": 2,
+          "value": 8.666666666666666
+        },
+        "priority_burst_correlation": {
+          "in_state": true,
+          "state_bin": 0,
+          "value": -0.5275974279935531
+        },
+        "priority_std": {
+          "in_state": false,
+          "value": 1.4544949486180951
+        },
+        "priority_unique_fraction": {
+          "in_state": false,
+          "value": 0.3333333333333333
+        },
+        "process_count": {
+          "in_state": false,
+          "value": 15.0
+        }
+      },
+      "workload_fingerprint": "2b1e019f6bf2ee39",
+      "workload_name": "short_jobs"
+    }
+  },
+  {
+    "criterion": "ood_regret",
+    "explanation": {
+      "counterfactual_objectives": {
+        "FCFS": {
+          "costs": {
+            "original": -0.042814612275983266,
+            "risk_aware_v1": 0.9660833522110557
+          },
+          "metrics": {
+            "avg_response_time": 67.26666666666667,
+            "avg_turnaround_time": 79.06666666666666,
+            "avg_waiting_time": 67.26666666666667,
+            "context_switches_per_process": 0.9333333333333333,
+            "cpu_utilization": 100.0,
+            "p95_waiting_time": 148.0,
+            "throughput": 0.0847457627118644
+          },
+          "policy_name": "FCFS",
+          "terms": {
+            "original": {
+              "avg_response_time": 1.2178636089318045,
+              "avg_turnaround_time": 0.9186676994577847,
+              "avg_waiting_time": 0.9057450628366248,
+              "context_switches_per_process": 0.6222222222222222,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 1.2178636089318045,
+              "avg_waiting_time": 0.9057450628366248,
+              "context_switches_per_process": 0.6222222222222222,
+              "p95_waiting_time": 1.0050933786078098
+            }
+          }
+        },
+        "Priority": {
+          "costs": {
+            "original": 0.06776806702323027,
+            "risk_aware_v1": 1.0746694264321652
+          },
+          "metrics": {
+            "avg_response_time": 77.73333333333333,
+            "avg_turnaround_time": 89.53333333333333,
+            "avg_waiting_time": 77.73333333333333,
+            "context_switches_per_process": 0.9333333333333333,
+            "cpu_utilization": 100.0,
+            "p95_waiting_time": 155.0,
+            "throughput": 0.0847457627118644
+          },
+          "policy_name": "Priority",
+          "terms": {
+            "original": {
+              "avg_response_time": 1.4073627036813519,
+              "avg_turnaround_time": 1.040278853601859,
+              "avg_waiting_time": 1.0466786355475763,
+              "context_switches_per_process": 0.6222222222222222,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 1.4073627036813519,
+              "avg_waiting_time": 1.0466786355475763,
+              "context_switches_per_process": 0.6222222222222222,
+              "p95_waiting_time": 1.0526315789473684
+            }
+          }
+        },
+        "Round Robin": {
+          "costs": {
+            "original": 0.16089314142104252,
+            "risk_aware_v1": 1.1183900204872377
+          },
+          "metrics": {
+            "avg_response_time": 23.466666666666665,
+            "avg_turnaround_time": 111.4,
+            "avg_waiting_time": 99.6,
+            "context_switches_per_process": 3.2,
+            "cpu_utilization": 100.0,
+            "p95_waiting_time": 143.0,
+            "throughput": 0.0847457627118644
+          },
+          "policy_name": "Round Robin",
+          "terms": {
+            "original": {
+              "avg_response_time": 0.4248642124321062,
+              "avg_turnaround_time": 1.29434546862897,
+              "avg_waiting_time": 1.341113105924596,
+              "context_switches_per_process": 2.0,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 0.4248642124321062,
+              "avg_waiting_time": 1.341113105924596,
+              "context_switches_per_process": 2.0,
+              "p95_waiting_time": 0.9711375212224108
+            }
+          }
+        },
+        "SJF": {
+          "costs": {
+            "original": -0.19917992950162275,
+            "risk_aware_v1": 0.8208572008695414
+          },
+          "metrics": {
+            "avg_response_time": 52.46666666666667,
+            "avg_turnaround_time": 64.26666666666667,
+            "avg_waiting_time": 52.46666666666667,
+            "context_switches_per_process": 0.9333333333333333,
+            "cpu_utilization": 100.0,
+            "p95_waiting_time": 143.0,
+            "throughput": 0.0847457627118644
+          },
+          "policy_name": "SJF",
+          "terms": {
+            "original": {
+              "avg_response_time": 0.9499094749547375,
+              "avg_turnaround_time": 0.7467079783113866,
+              "avg_waiting_time": 0.7064631956912029,
+              "context_switches_per_process": 0.6222222222222222,
+              "cpu_utilization": 1.0,
+              "throughput": 1.0
+            },
+            "risk_aware_v1": {
+              "avg_response_time": 0.9499094749547375,
+              "avg_waiting_time": 0.7064631956912029,
+              "context_switches_per_process": 0.6222222222222222,
+              "p95_waiting_time": 0.9711375212224108
+            }
+          }
+        }
+      },
+      "decision": {
+        "action": 0,
+        "action_visits": {
+          "FCFS": 93,
+          "Priority": 0,
+          "Round Robin": 21,
+          "SJF": 0
+        },
+        "epsilon": 0.0,
+        "explored": false,
+        "greedy_action": 0,
+        "greedy_policy_name": "FCFS",
+        "policy_name": "FCFS",
+        "q_values": {
+          "FCFS": -0.9374216424423707,
+          "Priority": 0.0,
+          "Round Robin": -0.9668756268292703,
+          "SJF": 0.0
+        },
+        "selection_kind": "q_learning",
+        "selection_rule": "greedy"
+      },
+      "declared_objective": {
+        "description": "risk_aware_v1: J = w_waiting*n(mean waiting) + w_response*n(mean response) + w_switch*n(context switches per process) + w_tail*n(p95 per-process waiting); n(x) = clip(x/reference, 0, clip), reference = four-policy arithmetic mean on the same workload. Cost is J (lower is better).",
+        "name": "risk_aware_v1",
+        "normalization": "per-metric ratio to the four-policy arithmetic mean on the same workload, clipped above (zero reference maps to 1)",
+        "risk_criterion": "Explicit tail-risk term: nearest-rank p95 of per-process waiting times, weight w_tail. The objective is mean-tail and risk-averse with respect to waiting-time outliers.",
+        "tail_quantile": 0.95,
+        "weights": {
+          "context_switches": 0.15,
+          "response": 0.25,
+          "tail_waiting": 0.25,
+          "waiting": 0.35
+        }
+      },
+      "information_boundary": "The offline selector decides from the declared process table only: (pid, arrival_time, burst_time, priority) per process. Schedule outcomes, metrics and counterfactual results are never decision inputs; counterfactual objective values in this explanation are computed after the decision and are evaluation evidence only.",
+      "reasons": [
+        {
+          "evidence": {
+            "action_visits": {
+              "FCFS": 93,
+              "Priority": 0,
+              "Round Robin": 21,
+              "SJF": 0
+            },
+            "greedy_policy_name": "FCFS",
+            "policy_name": "FCFS",
+            "q_margin": 0.029453984386899612,
+            "q_values": {
+              "FCFS": -0.9374216424423707,
+              "Priority": 0.0,
+              "Round Robin": -0.9668756268292703,
+              "SJF": 0.0
+            },
+            "runner_up_policy": "Round Robin",
+            "runner_up_q": -0.9668756268292703,
+            "selection_kind": "q_learning",
+            "selection_rule": "greedy"
+          },
+          "kind": "selection_basis",
+          "statement": "Greedy selection among visited actions: Q(state, FCFS)=-0.937422 was the highest learned value (visits=93); margin over Round Robin was 0.029454. Unvisited actions are not treated as estimates."
+        },
+        {
+          "evidence": {
+            "best_cost": 0.8208572008695414,
+            "best_policy": "SJF",
+            "chosen_cost": 0.9660833522110557,
+            "costs": {
+              "FCFS": 0.9660833522110557,
+              "Priority": 1.0746694264321652,
+              "Round Robin": 1.1183900204872377,
+              "SJF": 0.8208572008695414
+            },
+            "objective": "risk_aware_v1",
+            "policy_name": "FCFS",
+            "regret": 0.1452261513415143
+          },
+          "kind": "objective_rank",
+          "statement": "Post-hoc counterfactual evidence under risk_aware_v1: FCFS scored 0.966083, which was not the hindsight minimum; SJF scored 0.820857 (regret 0.145226). The selector did not know these outcomes at decision time."
+        },
+        {
+          "evidence": {
+            "objective": "risk_aware_v1",
+            "policy_name": "FCFS",
+            "tradeoff_terms": {
+              "avg_response_time": {
+                "best_policy": "Round Robin",
+                "best_term": 0.4248642124321062,
+                "chosen_term": 1.2178636089318045
+              },
+              "avg_waiting_time": {
+                "best_policy": "SJF",
+                "best_term": 0.7064631956912029,
+                "chosen_term": 0.9057450628366248
+              },
+              "p95_waiting_time": {
+                "best_policy": "SJF",
+                "best_term": 0.9711375212224108,
+                "chosen_term": 1.0050933786078098
+              }
+            }
+          },
+          "kind": "term_tradeoff",
+          "statement": "Trade-offs: terms where FCFS was not the lowest under risk_aware_v1 -- avg_response_time: 1.217864 vs best 0.424864 (Round Robin); avg_waiting_time: 0.905745 vs best 0.706463 (SJF); p95_waiting_time: 1.005093 vs best 0.971138 (SJF)."
+        },
+        {
+          "evidence": {
+            "features": {
+              "arrival_gap_cv": 1.0455995713698596,
+              "arrival_rate": 0.5555555555555556,
+              "arrival_span": 27.0,
+              "burst_cv": 0.3767137418795401,
+              "burst_mean": 11.8,
+              "burst_skew": -0.5,
+              "first_arrival_burst_ratio": 1.0,
+              "priority_burst_correlation": -0.49486583505895415,
+              "priority_std": 1.2364824660660938,
+              "priority_unique_fraction": 0.3333333333333333,
+              "process_count": 15.0
+            },
+            "state_bins": {
+              "arrival_gap_cv": 1,
+              "burst_cv": 0,
+              "first_arrival_burst_ratio": 0,
+              "priority_burst_correlation": 0
+            }
+          },
+          "kind": "workload_characteristics",
+          "statement": "Workload characteristics used for the decision: burst_cv=0.3767 (bin 0), first_arrival_burst_ratio=1 (bin 0), arrival_gap_cv=1.046 (bin 1), priority_burst_correlation=-0.4949 (bin 0)."
+        }
+      ],
+      "regret": {
+        "is_hindsight_best": false,
+        "regret": 0.1452261513415143,
+        "regret_best_action": 1,
+        "regret_best_cost": 0.8208572008695414,
+        "regret_chosen_action": 0,
+        "regret_chosen_cost": 0.9660833522110557,
+        "regret_objective": "risk_aware_v1"
+      },
+      "schema_version": "1.0",
+      "workload_characteristics": {
+        "arrival_gap_cv": {
+          "in_state": true,
+          "state_bin": 1,
+          "value": 1.0455995713698596
+        },
+        "arrival_rate": {
+          "in_state": false,
+          "value": 0.5555555555555556
+        },
+        "arrival_span": {
+          "in_state": false,
+          "value": 27.0
+        },
+        "burst_cv": {
+          "in_state": true,
+          "state_bin": 0,
+          "value": 0.3767137418795401
+        },
+        "burst_mean": {
+          "in_state": false,
+          "value": 11.8
+        },
+        "burst_skew": {
+          "in_state": false,
+          "value": -0.5
+        },
+        "first_arrival_burst_ratio": {
+          "in_state": true,
+          "state_bin": 0,
+          "value": 1.0
+        },
+        "priority_burst_correlation": {
+          "in_state": true,
+          "state_bin": 0,
+          "value": -0.49486583505895415
+        },
+        "priority_std": {
+          "in_state": false,
+          "value": 1.2364824660660938
+        },
+        "priority_unique_fraction": {
+          "in_state": false,
+          "value": 0.3333333333333333
+        },
+        "process_count": {
+          "in_state": false,
+          "value": 15.0
+        }
+      },
+      "workload_fingerprint": "5091fb2118a9ee24",
+      "workload_name": "poisson_arrivals"
+    }
+  }
+]

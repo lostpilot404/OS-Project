@@ -1,0 +1,79 @@
+{
+  "design": {
+    "baseline_arms": [
+      "best_fixed",
+      "fingerprint_rule",
+      "random"
+    ],
+    "best_fixed_action": "SJF",
+    "held_out_families": [
+      "poisson_arrivals",
+      "heavy_tail_stress"
+    ],
+    "poor_regret_threshold": 0.1,
+    "primary_objective": "risk_aware_v1",
+    "q_arms": {
+      "ql_orig": {
+        "encoder": "legacy",
+        "objective": "original"
+      },
+      "ql_orig_fingerprint": {
+        "encoder": "fingerprint",
+        "objective": "original"
+      },
+      "ql_risk": {
+        "encoder": "fingerprint",
+        "objective": "risk_aware_v1"
+      },
+      "ql_risk_origstate": {
+        "encoder": "legacy",
+        "objective": "risk_aware_v1"
+      }
+    },
+    "random_seeds": [
+      7701,
+      7702,
+      7703,
+      7704,
+      7705
+    ],
+    "risk_objective": {
+      "reference_clip": 2.0,
+      "tail_quantile": 0.95,
+      "weights": {
+        "context_switches": 0.15,
+        "response": 0.25,
+        "tail_waiting": 0.25,
+        "waiting": 0.35
+      }
+    },
+    "test_repetitions": 30,
+    "test_seed": 19501,
+    "training_episodes": 3600,
+    "training_families": [
+      "short_jobs",
+      "long_jobs",
+      "mixed",
+      "cpu_bursty",
+      "priority_skewed",
+      "staggered_interactive"
+    ],
+    "training_seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "validation_repetitions": 16,
+    "validation_seed": 5501
+  },
+  "name": "risk_aware_offline_policy_selection",
+  "software": {
+    "matplotlib": "3.11.2",
+    "numpy": "2.4.6",
+    "pandas": "3.0.6",
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+    "python": "3.11.2"
+  }
+}

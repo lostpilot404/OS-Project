@@ -79,8 +79,15 @@ def render_readme_summary(summary: Mapping[str, object]) -> str:
 
 
 def update_readme_results(readme_path: Path, summary: Mapping[str, object]) -> None:
-    """Replace the marked README block with values derived from ``summary.json``."""
+    """Replace the marked README block with values derived from ``summary.json``.
+
+    If the README contains no generated-results marker pair the call is a no-op: the
+    legacy pipeline must not fail or rewrite documentation that no longer carries its
+    block.  A duplicated marker pair is still an error.
+    """
     content = readme_path.read_text(encoding="utf-8")
+    if content.count(BEGIN_RESULTS_MARKER) == 0 and content.count(END_RESULTS_MARKER) == 0:
+        return
     if content.count(BEGIN_RESULTS_MARKER) != 1 or content.count(END_RESULTS_MARKER) != 1:
         raise ValueError("README must contain exactly one generated-results marker pair")
     before, remainder = content.split(BEGIN_RESULTS_MARKER)

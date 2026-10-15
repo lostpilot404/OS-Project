@@ -109,9 +109,9 @@ are recorded separately; timing is host-dependent and is not charged to simulate
 
 - Illustrative validation-split Q trace (not representative): `runtime_learned_switch_demo.json` (15 policy changes across 23 decisions; training seed 7103, staggered_interactive repetition 0).
 - Demo selection rule (validation only): validation only: maximize policy switches among Q traces with zero unseen-state fallbacks; if none qualify, use all validation Q traces; break ties by ascending training seed, family, then repetition.
-- Mean Q-controller observation/selection overhead per evaluation trace: 0.253699 ms / 0.393512 ms.
-- Mean Q-controller observation/action-selection time per decision: 13.693 us / 21.239 us.
-- Mean Q training update time: 18.124 us per transition.
+- Mean Q-controller observation/selection overhead per evaluation trace: 0.275082 ms / 0.426193 ms.
+- Mean Q-controller observation/action-selection time per decision: 14.847 us / 23.003 us.
+- Mean Q training update time: 16.661 us per transition.
 
 ## Limitations and legacy reference
 
