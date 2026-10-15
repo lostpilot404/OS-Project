@@ -14,12 +14,18 @@ Splits and seeds
   for reporting, for the illustrative demo, and for the development decisions recorded in
   ``docs/DESIGN_AND_CHOICES.md``. No final-test data informed any of them.
 * **Final test**: ``final_test_seed``, ``final_test_repetitions`` traces per family. The
-  seed was declared in this file before the frozen run of the study and was not evaluated
-  with the declared system before that run. Two earlier development streams are retired as
-  evidence and are *not* reused here: the ``9401`` stream, which was used while the harness
-  was built, and the ``20501`` stream, which was touched by an early end-to-end smoke run
-  before the detector's congestion gate and the verification rule were finalised. Reusing
-  either would mean reporting held-out numbers that had already been seen.
+  seed is declared in this file **before** the frozen run of the study and is never used for
+  any development decision. Five earlier streams are retired as evidence and are not reused:
+  the ``9401`` stream, which was used while the harness was built; the ``20501`` stream, which
+  was touched by an early end-to-end smoke run before the detector's congestion gate was
+  finalised; and the ``20719``, ``21617`` and ``72601`` streams, each of which was declared as
+  a held-out seed, evaluated once and then *examined* while the system was still changing
+  (phase-aware residual boundaries with accepted/rejected/inconclusive verdicts, the
+  truncated-window rollback rule, the matched-counterfactual audit and its denominators).
+  Reporting any of them again would mean quoting a held-out number that a later version of the
+  system was built against; the declared stream ``21977`` is the only one evaluated with the
+  frozen implementation, and it is refused as a development seed by
+  :meth:`HealingExperimentConfig.__post_init__`.
 
 Workload seeds are derived with split-specific tags, so training, validation and final
 test cannot share a workload instance even in principle.
@@ -106,8 +112,16 @@ class HealingExperimentConfig:
     training_seeds: Tuple[int, ...] = (7101, 7102, 7103, 7104, 7105)
     training_episodes_per_seed: int = 1200
     validation_seed: int = 8201
-    #: Declared before the frozen run; ``20501`` was retired after a development smoke run.
-    final_test_seed: int = 20719
+    #: Declared on 2026-10-15, *before* the frozen run of the repaired verification rule and
+    #: the matched-counterfactual audit, and never evaluated with any earlier version of the
+    #: system.
+    final_test_seed: int = 21977
+    #: Streams that were already used to make development decisions and must not come back.
+    #: 20501 and 20719 were consumed by the earlier single-threshold verification rule; 21617
+    #: was used to check the repaired loop end to end during development, and 72601 was
+    #: touched by audit/coverage development. Their tables are development evidence, never
+    #: held-out results, and the guard below makes that structural rather than a promise.
+    retired_final_test_seeds: Tuple[int, ...] = (20501, 20719, 21617, 72601)
     validation_repetitions: int = 20
     final_test_repetitions: int = 30
     bootstrap_replicates: int = 1000
@@ -146,6 +160,12 @@ class HealingExperimentConfig:
         split_seeds = (self.validation_seed, self.final_test_seed)
         if self.validation_seed == self.final_test_seed:
             raise ConfigurationError("validation and final-test seeds must differ")
+        if self.final_test_seed in self.retired_final_test_seeds:
+            raise ConfigurationError(
+                f"final-test seed {self.final_test_seed} was already used: pick a fresh stream"
+            )
+        if set(self.retired_final_test_seeds) & set(self.training_seeds):
+            raise ConfigurationError("a retired stream cannot be reused as a training seed")
         if set(split_seeds) & set(self.training_seeds):
             raise ConfigurationError("training and evaluation master seeds must differ")
         if any(seed < 0 for seed in (*self.training_seeds, *split_seeds)):

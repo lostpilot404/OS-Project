@@ -12,11 +12,13 @@ scheduler of :mod:`scheduler.runtime` for one complete workload trace:
    the evidence behind it (:mod:`healing.diagnosis`);
 4. **act** -- the recovery policy (predeclared rule or tabular Q-learning) selects one of
    eight recovery actions and the configuration is applied to the very next dispatch;
-5. **verify** -- the realized waiting times of the processes completed during the
-   observation window are compared with the trigger reference;
+5. **verify** -- the window's own load closure is compared with two declared boundaries
+   derived from the no-action control (:mod:`healing.verifier`), which yields *accepted*,
+   *rejected* or *inconclusive*;
 6. **accept, roll back, or fall back** -- a verified improvement is accepted and becomes
-   the new known-good configuration; otherwise the controller rolls back to the last
-   accepted configuration, and after repeated failures it pins that configuration and
+   the new known-good configuration; a rejected or inconclusive change is rolled back to
+   the last accepted configuration, and after repeated *rejected* interventions (confirmed
+   failures -- ambiguity is not enough) it pins that configuration as a safe fallback and
    stops adapting for the remainder of the trace;
 7. **record** -- every incident keeps its trigger evidence, diagnosis, action, verification
    result, realized switch overhead and outcome, so any claim can be traced to a log line.
@@ -62,6 +64,16 @@ from healing.policies import (
     HealingPolicy,
     PolicyChoice,
 )
+from healing.verifier import (
+    ALL_VERDICTS,
+    VERDICT_ACCEPTED,
+    VERDICT_HELD,
+    VERDICT_INCONCLUSIVE,
+    VERDICT_REJECTED,
+    TriggerPhase,
+    VerificationEvidence,
+    verify,
+)
 from scheduler.runtime import (
     RuntimeActionDecision,
     RuntimeDecisionRecord,
@@ -77,13 +89,9 @@ __all__ = [
     "VERDICTS",
 ]
 
-#: Possible outcomes of a recovery window.
-VERDICTS: Tuple[str, ...] = (
-    "accepted",
-    "rolled_back",
-    "held",
-    "censored",
-)
+#: Possible outcomes of a recovery window: the three intervention verdicts of
+#: :mod:`healing.verifier` plus ``held`` for an incident that changed nothing.
+VERDICTS: Tuple[str, ...] = ALL_VERDICTS
 
 
 @dataclass(frozen=True)
@@ -127,6 +135,11 @@ class IncidentRecord:
     epsilon: float
     explored: bool
     verdict: str
+    verifier_reason: str
+    confirmed_failure: bool
+    consecutive_failures: int
+    window_truncated: bool
+    forced_hold: bool
     verification_decisions: int
     verification_completions: int
     post_window_mean: Optional[float]
@@ -139,7 +152,12 @@ class IncidentRecord:
     load_improvement: Optional[float]
     load_improvement_band_units: Optional[float]
     closure_fraction: Optional[float]
+    closure_residual: Optional[float]
+    expected_closure: float
     required_closure_factor: float
+    reject_closure_factor: float
+    accept_residual_factor: float
+    reject_residual_factor: float
     cost_band_units: float
     reward: Optional[float]
     rollback_target: Optional[SchedulerSettings]
@@ -153,15 +171,17 @@ class IncidentRecord:
         return self.action_changed
 
     @property
-    def is_false_recovery(self) -> bool:
-        """In-run indicator: an intervention that failed verification or was inconclusive.
+    def is_unverified_intervention(self) -> bool:
+        """In-run indicator: an intervention that was not verified (rejected or inconclusive).
 
         This is the signal the system itself can observe while running. The independent
-        measure used by the study is the counterfactual replay audit
-        (:mod:`experiments.healing_experiment`), which asks what would have happened
-        had the controller held instead of acting.
+        ground truth used by the study is the counterfactual replay audit
+        (:mod:`experiments.healing_experiment`), which asks what would have happened had
+        the same controller held instead of applying this action. The two agree poorly on
+        purpose: the audit knows the future, the verifier does not (see
+        ``docs/EVALUATION_RESULTS.md``).
         """
-        return self.action_changed and self.verdict in ("rolled_back", "censored")
+        return self.action_changed and self.verdict in (VERDICT_REJECTED, VERDICT_INCONCLUSIVE)
 
     def as_row(self) -> Dict[str, Any]:
         """Flatten the record into one CSV row."""
@@ -200,6 +220,11 @@ class IncidentRecord:
             "epsilon": self.epsilon,
             "explored": self.explored,
             "verdict": self.verdict,
+            "verifier_reason": self.verifier_reason,
+            "confirmed_failure": self.confirmed_failure,
+            "consecutive_failures": self.consecutive_failures,
+            "window_truncated": self.window_truncated,
+            "forced_hold": self.forced_hold,
             "verification_decisions": self.verification_decisions,
             "verification_completions": self.verification_completions,
             "post_window_mean": self.post_window_mean,
@@ -212,7 +237,12 @@ class IncidentRecord:
             "load_improvement": self.load_improvement,
             "load_improvement_band_units": self.load_improvement_band_units,
             "closure_fraction": self.closure_fraction,
+            "closure_residual": self.closure_residual,
+            "expected_closure": self.expected_closure,
             "required_closure_factor": self.required_closure_factor,
+            "reject_closure_factor": self.reject_closure_factor,
+            "accept_residual_factor": self.accept_residual_factor,
+            "reject_residual_factor": self.reject_residual_factor,
             "cost_band_units": self.cost_band_units,
             "reward": self.reward,
             "rollback_target_policy": (
@@ -268,8 +298,10 @@ class EpisodeRecord:
     interventions: int
     holds: int
     accepted: int
-    rolled_back: int
-    censored: int
+    rejected: int
+    inconclusive: int
+    unverified: int
+    confirmed_failures: int
     fallback_triggered: bool
     interventions_used: int
     settings_initial: SchedulerSettings
@@ -285,8 +317,10 @@ class EpisodeRecord:
             "interventions": self.interventions,
             "holds": self.holds,
             "accepted": self.accepted,
-            "rolled_back": self.rolled_back,
-            "censored": self.censored,
+            "rejected": self.rejected,
+            "inconclusive": self.inconclusive,
+            "unverified": self.unverified,
+            "confirmed_failures": self.confirmed_failures,
             "fallback_triggered": self.fallback_triggered,
             "interventions_used": self.interventions_used,
             "settings_initial_policy": self.settings_initial.policy_name,
@@ -316,6 +350,7 @@ class _PendingIncident:
     choice: PolicyChoice
     offered_actions: str
     changed: bool
+    forced_hold: bool
     action: int
     action_note: str
     settings_before: SchedulerSettings
@@ -330,6 +365,7 @@ class _PendingIncident:
     waiting: List[int] = field(default_factory=list)
     window_accrued_wait: int = 0
     window_duration: int = 0
+    truncated: bool = False
 
 
 class SelfHealingController:
@@ -344,6 +380,7 @@ class SelfHealingController:
         initial_policy: int = ACTION_FCFS,
         initial_quantum: Optional[int] = None,
         label: str = "self-healing",
+        forced_holds: Sequence[int] = (),
     ) -> None:
         """Create a controller.
 
@@ -357,6 +394,13 @@ class SelfHealingController:
                 part of the experiment design, not of the controller.
             initial_quantum: Quantum in force at the start of every trace.
             label: Human-readable arm label used in logs and artifacts.
+            forced_holds: Indices of incidents at which the controller must *not* act, even
+                though the detector fired. This is the hook the offline counterfactual
+                audit uses: re-running the whole controller with one incident forced to
+                hold measures what that single intervention was worth under the same
+                policy and the same workload. It is a declared property of the run (known
+                before it starts) and it never lets the controller see an outcome it could
+                not see online.
 
         Raises:
             ValidationError: If any argument is invalid.
@@ -379,6 +423,11 @@ class SelfHealingController:
         self._encoder = HealingContextEncoder(config)
         self._initial_settings = SchedulerSettings(policy=initial_policy, quantum=quantum)
         self._label = label
+        if isinstance(forced_holds, (int, str)) or not hasattr(forced_holds, "__iter__"):
+            raise ValidationError("forced_holds must be an iterable of incident indices")
+        self._forced_holds = frozenset(int(index) for index in forced_holds)
+        if any(index < 0 for index in self._forced_holds):
+            raise ValidationError("forced_holds indices must be >= 0")
         self._monitor = CausalMonitor(config)
         self._detector = DegradationDetector(config)
         self._episodes: List[EpisodeRecord] = []
@@ -578,9 +627,15 @@ class SelfHealingController:
             ),
         )
         allowed = available_actions(self._settings, self._last_accepted, self._config)
-        choice = self._policy.select(
-            context, training=training, episode=episode, allowed_actions=allowed
-        )
+        forced_hold = len(self._episode_incidents) in self._forced_holds
+        if forced_hold:
+            # Counterfactual replay: the same controller, the same workload, the same
+            # diagnosis -- but this one incident holds the configuration instead of acting.
+            choice = PolicyChoice(action=HOLD, note="forced-hold-counterfactual")
+        else:
+            choice = self._policy.select(
+                context, training=training, episode=episode, allowed_actions=allowed
+            )
         applied = apply_healing_action(
             choice.action,
             current=self._settings,
@@ -619,6 +674,7 @@ class SelfHealingController:
                 HEALING_ACTION_NAMES[action] for action in allowed
             ),
             changed=changed,
+            forced_hold=forced_hold,
             action=choice.action,
             action_note=applied.note,
             settings_before=settings_before,
@@ -683,13 +739,16 @@ class SelfHealingController:
         pending: _PendingIncident,
         *,
         verdict: str,
+        verifier_reason: str,
+        confirmed_failure: bool,
+        consecutive_failures: int,
+        outcome: Any,
         improvement: Optional[float],
         post_mean: Optional[float],
         post_load: Optional[float],
         load_improvement: Optional[float],
         load_improvement_band: Optional[float],
         closure: Optional[float],
-        required: Optional[float],
         reward: float,
         improvement_band_units: Optional[float],
         cost_band_units: float,
@@ -731,6 +790,11 @@ class SelfHealingController:
             epsilon=pending.choice.epsilon,
             explored=pending.choice.explored,
             verdict=verdict,
+            verifier_reason=verifier_reason,
+            confirmed_failure=confirmed_failure,
+            consecutive_failures=consecutive_failures,
+            window_truncated=pending.truncated,
+            forced_hold=pending.forced_hold,
             verification_decisions=pending.decisions,
             verification_completions=pending.completions,
             post_window_mean=post_mean,
@@ -743,7 +807,12 @@ class SelfHealingController:
             load_improvement=load_improvement,
             load_improvement_band_units=load_improvement_band,
             closure_fraction=closure,
-            required_closure_factor=self._config.accept_closure_factor,
+            closure_residual=outcome.residual,
+            expected_closure=outcome.expected,
+            required_closure_factor=outcome.required_closure,
+            reject_closure_factor=outcome.reject_closure,
+            accept_residual_factor=outcome.required_residual,
+            reject_residual_factor=outcome.reject_residual,
             cost_band_units=cost_band_units,
             reward=reward,
             rollback_target=rollback_target,
@@ -753,6 +822,22 @@ class SelfHealingController:
         )
         self._episode_incidents.append(record)
         return record
+
+    def _phase(self, pending: _PendingIncident) -> TriggerPhase:
+        """Return the trigger phase the phase-aware verification baseline reads.
+
+        Every quantity comes from the trigger snapshot or from the incident's own record of
+        the trigger epoch, so the baseline stays a causal comparison with the situation the
+        controller actually faced.
+        """
+        snapshot = pending.snapshot
+        return TriggerPhase(
+            excess_band_units=snapshot.excess_band_units,
+            relative_band=snapshot.relative_band,
+            load_band=pending.load_band_at_trigger,
+            trigger_load=pending.trigger_load_level,
+            reference_load=pending.pre_load_level,
+        )
 
     def _load_closure(self, pending: _PendingIncident) -> Tuple[Optional[float], Optional[float], Optional[float]]:
         """Return ``(post_load, closure_fraction, gap_denominator)`` for one window.
@@ -777,14 +862,16 @@ class SelfHealingController:
     def _conclude_pending(self, pending: _PendingIncident) -> None:
         """Judge one recovery window: accept, roll back, or register a hold.
 
-        The verdict uses the *load-closure* statistic: the fraction of the gap between the
-        load observed at the trigger and the trace's normal load that the window closed.
-        The previous rule (absolute improvement relative to the trace's normal level) had a
-        measured no-action expectation of about two dispersion-band widths on the hold-only
-        control, so it accepted 95 % of the interventions that changed nothing; the closure
-        statistic is centred on the no-action behaviour of the same measurement. The
-        learning reward is that same statistic minus the declared intervention cost, so
-        holding beats a change that does not help.
+        The verdict is produced by :func:`healing.verifier.verify` from the *load-closure*
+        statistic: the fraction of the gap between the load observed at the trigger and the
+        trace's normal load that the window closed. The previous rule (absolute improvement
+        relative to the trace's normal level) had a measured no-action expectation of about
+        two dispersion-band widths on the hold-only control, so it accepted 95 % of the
+        interventions that changed nothing; the closure statistic is centred on the no-action
+        behaviour of the same measurement, and both of its boundaries are its measured
+        percentiles on that control. The learning reward is that same statistic minus the
+        declared intervention cost -- and minus the rollback penalty only when the window
+        *confirmed* a failure, never when the evidence was merely insufficient.
         """
         config = self._config
         self._pending = None
@@ -814,39 +901,46 @@ class SelfHealingController:
             load_improvement = (pending.pre_load_level - post_load) / pre_load
             load_improvement_band = (pending.pre_load_level - post_load) / load_band
 
-        required_closure = config.accept_closure_factor
+        evidence = VerificationEvidence(
+            changed=pending.changed,
+            closure_fraction=closure,
+            phase=self._phase(pending),
+            window_decisions=pending.decisions,
+            window_completions=pending.completions,
+            window_duration=pending.window_duration,
+        )
+        outcome = verify(evidence, config)
+        verdict = outcome.verdict
+        # The learning reward is the verifier's own phase-aware score minus its declared
+        # accept boundary: the same causal statistic the verdict is taken on, so learning
+        # cannot be rewarded for something the verifier could not see.
+        observed = 0.0 if outcome.residual is None else outcome.residual
+        baseline = config.accept_residual_factor
         rollback_target: Optional[SchedulerSettings] = None
         charged_cost = cost_band if pending.changed else 0.0
-        observed = 0.0 if closure is None else closure
-        if not pending.changed:
+        rollback_penalty_band = self._band_scaled(
+            config.rollback_penalty * reference, snapshot
+        )
+        if outcome.verdict == VERDICT_HELD:
             # Doing nothing carries no cost and keeps its own evidence, but it is scored on
             # exactly the same scale as a change, so holding is preferred only when the
-            # statsistic *and* the saved cost justify it.
-            verdict = "held"
-            reward = observed - required_closure
-        elif closure is None:
-            verdict = "rolled_back"
-            reward = -(
-                charged_cost
-                + self._band_scaled(config.rollback_penalty * reference, snapshot)
-            )
-            rollback_target = self._last_accepted
-            self._consecutive_failures += 1
-        elif closure >= required_closure:
-            verdict = "accepted"
-            reward = observed - required_closure - charged_cost
+            # statistic *and* the saved cost justify it.
+            reward = observed - baseline
+        elif outcome.accepted:
+            reward = observed - baseline - charged_cost
             self._last_accepted = pending.settings_after
             self._consecutive_failures = 0
-        else:
-            verdict = "rolled_back"
-            reward = (
-                observed
-                - required_closure
-                - charged_cost
-                - self._band_scaled(config.rollback_penalty * reference, snapshot)
-            )
+        elif outcome.confirmed_failure:
+            reward = observed - baseline - charged_cost - rollback_penalty_band
             rollback_target = self._last_accepted
             self._consecutive_failures += 1
+        else:
+            # Inconclusive: the change is still undone (the loop never keeps a configuration
+            # it could not verify) but no failure is charged, so ambiguity cannot drive the
+            # safe fallback and cannot teach the controller that the action was harmful.
+            reward = observed - baseline - charged_cost
+            if outcome.rollback_required:
+                rollback_target = self._last_accepted
 
         fallback = False
         if rollback_target is not None:
@@ -856,23 +950,27 @@ class SelfHealingController:
                 self._fallback_triggered = True
                 fallback = True
 
-        next_context = self._context_for_learning(pending)
-        self._policy.observe_outcome(
-            pending.context,
-            pending.choice,
-            reward,
-            next_context,
-            terminal=False,
-            training=self._training,
-        )
+        if not pending.forced_hold:
+            next_context = self._context_for_learning(pending)
+            self._policy.observe_outcome(
+                pending.context,
+                pending.choice,
+                reward,
+                next_context,
+                terminal=False,
+                training=self._training,
+            )
         self._emit_incident(
             pending,
             verdict=verdict,
+            verifier_reason=outcome.reason,
+            confirmed_failure=outcome.confirmed_failure,
+            consecutive_failures=self._consecutive_failures,
+            outcome=outcome,
+            reward=reward,
             improvement=improvement,
             post_mean=post_mean,
             closure=closure,
-            required=required_closure,
-            reward=reward,
             improvement_band_units=improvement_band,
             post_load=post_load,
             load_improvement=load_improvement,
@@ -908,13 +1006,20 @@ class SelfHealingController:
     def end_episode(self) -> EpisodeRecord:
         """Close the current trace and return its healing summary.
 
-        A verification window that is still open when the trace ends is recorded as
-        ``censored``: the ledger says explicitly that the outcome is unknown instead of
-        silently counting it as a success or a failure. Its partial evidence still forms
-        the terminal learning update.
+        A verification window that is still open when the trace ends is recorded as an
+        ``inconclusive`` interruption with ``window_truncated`` set: the ledger says
+        explicitly that the evidence is incomplete instead of silently counting it as a
+        success or a failure. Its partial evidence still forms the terminal learning
+        update, and it carries neither the rollback penalty nor a failure count.
         """
         if self._episode_index < 0:
             raise ValidationError("no episode is open")
+        if self._pending_rollback is not None:
+            # A verdict reached on the last decision of the trace cannot wait for a next
+            # epoch: the rollback is applied here so ``settings_final`` is the configuration
+            # the episode actually leaves in force rather than the one that was rejected.
+            self._settings = self._pending_rollback
+            self._pending_rollback = None
         if self._pending is not None:
             pending = self._pending
             self._pending = None
@@ -940,31 +1045,53 @@ class SelfHealingController:
                     pending.load_band_at_trigger, 1e-9
                 )
             charged_cost = cost_band if pending.changed else 0.0
-            reward = (
-                0.0 if closure is None else closure
-            ) - self._config.accept_closure_factor - charged_cost
-            next_context = self._context_for_learning(pending)
-            self._policy.observe_outcome(
-                pending.context, pending.choice, reward, next_context,
-                terminal=True, training=self._training,
+            pending.truncated = True
+            evidence = VerificationEvidence(
+                changed=pending.changed,
+                closure_fraction=closure,
+                phase=self._phase(pending),
+                window_decisions=pending.decisions,
+                window_completions=pending.completions,
+                window_duration=pending.window_duration,
+                truncated=bool(pending.changed),
             )
-            # A window that never changed the configuration is a hold (nothing was risked);
-            # only a real, unverified configuration change is censored.
-            verdict = "censored" if pending.changed else "held"
+            outcome = verify(evidence, self._config)
+            reward = (
+                (0.0 if outcome.residual is None else outcome.residual)
+                - self._config.accept_residual_factor
+                - charged_cost
+            )
+            if not pending.forced_hold:
+                next_context = self._context_for_learning(pending)
+                self._policy.observe_outcome(
+                    pending.context, pending.choice, reward, next_context,
+                    terminal=True, training=self._training,
+                )
+            # The interrupted window carries exactly the consequence its verdict implies:
+            # an inconclusive change follows the declared posture (rollback) even when the
+            # trace ends right here, so the ledger never claims a change was kept that the
+            # declared rule would have reverted. Nothing runs after this epoch, so this is a
+            # bookkeeping statement about ``settings_final``.
+            truncated_rollback = self._last_accepted if outcome.rollback_required else None
+            if truncated_rollback is not None:
+                self._settings = truncated_rollback
             self._emit_incident(
                 pending,
-                verdict=verdict,
+                verdict=outcome.verdict,
+                verifier_reason=outcome.reason,
+                confirmed_failure=outcome.confirmed_failure,
+                consecutive_failures=self._consecutive_failures,
+                outcome=outcome,
                 improvement=improvement,
                 post_mean=post_mean,
                 post_load=post_load,
                 load_improvement=load_improvement,
                 load_improvement_band=load_improvement_band,
                 closure=closure,
-                required=None,
                 reward=reward,
                 improvement_band_units=improvement_band,
                 cost_band_units=charged_cost,
-                rollback_target=None,
+                rollback_target=truncated_rollback,
                 fallback=False,
             )
 
@@ -975,9 +1102,13 @@ class SelfHealingController:
             incidents=incidents,
             interventions=sum(1 for item in incidents if item.action_changed),
             holds=sum(1 for item in incidents if not item.action_changed),
-            accepted=sum(1 for item in incidents if item.verdict == "accepted"),
-            rolled_back=sum(1 for item in incidents if item.verdict == "rolled_back"),
-            censored=sum(1 for item in incidents if item.verdict == "censored"),
+            accepted=sum(1 for item in incidents if item.verdict == VERDICT_ACCEPTED),
+            rejected=sum(1 for item in incidents if item.verdict == VERDICT_REJECTED),
+            inconclusive=sum(
+                1 for item in incidents if item.verdict == VERDICT_INCONCLUSIVE
+            ),
+            unverified=sum(1 for item in incidents if item.is_unverified_intervention),
+            confirmed_failures=sum(1 for item in incidents if item.confirmed_failure),
             fallback_triggered=self._fallback_triggered,
             interventions_used=self._interventions_used,
             settings_initial=self._initial_settings,

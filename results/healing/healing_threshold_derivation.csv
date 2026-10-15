@@ -8,6 +8,30 @@ null_closure_p95,2.3753,training
 derived_accept_closure_factor,2.4,training (95th percentile of the null closure)
 declared_accept_closure_factor,2.4,healing/config.py HealingConfig
 declared_false_accept_rate_on_control,0.0452,training (control)
+baseline_r2,0.8194,"training (control, least squares)"
+baseline_residual_sd,0.3388,training (control residual)
+control_residual_p95,0.6209,training (95th percentile of the residual)
+control_residual_p05,-0.4083,training (5th percentile of the residual)
+derived_accept_residual_factor,0.65,"training (control residual p95, rounded outward)"
+derived_reject_residual_factor,-0.45,"training (control residual p05, rounded outward)"
+declared_accept_residual_factor,0.65,healing/config.py HealingConfig
+declared_reject_residual_factor,-0.45,healing/config.py HealingConfig
+declared_false_accept_residual_rate_on_control,0.0466,"training (control, declared rule)"
+declared_false_reject_residual_rate_on_control,0.0391,"training (control, declared rule)"
+validation_false_accept_residual_rate,0.0306,"validation (control, out of sample)"
+validation_false_reject_residual_rate,0.0612,"validation (control, out of sample)"
+fitted_closure_baseline[intercept],-0.115627,"training (control, least squares)"
+fitted_closure_baseline[excess_band_units],0.01875,"training (control, least squares)"
+fitted_closure_baseline[relative_band],0.352731,"training (control, least squares)"
+fitted_closure_baseline[load_band_at_trigger],-0.422894,"training (control, least squares)"
+fitted_closure_baseline[trigger_load_level],0.168484,"training (control, least squares)"
+fitted_closure_baseline[reference_load_level],0.113165,"training (control, least squares)"
+declared_closure_baseline[intercept],-0.1156,healing/config.py HealingConfig
+declared_closure_baseline[excess_band_units],0.0187,healing/config.py HealingConfig
+declared_closure_baseline[relative_band],0.3527,healing/config.py HealingConfig
+declared_closure_baseline[load_band_at_trigger],-0.4229,healing/config.py HealingConfig
+declared_closure_baseline[trigger_load_level],0.1685,healing/config.py HealingConfig
+declared_closure_baseline[reference_load_level],0.1132,healing/config.py HealingConfig
 control_incidents_per_trace@min_load_factor=0.0,1.5167,training (stride 10)
 control_incidents_per_trace@min_load_factor=0.5,1.475,training (stride 10)
 control_incidents_per_trace@min_load_factor=0.8,1.0517,training (stride 10)

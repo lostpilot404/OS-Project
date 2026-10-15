@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Tuple
 
 from config import ACTION_FCFS
 from errors import ConfigurationError
@@ -86,21 +87,44 @@ class HealingConfig:
         verify_decisions, verify_completions, verify_max_decisions: A recovery window
             closes after ``verify_decisions`` decisions and at least
             ``verify_completions`` completions, or at ``verify_max_decisions`` regardless.
-        accept_closure_factor: The declared verification rule. An intervention is accepted
-            only if the *normalised load closure* of the recovery window is at least this
-            large, i.e. ``(trigger_load - post_load) / max(trigger_load - reference_load,
-            load_band) >= accept_closure_factor``; otherwise the configuration is rolled
-            back to the last accepted one. All three quantities are observed before the
-            verdict, so the rule is causal and scale-free. The declared value is derived by
-            :mod:`experiments.healing_thresholds` from the null distribution of the
-            statistic on the *no-action control* over the training split: the control's
-            95th percentile is the smallest value whose false-accept rate under "nothing
-            changed" is at most 5 %, measured at 2.38 and declared as 2.4. A value above 1
-            is expected and is itself a finding -- the trace drains after a trigger (the
-            mean load falls from about 10 to about 6 waiting processes in the control)
-            faster than any recovery action can change it, so the rule is deliberately
-            strict: it never reports an unverified improvement as a success.
-        max_consecutive_failures: Consecutive rollbacks that trigger the safe fallback.
+        accept_closure_factor, reject_closure_factor: The *unconditional* boundaries of the
+            closure statistic, i.e. ``(trigger_load - post_load) / max(trigger_load -
+            reference_load, load_band)`` compared with a single constant. They are kept
+            because they are the simple rule this design replaces, and the study reports
+            both; the verdict itself uses the phase-aware rule below because the
+            unconditional one was measured to waste most of the available discrimination
+            (the trigger's own load geometry explains 82 % of the statistic's no-action
+            variance, so a single marginal percentile is a poor null).
+        closure_baseline: Coefficients ``(intercept, excess, relative_band, load_band,
+            trigger_load, reference_load)`` of the linear **phase-aware baseline** of the
+            closure statistic, in that order. ``excess`` is the detection excess in
+            dispersion-band units, ``relative_band`` is the waiting-dispersion band divided
+            by the reference waiting time, and the three load features are the queue-length
+            level at the trigger, its dispersion band and the trace's own normal level.
+            Every one of them is observable at the trigger epoch, so subtracting the
+            baseline stays causal. The coefficients are fitted by
+            :mod:`experiments.healing_thresholds` on the *no-action control of the training
+            split* (least squares, no other data), so the residual is the part of the
+            observed closure that the trace's own phase does not explain.
+        accept_residual_factor, reject_residual_factor: The two declared boundaries of the
+            phase-aware rule implemented in :mod:`healing.verifier`:
+            ``residual >= accept_residual_factor`` accepts the change,
+            ``residual <= reject_residual_factor`` confirms that it failed, anything else is
+            *inconclusive*. Both are percentile points of the same control residual
+            distribution (95th and 5th, rounded outward, i.e. towards fewer errors), so the
+            verifier's measured false-accept and false-reject rates on the control are each
+            at most 5 %. Development measurement of why the rule is phase-aware: an
+            intervention moves the raw closure by only about +0.14 units against a control
+            spread of 0.80 (paired measurement on the validation split), so no single-window
+            rule can certify more than a small share of beneficial interventions; conditioning
+            on the trigger phase shrinks the null spread to 0.34 and more than doubles the
+            measured accept rate of real interventions (2.9 % -> 7.8 % on validation) at an
+            unchanged false-accept budget. Both facts are reported in the artifacts rather
+            than hidden: the verifier is a *safety* filter, not a benefit estimator.
+        inconclusive_rollback: What happens to a change whose window is inconclusive. See the
+            field docstring; the two postures are compared on the validation split only.
+        max_consecutive_failures: Consecutive *confirmed* failures that trigger the safe
+            fallback. Ambiguity is not a failure and never reaches this counter.
         fallback_policy: Configuration pinned by the safe fallback when a previous
             accepted configuration is unavailable.
 
@@ -153,8 +177,27 @@ class HealingConfig:
     verify_completions: int = 3
     verify_max_decisions: int = 14
     accept_closure_factor: float = 2.4
+    reject_closure_factor: float = 0.0
+    closure_baseline: Tuple[float, ...] = (
+        -0.1156,
+        0.0187,
+        0.3527,
+        -0.4229,
+        0.1685,
+        0.1132,
+    )
+    accept_residual_factor: float = 0.65
+    reject_residual_factor: float = -0.45
     max_consecutive_failures: int = 2
     fallback_policy: int = ACTION_FCFS
+    #: Consequence of an *inconclusive* window (a change the rule could neither verify nor
+    #: reject). ``True`` reverts it to the last accepted configuration -- the declared
+    #: safety posture: the loop never keeps a configuration it could not verify. ``False``
+    #: keeps it in force without certifying it, counting it as a failure or rewarding it as
+    #: a success. The value is decided by the validation-split comparison recorded in
+    #: ``docs/EVALUATION_RESULTS.md`` (rollback vs keep, identical rule and thresholds);
+    #: the held-out split is never used to choose it.
+    inconclusive_rollback: bool = True
     # Diagnosis
     head_block_factor: float = 4.0
     head_block_min_ready: int = 3
@@ -198,6 +241,27 @@ class HealingConfig:
         if self.verify_max_decisions < self.verify_decisions:
             raise ConfigurationError("verify_max_decisions must be >= verify_decisions")
         _require_finite(self.accept_closure_factor, "accept_closure_factor")
+        _require_finite(self.reject_closure_factor, "reject_closure_factor")
+        if self.reject_closure_factor >= self.accept_closure_factor:
+            raise ConfigurationError(
+                "reject_closure_factor must be below accept_closure_factor"
+            )
+        if len(self.closure_baseline) != 6:
+            raise ConfigurationError(
+                "closure_baseline must hold the intercept and five phase coefficients"
+            )
+        for value in self.closure_baseline:
+            if not math.isfinite(float(value)):
+                raise ConfigurationError("closure_baseline coefficients must be finite")
+        _require_finite(self.accept_residual_factor, "accept_residual_factor")
+        if not isinstance(self.inconclusive_rollback, bool):
+            raise ConfigurationError("inconclusive_rollback must be a bool")
+        if self.reject_residual_factor >= self.accept_residual_factor:
+            raise ConfigurationError(
+                "reject_residual_factor must be below accept_residual_factor"
+            )
+        if not math.isfinite(float(self.reject_residual_factor)):
+            raise ConfigurationError("reject_residual_factor must be finite")
         _require_finite(self.min_load_factor, "min_load_factor")
         _require_positive_int(self.max_consecutive_failures, "max_consecutive_failures")
         if self.fallback_policy not in range(4):

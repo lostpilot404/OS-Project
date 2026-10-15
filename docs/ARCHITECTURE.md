@@ -55,7 +55,8 @@ visualization/    figures rendered from the study artifacts
 | `diagnosis.py` | `build_ready_evidence` + `diagnose`: a fixed-precedence mapping from *visible* ready-set evidence to one primary category (head-of-line blocking, fairness starvation, priority-ordering anomaly, tail dispersion, queue congestion) or `unexplained`, with the matched evidence attached |
 | `actions.py` | the 8-action recovery space, `SchedulerSettings`, `apply_healing_action`, and the no-op rule: an action that cannot change the live configuration reports `changed=False` and is never counted as an intervention |
 | `policies.py` | `HealingContext` + `HealingContextEncoder` (648 states), `MappedRulePolicy` (predeclared diagnosis→action rules), `HoldOnlyPolicy` (the detection control), `QLearningHealingPolicy` (epsilon-greedy with forced first visits, masked exploration and masked bootstrapping; greedy and read-only during evaluation) |
-| `controller.py` | `SelfHealingController`: the state machine (idle → verification window open → verdict), the incident ledger, the reward assignment, the rollback at the next epoch, the safe fallback, and the counterfactual replay helpers |
+| `verifier.py` | `verify(VerificationEvidence, config) -> VerificationOutcome`: the tri-state verdict. It subtracts the declared **phase model** (intercept + excess, band, load band, trigger load, reference load and window length, fitted on the training control) from the window's closure statistic and compares the residual with the declared accept / reject boundaries; it also refuses to judge a window with too little telemetry (`insufficient_evidence_thin_telemetry`, `insufficient_evidence_window_truncated`). `rollback_required` folds in the declared `inconclusive_rollback` posture |
+| `controller.py` | `SelfHealingController`: the state machine (idle → verification window open → verdict), the incident ledger, the reward assignment, the rollback at the next epoch, the safe fallback, and the counterfactual replay helpers (`forced_holds`) |
 
 ### `experiments/` and `evaluation/`
 
@@ -64,8 +65,14 @@ visualization/    figures rendered from the study artifacts
 * `healing_experiment.py` — training, per-split evaluation of every arm, detection summary,
   the 10 predeclared paired comparisons, the counterfactual audit, the action-effect probe,
   Q-table coverage, demo selection and the generated report.
-* `healing_thresholds.py` — derives `min_load_factor`'s effect and `accept_closure_factor`
-  from the **no-action control** on the training split.
+* `healing_thresholds.py` — derives the declared boundaries from the **no-action control** on
+  the training split: the congestion gate's effect, the null distribution of the closure
+  statistic (p50/p90/p95), the phase model (`closure_baseline`) and its residual percentiles,
+  plus the measured false-accept / false-reject rates of the declared rule on that control and
+  out of sample on the validation control.
+* `healing_detection.py` — controlled-degradation scenarios (`burst_shock`, `arrival_storm`)
+  injected into real validation traces, run on the hold-only control, and summarised into
+  recall, a precision proxy, detection delay and false triggers per stable trace.
 * `evaluation/paired.py` — family-stratified, crossed-bootstrap paired differences shared
   with the runtime appendix.
 * `evaluation/metrics.py` — `compute_metrics(ScheduleResult)` → waiting/turnaround/response
@@ -82,11 +89,15 @@ visualization/    figures rendered from the study artifacts
 3. `SelfHealingController` maintains the monitor and detector. On a detected event it
    diagnoses, builds the context, asks the policy (with a masked action set), applies the
    action, and opens a verification window.
-4. When the window closes, the controller computes the closure statistic, decides
-   accepted/rolled_back, updates the learned policy from the reward, records the incident,
-   and schedules the rollback if needed.
-5. `end_episode()` closes the ledger, converting a still-open window into a `censored`
-   record rather than silently discarding it.
+4. When the window closes, `healing/verifier.py` turns the evidence into one of four
+   outcomes — `accepted`, `rejected` (a confirmed failure), `inconclusive` (insufficient
+   evidence) or `held` (nothing was changed) — the controller applies the declared posture
+   (`accepted` keeps the change, `rejected` and `inconclusive` roll back to the last accepted
+   configuration), updates the learned policy from the reward, and records the incident.
+5. `end_episode()` closes the ledger. A window still open at the trace end is concluded as
+   `inconclusive` with the explicit reason `insufficient_evidence_window_truncated` and
+   follows the same posture as any other inconclusive window (rolled back unless the
+   configuration was declared to keep it), so no incident is ever silently discarded.
 6. `experiments/healing_experiment.py` aggregates the ledger, writes CSV/JSON artifacts,
    audits interventions by counterfactual replay, and renders figures and the report.
 

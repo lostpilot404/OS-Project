@@ -11,15 +11,17 @@ held-out seed.
 | Reproducible workloads, fingerprinting | `workload/models.py`, `workload/generator.py`, `workload/fingerprint.py` | Complete | `tests/test_generator.py`, `tests/test_fingerprint.py`, `tests/test_workload_models.py` |
 | Event-driven engine, causal observation boundary, quantum override | `scheduler/runtime.py` | Complete (extended additively) | `tests/test_runtime_scheduler.py` (23 tests) |
 | Fixed schedulers (baselines) | `scheduler/fcfs.py`, `sjf.py`, `round_robin.py`, `priority.py` | Complete | `tests/test_fcfs.py`, `test_sjf.py`, `test_round_robin.py`, `test_priority.py` |
-| Causal monitor (window, reference, band, load accrual) | `healing/monitor.py` | Complete | `tests/test_healing_monitor.py` (7 tests) |
+| Causal monitor (window, reference, band, load accrual) | `healing/monitor.py` | Complete | `tests/test_healing_monitor.py` (8 tests) |
 | Degradation detector (threshold, hysteresis, cooldown, gates) | `healing/detector.py` | Complete | `tests/test_healing_detector.py` (14 tests) |
 | Evidence-backed diagnosis | `healing/diagnosis.py` | Complete | `tests/test_healing_diagnosis.py` (11 tests) |
 | Recovery action space and no-op semantics | `healing/actions.py` | Complete | `tests/test_healing_diagnosis.py`, `tests/test_healing_policies.py` |
 | Recovery policies (rule, hold control, tabular Q-learning) | `healing/policies.py`, `rl/q_learning.py` | Complete | `tests/test_healing_policies.py` (8 tests) |
+| Verification rule: phase model, tri-state verdict, insufficient-evidence gate, rollback posture | `healing/verifier.py` | Complete | `tests/test_healing_verification.py` (18 tests) |
 | Healing state machine: incident, verification, accept/rollback, safe fallback, ledger | `healing/controller.py` | Complete | `tests/test_healing_controller.py` (8 tests) |
 | Study design (splits, seeds, arms) | `experiments/healing_config.py` | Complete, frozen | `tests/test_healing_experiment.py` |
-| Study runner (training, evaluation, comparisons, audit, probe, coverage, demo, report) | `experiments/healing_experiment.py` | Complete | `tests/test_healing_experiment.py` (8 tests) |
-| Threshold derivation from the no-action control | `experiments/healing_thresholds.py` | Complete | `tests/test_healing_experiment.py::test_thresholds_are_derived_from_the_control_and_not_from_the_final_test` |
+| Study runner (training, evaluation, comparisons, audit, probe, coverage, demo, report) | `experiments/healing_experiment.py` | Complete | `tests/test_healing_experiment.py` (11 tests) |
+| Threshold derivation from the no-action control (gate sweep, null percentiles, phase model, residual percentiles, out-of-sample check) | `experiments/healing_thresholds.py` | Complete | `tests/test_healing_experiment.py::test_thresholds_are_derived_from_the_control_and_not_from_the_final_test` |
+| Controlled-degradation detector scenarios (recall, delay, false triggers) | `experiments/healing_detection.py` | Complete | `tests/test_healing_detection.py` (6 tests) |
 | Shared paired bootstrap | `evaluation/paired.py` | Complete | `tests/test_runtime_experiment.py` |
 | Figures | `visualization/healing_plots.py` | Complete | `figures/healing/*.png` |
 | CLI | `main.py` | Complete | `python main.py healing-study` |
@@ -30,19 +32,25 @@ held-out seed.
 
 ```
 .venv/bin/python -m pytest -q
-443 passed
+469 passed, 1 skipped
 ```
 
 The suite includes the 386 pre-existing tests (offline study, runtime appendix, engine,
-metrics, reproducibility) plus 57 tests added with the healing system.
+metrics, reproducibility) plus the tests added with the healing system (84 in total): monitor 8,
+detector 14, diagnosis 11, policies 8, controller 8, verification 18, detection scenarios 6,
+study harness 11.
 
 ## Results status
 
-One frozen run of `python main.py healing-study` (28 s) produced every table quoted in
+One frozen run of `python main.py healing-study` (≈ 46 s) produced every table quoted in
 `docs/EVALUATION_RESULTS.md`: 550 hold-out traces for the fixed/rule arms, 1050 per learned
-arm, 1948 audited interventions, 168 probed action effects. The headline honest finding —
-recovery beats doing nothing but does not beat fixed SJF, and the in-run verifier rejects most
-helpful interventions — is documented with the numbers behind it.
+arm, 975 audited interventions on the held-out split, 168 probed action effects and 420
+controlled-degradation traces. An independent re-run into a separate directory reproduced all
+20 artifacts and all 3 figures byte for byte. The headline honest findings — recovery beats
+doing nothing but does not beat fixed SJF; the verifier filters the tails of the effect
+distribution but can certify only 6.1 % of genuinely helpful interventions; the detector
+delivers a 75 %/56 % recall on injected degradations at the price of 0.70 false triggers per
+stable trace — are documented with the numbers and their denominators behind them.
 
 ## Preserved historical components
 

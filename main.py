@@ -180,6 +180,16 @@ def _report_study(artifacts) -> None:
             print(f"  {name:<22}: {path}")
 
 
+def _share(value) -> str:
+    """Format an optional share: undefined shares are printed as ``n/a``, never as a number."""
+    return "n/a" if value is None else f"{float(value):.1%}"
+
+
+def _number(value, width: int = 6) -> str:
+    """Format an optional number, printing ``n/a`` when the artifact has no value."""
+    return "   n/a" if value is None else f"{float(value):>{width}.2f}"
+
+
 def _report_healing_study(artifacts) -> None:
     """Print the measured outcome of the self-healing study."""
     summary = artifacts.summary
@@ -197,16 +207,50 @@ def _report_healing_study(artifacts) -> None:
             f"  {row['arm']:<24}{row['avg_waiting_time']:>9.2f}{row['p95_waiting_time']:>9.2f}"
             f"{row['avg_response_time']:>9.2f}{row['incidents']:>8.2f}{row['interventions']:>7.2f}"
         )
+    print()
+    print("Verification verdicts on interventions")
+    print("--------------------------------------")
+    for row in summary["detection_summary"]:
+        if row["split"] != "final_test" or not row["interventions"]:
+            continue
+        print(
+            f"  {row['arm']:<24} interventions={row['interventions']:<5} "
+            f"accepted={_share(row['accepted_share_of_interventions'])}  "
+            f"rejected={_share(row['rejected_share_of_interventions'])}  "
+            f"inconclusive={_share(row['inconclusive_share_of_interventions'])}  "
+            f"episodes with fallback={row['episodes_with_fallback']}"
+        )
     if summary["audit_summary"]:
         print()
         print("Counterfactual audit of interventions (held-out split)")
         print("------------------------------------------------------")
+        print("  matched replay: same controller, this one incident forced to hold")
         for row in summary["audit_summary"]:
             print(
-                f"  {row['arm']:<24} n={row['audited_interventions']:<4} "
-                f"mean gain {row['mean_gain']:+10.2f}  "
-                f"false recoveries {row['false_recoveries']}/{row['audited_interventions']} "
-                f"({row['false_recovery_rate']:.1%})"
+                f"  {row['arm']:<24} n={row['audited_interventions']:<5} "
+                f"matched gain {_number(row['mean_matched_gain'], 8)}  "
+                f"never-heal gain {_number(row['episode_level_mean_matched_gain'], 8)}  "
+                f"helped {_share(1 - row['false_recovery_rate'])}  "
+                f"| not certified {_share(row['unverified_share_of_helpful'])} of the helpful ones"
+            )
+    if summary.get("detection_scenarios"):
+        print()
+        print("Detector on controlled degradations (validation split)")
+        print("------------------------------------------------------")
+        for row in summary["detection_scenarios"]:
+            if row["kind"] == "summary":
+                print(
+                    f"  recall on injected traces {_share(row['recall_on_injected'])}  "
+                    f"precision proxy {_share(row['precision_proxy'])}  "
+                    f"median delay {_number(row['median_detection_delay_decisions'], 5)} decisions  "
+                    f"false triggers/trace {_number(row['false_trigger_rate_per_stable_trace'], 5)}"
+                )
+                continue
+            print(
+                f"  {row['scenario']:<14} traces={row['traces']:<4} "
+                f"detected={_share(row['detection_share'])}  "
+                f"median delay={_number(row['median_delay_time_units'], 7)}  "
+                f"incidents/trace={_number(row['incidents_per_trace'], 5)}"
             )
     print()
     print("Artifacts")

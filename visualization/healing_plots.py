@@ -109,9 +109,9 @@ def plot_healing_figures(
     bottom = [0.0] * len(arms_with_incidents)
     for column, colour in (
         ("accepted", "#2a7f62"),
-        ("rolled_back", "#c1554a"),
+        ("rejected", "#c1554a"),
+        ("inconclusive", "#d9b04c"),
         ("held", "#8a8f98"),
-        ("censored", "#d9b04c"),
     ):
         values = [
             float(detection[detection["arm"] == arm][column].iloc[0]) for arm in arms_with_incidents
@@ -128,15 +128,15 @@ def plot_healing_figures(
         final_audit = audit[audit["split"] == "final_test"]
         audited_arms = [arm for arm in arms_with_incidents if arm in set(final_audit["arm"])]
         gains = [
-            final_audit[final_audit["arm"] == arm]["intervention_gain"].astype(float).mean()
+            final_audit[final_audit["arm"] == arm]["matched_gain"].astype(float).mean()
             for arm in audited_arms
         ]
         axes[1].bar(audited_arms, gains, color="#3f6fb5")
         axes[1].axhline(0.0, color="black", linewidth=0.8)
         axes[1].set_xticks(range(len(audited_arms)))
         axes[1].set_xticklabels(_short(audited_arms), rotation=20, ha="right")
-        axes[1].set_ylabel("Mean intervention gain (waiting-time units)")
-        axes[1].set_title("Counterfactual gain of interventions")
+        axes[1].set_ylabel("Mean matched-counterfactual gain (waiting-time units)")
+        axes[1].set_title("Marginal value of each intervention (matched hold)")
     figure_path = figures_dir / "healing_recovery_outcomes.png"
     fig.tight_layout()
     fig.savefig(figure_path, dpi=140)

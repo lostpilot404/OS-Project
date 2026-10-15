@@ -1,6 +1,6 @@
-training_seed,n_states,n_actions,visited_states,visited_state_action_pairs,state_action_coverage,training_episodes,training_incidents,training_interventions,encoder_states
-7101,648,8,33,57,0.01099537037037037,1200,774,697,648
-7102,648,8,30,55,0.010609567901234568,1200,758,669,648
-7103,648,8,30,63,0.012152777777777778,1200,774,679,648
-7104,648,8,32,63,0.012152777777777778,1200,769,645,648
-7105,648,8,31,57,0.01099537037037037,1200,746,653,648
+training_seed,n_states,n_actions,observed_reachable_states,observed_reachable_state_action_pairs,offered_actions_exercised,chosen_actions_exercised,visited_states,visited_state_action_pairs,state_action_coverage,state_coverage,state_action_coverage_of_observed_reachable,state_coverage_of_observed_reachable,training_episodes,training_incidents,training_interventions,encoder_states,decisions,decisions_in_sampled_states,decisions_with_no_prior_evidence,decisions_with_single_known_action,decisions_with_action_comparison,actions_effectively_learned_share,actions_defaulted_share,median_visits_per_visited_state,max_state_action_visits,states_with_single_sampled_action,exercised_bins,declared_bins
+7101,648,8,108,864,4,4,32,60,0.011574074074074073,0.04938271604938271,0.06944444444444445,0.2962962962962963,1200,773,693,648,773,741,32,53,688,0.890038809831824,0.10996119016817593,5.5,235,14,diagnosis=4;excess=3;ready_count=3;current_policy=1;remaining_work=3,648
+7102,648,8,108,864,4,4,29,57,0.01099537037037037,0.044753086419753084,0.06597222222222222,0.26851851851851855,1200,754,677,648,754,725,29,60,665,0.8819628647214854,0.11803713527851459,4.0,250,16,diagnosis=4;excess=3;ready_count=3;current_policy=1;remaining_work=3,648
+7103,648,8,108,864,4,4,30,64,0.012345679012345678,0.046296296296296294,0.07407407407407407,0.2777777777777778,1200,772,689,648,772,742,30,38,704,0.9119170984455959,0.08808290155440414,6.5,237,12,diagnosis=4;excess=3;ready_count=3;current_policy=1;remaining_work=3,648
+7104,648,8,108,864,4,4,32,68,0.013117283950617283,0.04938271604938271,0.0787037037037037,0.2962962962962963,1200,771,671,648,771,739,32,44,695,0.9014267185473411,0.09857328145265888,6.0,252,14,diagnosis=4;excess=3;ready_count=3;current_policy=1;remaining_work=3,648
+7105,648,8,108,864,4,4,30,60,0.011574074074074073,0.046296296296296294,0.06944444444444445,0.2777777777777778,1200,745,658,648,745,715,30,63,652,0.8751677852348994,0.12483221476510067,5.5,256,11,diagnosis=4;excess=3;ready_count=3;current_policy=1;remaining_work=3,648

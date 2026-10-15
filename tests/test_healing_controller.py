@@ -29,7 +29,7 @@ from scheduler import FCFS, RuntimeSimulator
 from workload.generator import WorkloadGenerator
 
 SCHEDULER = SchedulerConfig(round_robin_quantum=4, switching_cost=1)
-VERDICTS = {"accepted", "rolled_back", "held", "censored"}
+VERDICTS = {"accepted", "rejected", "inconclusive", "held"}
 
 
 def _workload(family: str = "mixed", seed: int = 3):
@@ -107,22 +107,28 @@ def test_full_loop_records_a_traceable_incident_ledger() -> None:
         record = run.decisions[incident.decision_index]
         assert record.decision.action == incident.settings_after.policy
         assert record.decision.quantum == incident.settings_after.quantum
+        assert incident.verifier_reason
+        assert incident.confirmed_failure == (incident.verdict == "rejected")
         if incident.verdict == "accepted":
             assert incident.rollback_target is None
-        elif incident.verdict == "rolled_back":
+            assert incident.closure_residual >= incident.accept_residual_factor
+        else:
             assert incident.rollback_target is not None
-            assert incident.closure_fraction < incident.required_closure_factor
+            assert incident.closure_residual is None or (
+                incident.closure_residual < incident.accept_residual_factor
+            )
     assert episode.interventions == sum(1 for i in episode.incidents if i.action_changed)
     assert episode.holds == sum(1 for i in episode.incidents if not i.action_changed)
     assert (
-        episode.accepted + episode.rolled_back + episode.censored + episode.holds
+        episode.accepted + episode.rejected + episode.inconclusive + episode.holds
         == len(episode.incidents)
     )
+    assert episode.unverified == episode.rejected + episode.inconclusive
 
 
-def test_verification_window_is_bounded_and_censored_at_trace_end() -> None:
-    """A window that cannot close before the trace ends is recorded as unknown, and the
-    declared maximum window length is never exceeded."""
+def test_verification_window_is_bounded_and_inconclusive_at_trace_end() -> None:
+    """A window that cannot close before the trace ends is recorded as inconclusive (never
+    as a failure), and the declared maximum window length is never exceeded."""
     controller = _controller(
         RuleHealingPolicy(HealingConfig()),
         hysteresis_evaluations=1,
@@ -133,19 +139,30 @@ def test_verification_window_is_bounded_and_censored_at_trace_end() -> None:
     _, episode = _run(controller, _workload("long_jobs", 4))
     for incident in episode.incidents:
         assert incident.verification_decisions <= 14
-        if incident.verdict == "censored":
+        if incident.window_truncated:
             assert incident.action_changed is True
+            assert incident.verdict == "inconclusive"
+            assert incident.confirmed_failure is False
+            # The interrupted window still follows the declared posture: an unverified
+            # change is reverted, so the ledger and ``settings_final`` agree.
+            assert incident.rollback_target == incident.settings_before
+            assert episode.settings_final == incident.settings_before
 
 
 def test_rollback_is_applied_at_the_next_epoch() -> None:
-    """After a failed verification the previous configuration is restored in the engine."""
+    """After an unverified window the previous configuration is restored in the engine."""
     controller = _controller(
         RuleWaitingTimePolicy(HealingConfig()),
         hysteresis_evaluations=1,
-        accept_closure_factor=10.0,
+        accept_residual_factor=10.0,
+        reject_residual_factor=9.0,
     )
     run, episode = _run(controller, _workload("mixed", 9))
-    rolled = [incident for incident in episode.incidents if incident.verdict == "rolled_back"]
+    rolled = [
+        incident
+        for incident in episode.incidents
+        if incident.rollback_target is not None and incident.action_changed
+    ]
     if not rolled:
         pytest.skip("this trace produced no rolled-back intervention")
     incident = rolled[0]
@@ -165,10 +182,12 @@ def test_repeated_failures_trigger_the_safe_fallback() -> None:
     controller = _controller(
         RuleWaitingTimePolicy(HealingConfig()),
         hysteresis_evaluations=1,
-        accept_closure_factor=10.0,
+        accept_residual_factor=10.0,
+        reject_residual_factor=9.0,
         max_consecutive_failures=1,
     )
     run, episode = _run(controller, _workload("mixed", 9))
+    assert episode.confirmed_failures >= 1
     assert episode.fallback_triggered is True
     fallback_incidents = [i for i in episode.incidents if i.fallback_triggered]
     assert fallback_incidents

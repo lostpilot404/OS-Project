@@ -3,104 +3,149 @@
 Statuses: **Complete**, **Needs Fixing**, **Blocked**, **Not Verified**.
 
 Official title preserved: **Adaptive CPU Scheduling Using Reinforcement Learning for Dynamic
-Workloads**.
+Workloads**. Everything below was verified by running the commands in this repository in this
+session; nothing is copied from an earlier report. Where a number is quoted it is the output of
+the command listed next to it.
 
-## 1. Starting state (verified by inspection, not by previous reports)
+## 1. Starting state of this round (verified, not assumed)
 
 | Item | Verified value | Status |
 |---|---|---|
-| Repository / branch / HEAD | `/home/user/OS-Project`, `arena/befa2b94-os-project`, `c26e2a4` (= `origin/main`) | Complete |
-| Working tree at start | clean, 122 tracked files, no stashes, no dangling objects | Complete |
-| Baseline test suite | `.venv/bin/python -m pytest -q` → 386 passed (11.7 s) | Complete |
-| Previous report's self-healing claims | no such code in any branch, commit, stash or dangling object; `8d1be54` is the already-merged offline rework | **Not Verified — claims false** |
-| Previous report's "400 tests" and held-out table | suite is 386; the quoted numbers exist nowhere | **Not Verified — claims false** |
+| Repository | `/home/user/OS-Project`, remote `https://github.com/lostpilot404/OS-Project.git` | Complete |
+| Branch | `arena/befa2b94-os-project` | Complete |
+| Commit at the start of the round | `7e52412a6347a16fe5839e3bb0c03e5d91115dc6`, identical to `origin/arena/befa2b94-os-project` | Complete |
+| `main` | untouched at `c26e2a47b637128400f90fe10dec1ce9cf473270` (`origin/main`) | Complete |
+| Environment note | the sandbox restored a fresh clone with an empty working history while keeping the work tree; the local branch was re-pointed to the pushed tip `7e52412` (`git reset --mixed`), the working tree was **not** modified, and `git fetch` confirmed the remote branch was intact | Complete |
 
-## 2. Self-healing pipeline (all ten stages)
+## 2. The verification mismatch: cause, fix, evidence
+
+| Question from the task | Answer | Where it is recorded |
+|---|---|---|
+| Which metric/reference does the online verifier use? | the *phase-adjusted residual* of the normalised load closure, against two boundaries derived from the no-action control of the **training** split | `healing/verifier.py`, `docs/DESIGN_AND_CHOICES.md` §3 |
+| Does it compare against a baseline for the same workload phase? | yes — a declared 6-coefficient phase model fitted on the training control (R² 0.819) | `healing/config.py::closure_baseline`, `healing_thresholds.py` |
+| Does the short window capture the action's effect, or reject on transient queue changes? | both, and the study now *measures* how much: the best action moves the statistic by +0.152 (0.45 residual sd) → ≈ 39 windows for 80 % power | `healing_action_probe.csv::paired_closure_change`, `healing_summary.json::verification_discrimination` |
+| Are short-term waiting changes confused with the final total-waiting benefit? | they were: the old single-threshold rule called every non-accepted window a failure. The audit (`matched_gain`) measures the final benefit and is now reported against the verdict explicitly | `docs/EVALUATION_RESULTS.md` §3–4 |
+| Does a helpful action get a negative RL reward? | no longer: the reward is the same residual the verdict uses, and only a **confirmed** failure carries the rollback penalty. An inconclusive window charges the action's cost and nothing else | `healing/controller.py::_conclude_pending` |
+| Do online verification and the offline audit measure different things? | they measure different quantities, and the docs now say so; the gap is quantified (online: one window of residual evidence; offline: matched replay of the same decision) | `docs/EVALUATION_RESULTS.md` §4.1 |
+| Can verification improve without leaking future outcomes? | the reward and the verdict use only quantities observed inside the closed window; a test pins that a later arrival cannot change an incident that closed before it | `tests/test_healing_verification.py` |
+
+**Corrections implemented (smallest defensible, no thresholds were loosened):**
+
+1. tri-state verification (`accepted` / `rejected` / `inconclusive`) with a declared posture for
+   the middle case (`inconclusive_rollback = true`: rolled back, never counted as a failure,
+   never triggering the safety fallback);
+2. a truncated window at the trace end is concluded as `inconclusive`
+   (`insufficient_evidence_window_truncated`) instead of being logged as `censored` with NaN;
+3. the reward uses the verifier's own phase-aware statistic;
+4. the audit aggregate no longer mixes intervention rows with one-per-episode "never heal
+   again" rows in one denominator; both are reported in their own tables with their own `n`;
+5. verification discrimination (rank AUC, certification ceiling, enrichment with denominators)
+   is now a machine-readable artifact rather than a narrative.
+
+## 3. Verification commands and outcomes (this session)
+
+```bash
+cd /home/user/OS-Project
+python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.lock   # fresh env, exit 0
+.venv/bin/python -m pytest -q                                                   # 470 passed in 48.11 s, exit 0
+.venv/bin/python main.py healing-study                                          # exit 0 (frozen run, held-out seed 21977)
+.venv/bin/python main.py healing-study --results-dir /tmp/det-final2 --figures-dir /tmp/det-final2-figs
+                                                                                # exit 0 (independent regeneration)
+.venv/bin/python -m experiments.healing_thresholds                              # exit 0 (derivation only)
+git diff --check                                                                # clean
+```
+
+Determinism: the independent run reproduced **all 20 files** under `results/healing/` and **all
+3 figures** under `figures/healing/` byte for byte (md5 comparison of every file). Note that
+`--no-probe` legitimately changes `healing_action_effects.png` (the probe is its only source),
+so the determinism check is run with the probe enabled.
+
+Targeted evidence quoted in this round:
+
+| Measurement | Value | Artifact |
+|---|---:|---|
+| accepted interventions that helped | 24 / 34 (70.6 %) | `healing_summary.json::verification_discrimination` |
+| rejected interventions that were harmful | 15 / 32 (46.9 %; base rate 15.9 %) | same |
+| rank AUC of the residual → helped | 0.720 (raw closure 0.610) | same |
+| helpful interventions that clear the declared accept boundary | 6.1 % (49 / 802) | same |
+| paired change of the statistic for `set_sjf` | +0.152 (0.45 residual sd) | `healing_action_probe.csv` |
+| windows of the same action needed for 80 % power | ≈ 39 | derived in `docs/EVALUATION_RESULTS.md` §4.1 |
+| safety fallback episodes | 0 in every arm | `healing_detection_summary.csv` |
+
+## 4. Pipeline stage status (all ten stages)
 
 | Stage | Implementation | Test | Status |
 |---|---|---|---|
-| 1. Generate reproducible workloads | `workload/generator.py`, split seeds | `test_generator.py`, split-disjointness test | Complete |
-| 2. Simulate scheduling events | `scheduler/runtime.py` | `test_runtime_scheduler.py` (23) | Complete |
-| 3. Collect causal telemetry | `healing/monitor.py` | `test_healing_monitor.py` (7) | Complete |
-| 4. Detect degradation (reference, threshold, hysteresis, cooldown, gates) | `healing/detector.py` | `test_healing_detector.py` (14) | Complete |
-| 5. Diagnose with evidence | `healing/diagnosis.py` | `test_healing_diagnosis.py` (11) | Complete |
-| 6. RL recovery decision (masked action set) | `healing/policies.py`, `rl/q_learning.py` | `test_healing_policies.py` (8) | Complete |
-| 7. Apply the action | `healing/actions.py`, `healing/controller.py` | `test_healing_controller.py` | Complete |
-| 8. Verify over a declared window | `healing/controller.py` | `test_healing_controller.py` | Complete |
-| 9. Accept / roll back / safe fallback | `healing/controller.py` | rollback-timing and fallback tests | Complete |
-| 10. Record decision, evidence, overhead, outcome | `IncidentRecord`, `EpisodeRecord`, artifacts | `test_healing_experiment.py` (8) | Complete |
+| 1. Reproducible workloads | `workload/generator.py` | `test_generator.py`, split-disjointness test | Complete |
+| 2. Event simulation | `scheduler/runtime.py` | `test_runtime_scheduler.py` (23) | Complete |
+| 3. Causal telemetry | `healing/monitor.py` | `test_healing_monitor.py` (8) | Complete |
+| 4. Detection | `healing/detector.py` | `test_healing_detector.py` (14), `test_healing_detection.py` (6) | Complete |
+| 5. Diagnosis | `healing/diagnosis.py` | `test_healing_diagnosis.py` (11) | Complete |
+| 6. Recovery decision (rule / Q, masked) | `healing/policies.py`, `rl/q_learning.py` | `test_healing_policies.py` (8) | Complete |
+| 7. Apply the action | `healing/actions.py`, `healing/controller.py` | `test_healing_controller.py` (8) | Complete |
+| 8. Verify over a declared window | `healing/verifier.py` | `test_healing_verification.py` (18) | Complete |
+| 9. Accept / roll back / safe fallback | `healing/controller.py` | verification + controller tests | Complete |
+| 10. Record decision, evidence, outcome | `IncidentRecord`, `EpisodeRecord`, artifacts | `test_healing_experiment.py` (11) | Complete |
 
-## 3. Experimental integrity
+## 5. Experimental integrity
 
 | Requirement | Status | Evidence |
 |---|---|---|
 | Splits disjoint by construction | Complete | `SPLIT_TAGS` + `derive_seed`; fingerprint test |
-| Fresh held-out seed declared before the final run | Complete | `20719`, declared in `healing_config.py`; `9401` and `20501` retired and documented |
-| Thresholds derived from training control, not tuned on the test split | Complete | `healing_thresholds.py` refuses the final-test split; `healing_threshold_derivation.csv` |
-| Identical workloads across all arms | Complete | same workload builder; paired statistics keyed by fingerprint |
+| Held-out seed declared **before** the frozen evaluation | Complete | `21977` in `experiments/healing_config.py`; `20501`, `20719`, `21617`, `72601` retired in the same file and refused as final-test seeds by validation |
+| No parameters chosen on the final-test split | Complete | `healing_thresholds.py` refuses the final-test split; gate, boundaries and posture were chosen on training/validation; the posture A/B is documented as validation-only |
+| Identical workloads across arms | Complete | one workload builder; paired statistics keyed by fingerprint |
 | Paired comparisons with uncertainty | Complete | `evaluation/paired.py`, 1000 replicates, `healing_comparisons.csv` |
-| Every intervention causally audited (false-recovery rate) | Complete | `replay_hold_counterfactual`, `healing_audit.csv` |
-| Unfavourable results reported | Complete | SJF beats all recovery arms; the fairness rule is harmful; the verifier's false-reject rate is published |
-| No claim of RL superiority | Complete | README §8, `EVALUATION_RESULTS.md` §2–3 |
-| Reproducible from scratch | Complete | identical seeds → identical metrics/audit/demo (test); isolated rerun into `/tmp` works |
+| Every intervention causally audited | Complete | matched replay (`forced_holds`) + `divergence_decision_index` check |
+| Unfavourable results reported | Complete | SJF beats every recovery arm; the fairness rule is harmful; only 6.1 % of helpful interventions can be certified; the detector's false-trigger rate is published |
+| No claim of RL superiority | Complete | README §8, `EVALUATION_RESULTS.md` §2–4, `LIMITATIONS.md` §3 |
+| Reproducible | Complete | identical artifacts and figures across independent runs (§3) |
 
-## 4. Defects fixed and documented
-
-| Defect | Fix | Documented in |
-|---|---|---|
-| Rule policy ignored the masked action set | mask honoured, falls back and records why | `TRANSFORMATION_AUDIT.md` §4, `DESIGN_AND_CHOICES.md` §5 |
-| Work gate compared CPU time with waiting time | gate compares visible work with observed mean burst | `TRANSFORMATION_AUDIT.md` §4 |
-| Verification rule certified noise (94.6 % false accept on the control) | normalised load closure with a derived threshold (4.5 % false accept) | `DESIGN_AND_CHOICES.md` §3 |
-| Reward could reward no-op/regressive actions | scaled closure statistic minus declared cost | `DESIGN_AND_CHOICES.md` §4 |
-| Demo artifact could mix controllers | episode identified by arm *and* training seed; payload refuses a mismatched replay | `TRANSFORMATION_AUDIT.md` §4 |
-| No-op actions counted as recoveries | `changed=False` → `held`, never an intervention | `TRANSFORMATION_AUDIT.md` §4 |
-
-## 5. Repository hygiene
-
-| Check | Status |
-|---|---|
-| Stale/unreachable code removed (dead helper, unused imports) | Complete |
-| Duplicated paired-bootstrap implementation removed | Complete |
-| No `.venv`, cache, log, temp file or secret staged | Complete |
-| `git diff --check` clean | Complete |
-| Historical modules labelled instead of deleted | Complete |
-| Absolute/machine-specific paths in code or docs | Complete (none in tracked code; docs use repo-relative paths) |
-| Dependency instructions match `requirements.lock` | Complete (`README.md` §5) |
-| Generated artifacts match the code that produced them | Complete (regenerated by the frozen run after the last code change) |
-
-## 6. Verification commands and outcomes
-
-```bash
-cd /home/user/OS-Project
-.venv/bin/python -m pytest -q                                   # 443 passed
-.venv/bin/python main.py healing-study                          # exit 0, 28 s
-.venv/bin/python main.py healing-study --results-dir /tmp/hx --figures-dir /tmp/hf
-.venv/bin/python -m experiments.healing_thresholds              # derivation only
-```
-
-## 7. Open items
+## 6. Completed / Needs Fixing / Blocked / Not Verified
 
 | Item | Status |
 |---|---|
-| The loop does not beat fixed SJF on these families | **Needs Fixing** (research-level: the action set and the workloads, not a code defect) |
-| The in-run verifier rejects 90–98 % of helpful interventions | **Needs Fixing** (requires a matched counterfactual baseline; proposal documented, not implemented) |
-| Residual detector false triggers (0.69 events/trace on the control) | **Needs Fixing** (documented; the warm-up alternative was measured and rejected) |
-| Sparse Q coverage (~1 % of state-action pairs) | **Needs Fixing** (more traces or a smaller state space) |
+| Recovery-verification mismatch diagnosed, corrected and documented | **Complete** |
+| Truncated-window and audit-denominator defects fixed, with tests | **Complete** |
+| Detector covered by controlled injection tests (recall, delay, false triggers, no self-trigger) | **Complete** |
+| Q-coverage analysed against observed-reachable state-action pairs, with a coverage curve | **Complete** (analysis) |
+| Counterfactual metrics mathematically consistent (denominators separated per intervention/episode) | **Complete** |
+| Docs match the final source and the regenerated artifacts | **Complete** |
+| The loop does not beat fixed SJF; the RL arm does not beat the rule | **Needs Fixing** (research-level: action set, workload families and reward informativeness, not a code defect) |
+| Only 6.1 % of genuinely helpful interventions can be certified; 95.6–97.2 % end inconclusive | **Needs Fixing** (needs more evidence per decision — a better phase model or several windows per action; measured, not implemented) |
+| Detector false triggers (0.66/trace on the held-out control, 0.70 per stable trace in the probe) | **Needs Fixing** (documented trade-off with the congestion-gate sweep; raising the gate removes the true detections too) |
+| Tabular-Q coverage (6.6–7.9 % of reachable pairs, flat after ~900 episodes) | **Needs Fixing** (event supply, not training budget; reported rather than replaced by a more complex algorithm) |
+| Safe fallback exercised on a full trace | **Not Verified** (never fired in the frozen study; unit-tested only) |
 | Real-OS integration, burst prediction, non-stationary arrivals | **Not Verified** (out of scope; no claim made) |
 | Behaviour on hardware or real traces | **Not Verified** (simulator only) |
 | Anything requiring more compute or external data than this environment provides | **Blocked** (none identified for the reported results) |
+
+## 7. Repository hygiene (this round)
+
+| Check | Result |
+|---|---|
+| Complete diff inspected before staging | Complete (see §8 for the file list) |
+| `git diff --check` | clean |
+| Formatting / linting / static analysis | the repository configures none (`pytest.ini` only); `python -m compileall` over the source packages and `main.py` exits 0 |
+| Temporary files, debug output, caches, `.venv` | none tracked; `/tmp` scratch directories are outside the repository |
+| Secrets / `.env` / credentials | none |
+| Machine-specific or absolute paths in tracked files | only inside `docs/TRANSFORMATION_AUDIT.md`'s record of the session environment, which is documentation |
+| Unused dependencies | none added this round; `requirements.lock` unchanged (numpy/pandas/matplotlib/pytest) |
+| Documented install and commands verified | Complete (fresh `.venv` from `requirements.lock`, then the commands in §3) |
 
 ## 8. Git state at the end of the session
 
 | Item | Value |
 |---|---|
 | Working branch | `arena/befa2b94-os-project` |
-| Commit | `e2bd701cb1946b7bf92b4ea9644006b6167e057d` ("Self-healing CPU scheduler: healing loop, study harness, tests, docs, artifacts") |
-| Push | `git push -u origin arena/befa2b94-os-project` — new branch created on the remote, no force, no history rewrite |
-| Remote verification | `git fetch` + `gh api repos/lostpilot404/OS-Project/branches/arena/befa2b94-os-project` → `e2bd701…`, identical to the local HEAD; the remote tree lists the 8 `healing/` modules and the 17 artifacts under `results/healing/` |
-| `main` | untouched at `c26e2a4` (`gh api .../branches/main`) |
-| Cross-process determinism | two separate runs of `main.py healing-study` into isolated directories produced byte-identical `healing_comparisons.csv` (same md5) |
+| Source + docs commit | `SOURCE_SHA_PLACEHOLDER` |
+| Checklist record commit (this file) | `CHECKLIST_SHA_PLACEHOLDER` |
+| Push | `git push origin arena/befa2b94-os-project` — normal push, no force, no history rewrite |
+| Remote verification | `git fetch origin` + `gh api repos/lostpilot404/OS-Project/branches/arena/befa2b94-os-project` → remote head equals the local commit above |
+| `main` | untouched at `c26e2a47b637128400f90fe10dec1ce9cf473270` |
+| Merge / PR actions | none (no pull request opened, merged or closed in this round) |
 
-The documentation numbers were re-checked against the regenerated artifacts after the last code
-change (arms' mean waiting, audit gains and false-recovery rates, threshold derivation,
-paired intervals): all match.
+`results/healing/` and `figures/healing/` in the commits above are the artifacts of the frozen
+run on the held-out seed `21977`, regenerated after the last source change; the earlier
+`20719`/`21617` numbers that remain anywhere in the documentation are labelled as historical or
+as development evidence.

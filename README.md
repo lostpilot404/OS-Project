@@ -107,9 +107,10 @@ the Round-Robin quantum.
 | Reference / band | EWMA of normal windows, with floors so the band cannot collapse | `healing/monitor.py` |
 | Diagnosis | observable ready-set evidence with a fixed precedence order | `healing/diagnosis.py` |
 | Recovery actions | `hold`, `set_fcfs`, `set_sjf`, `set_round_robin`, `set_priority`, `shrink_quantum`, `grow_quantum`, `revert_to_last_accepted`; actions that cannot change anything are masked out before the policy is asked | `healing/actions.py`, `healing/controller.py` |
-| Verification | the window closes after 5 decisions **and** 3 completions, or after 14 decisions; the verdict uses the **normalised load closure**, `(trigger_load − post_load) / max(trigger_load − reference_load, load_band)`, against a threshold derived from the no-action control | `healing/controller.py`, `experiments/healing_thresholds.py` |
-| Reward (learning) | the same closure statistic minus the declared intervention cost (1 % of the reference waiting time per change, 2 % extra on rollback) — so holding beats a change that does not help | `healing/policies.py`, `healing/controller.py` |
-| Safety | after 2 consecutive failed verifications the loop stops adapting, pins the last accepted configuration and records the fallback | `healing/controller.py` |
+| Verification | the window closes after 5 decisions **and** 3 completions, or after 14 decisions; the verdict is taken on the **phase-adjusted residual** of the normalised load closure `(trigger_load − post_load) / max(trigger_load − reference_load, load_band)`, i.e. the closure minus the value the declared phase model predicts with no intervention | `healing/verifier.py`, `healing/controller.py`, `experiments/healing_thresholds.py` |
+| Verdicts | **`accepted`** (cleared the 95th percentile of the control residual, +0.65), **`rejected`** (below the 5th percentile, −0.45: a *confirmed* failure), **`inconclusive`** (neither, or too little telemetry: rolled back like a failure but never counted as one), **`held`** (nothing was changed) | `healing/verifier.py`, `healing/config.py` |
+| Reward (learning) | the *same* phase-adjusted residual minus the declared accept boundary, minus the intervention cost (1 % of the reference waiting time per change), minus the rollback penalty only on a **confirmed** failure — inconclusive windows cost the action and nothing else | `healing/policies.py`, `healing/controller.py` |
+| Safety | after 2 consecutive **confirmed** failures the loop stops adapting, pins the last accepted configuration and records the fallback | `healing/controller.py` |
 
 Thresholds are not hand-waved: `experiments/healing_thresholds.py` measures the no-action
 control on the **training** split and derives the constants (see
@@ -137,7 +138,7 @@ Everything is written under `results/healing/` and `figures/healing/` by default
 Tests:
 
 ```bash
-.venv/bin/python -m pytest -q          # 443 passed
+.venv/bin/python -m pytest -q          # 469 passed
 ```
 
 ## 6. Reproduction
@@ -152,39 +153,39 @@ Tests:
 
 Design is frozen in `experiments/healing_config.py`: training seeds `7101–7105`
 (1200 traces each, six families, `poisson_arrivals` held out of training), validation seed
-`8201` (20 traces per family), **held-out final-test seed `20719`** (30 traces per family),
+`8201` (20 traces per family), **held-out final-test seed `21977`** (30 traces per family),
 1000 bootstrap replicates with seed `104729`. Splits are disjoint by construction
 (`derive_seed(master_seed, SPLIT_TAG, family_index, repetition)`), so no arm can ever see a
 trace another arm was evaluated on.
 
-## 7. Key results (held-out final-test seed 20719, 210 traces per arm)
+## 7. Key results (held-out final-test seed 21977, 210 traces per arm)
 
 Mean waiting time (simulated time units); lower is better. Learned arms are averaged over
 their 5 independent training seeds (1050 traces).
 
 | Arm | Mean waiting | P95 waiting | Mean response | Incidents / trace | Interventions / trace |
 |---|---:|---:|---:|---:|---:|
-| `fixed_round_robin` | 218.92 | 310.04 | 26.25 | – | – |
-| `fixed_fcfs` | 128.88 | 256.01 | 128.88 | – | – |
-| `fixed_priority` | 128.56 | 261.02 | 128.56 | – | – |
-| `detector_only` (control) | 128.88 | 256.01 | 128.88 | 0.69 | 0.00 |
-| `rule_fairness` | 135.60 | 263.22 | 107.29 | 0.76 | 0.76 |
-| `q_recovery` (5 seeds) | 122.26 | 252.33 | 121.69 | 0.71 | 0.67 |
-| `rule_wait` | **121.18** | 251.35 | 121.18 | 0.70 | 0.70 |
-| `rule_wait_from_sjf` | 95.77 | 249.42 | 95.77 | 0.84 | 0.03 |
-| `q_recovery_from_sjf` (5 seeds) | 95.53 | 248.96 | 95.53 | 0.84 | 0.00 |
-| `fixed_sjf` | **95.53** | **248.96** | 95.53 | – | – |
+| `fixed_round_robin` | 217.14 | 309.84 | 26.39 | – | – |
+| `fixed_fcfs` | 128.93 | 258.22 | 128.93 | – | – |
+| `fixed_priority` | 128.10 | 262.31 | 128.10 | – | – |
+| `detector_only` (control) | 128.93 | 258.22 | 128.93 | 0.66 | 0.00 |
+| `rule_fairness` | 134.91 | 263.45 | 107.13 | 0.72 | 0.72 |
+| `q_recovery` (5 seeds) | 121.01 | 253.06 | 120.79 | 0.68 | 0.64 |
+| `rule_wait` | **120.77** | 252.66 | 120.77 | 0.69 | 0.69 |
+| `rule_wait_from_sjf` | 94.83 | 248.55 | 94.83 | 0.81 | 0.03 |
+| `q_recovery_from_sjf` (5 seeds) | 94.56 | 248.10 | 94.56 | 0.81 | 0.00 |
+| `fixed_sjf` | **94.56** | **248.10** | 94.56 | – | – |
 
 Paired, family-stratified bootstrap over identical workloads (1000 replicates):
 
-* `rule_wait` − `detector_only` = **−7.70** wait units, 95 % CI [−8.68, −6.68] → the
+* `rule_wait` − `detector_only` = **−8.15** wait units, 95 % CI [−9.31, −6.96] → the
   recovery loop's changes do help relative to doing nothing.
-* `q_recovery` − `fixed_fcfs` = **−6.62**, CI [−8.03, −5.12] → the learned controller also
+* `q_recovery` − `fixed_fcfs` = **−7.91**, CI [−9.19, −6.86] → the learned controller also
   improves on its own starting configuration.
-* `rule_wait` − `fixed_sjf` = **+25.65**, CI [+23.67, +27.71]; `q_recovery` − `fixed_sjf` =
-  **+26.74**, CI [+24.46, +28.92] → **neither recovery arm reaches the fixed SJF baseline.**
-* `q_recovery` − `rule_wait` = **+1.09**, CI [+0.12, +2.51] → the learned controller is
-  marginally *worse* than the predeclared rule.
+* `rule_wait` − `fixed_sjf` = **+26.22**, CI [+24.28, +28.22]; `q_recovery` − `fixed_sjf` =
+  **+26.46**, CI [+24.52, +28.40] → **neither recovery arm reaches the fixed SJF baseline.**
+* `q_recovery` − `rule_wait` = **+0.24**, CI [−0.04, +0.60] → the learned controller is
+  statistically indistinguishable from the predeclared rule.
 * `q_recovery_from_sjf` − `fixed_sjf` = **0.0000** (CI [0, 0]): started from the strongest
   fixed configuration the loop intervenes **zero** times and reproduces SJF exactly.
 
@@ -194,10 +195,10 @@ marginal value of adapting):
 
 | Arm | Audited interventions | Mean gain (wait units) | Helped | False recoveries |
 |---|---:|---:|---:|---:|
-| `rule_fairness` | 297 | −146.90 | 19.9 % | 80.1 % |
-| `rule_wait` | 285 | +170.38 | 95.1 % | 4.9 % |
-| `q_recovery` | 1354 | +153.88 | 88.2 % | 11.8 % |
-| `rule_wait_from_sjf` | 12 | −126.83 | 0.0 % | 100.0 % |
+| `rule_fairness` | 152 | −126.19 | 19.1 % | 80.9 % |
+| `rule_wait` | 144 | +178.78 | 94.4 % | 5.6 % |
+| `q_recovery` | 673 | +185.14 | 94.7 % | 5.3 % |
+| `rule_wait_from_sjf` | 6 | −145.00 | 0.0 % | 100.0 % |
 
 ## 8. Limitations and honest findings
 
@@ -205,22 +206,27 @@ marginal value of adapting):
   naive starting point (FCFS) and it does not damage SJF when started from it, but the
   ordering `SJF < rule_wait ≈ q_recovery < FCFS < rule_fairness` holds on the held-out split.
 * **The detector's false-trigger rate is measurable and not zero.** With no intervention at
-  all the control declares 0.62 events per trace on the training split and 0.69 on the
-  held-out split: a burst-backlog trace is at its worst at the beginning, and the monitor
+  all the control declares 0.62 events per trace on the training split and 0.66 on the
+  held-out split; with a controlled burst shock injected into validation traces, recall is
+  75.0 % at a median delay of 6 decision intervals, while 0.70 events per stable trace are
+  still declared. A burst-backlog trace is at its worst at the beginning, and the monitor
   cannot tell "this trace is hard" from "this configuration is bad".
-* **The in-run verification is deliberately strict, and that costs real recoveries.**
-  Its threshold is derived from the no-action control (95th percentile of the closure
-  statistic) and keeps the false-accept rate at 4.5 % on the control, but it then rejects
-  89.7 % (`q_recovery`) to 97.6 % (`rule_wait`) of interventions that the counterfactual
-  audit shows *did* help. A trigger is a local maximum of the monitored statistic, so the
-  statistic decays afterwards whatever the scheduler does; single-trace verification cannot
-  separate the two, which is exactly why the audit exists.
-* **The learned controller is barely trained relative to its state space**: 30–33 of 648
-  states and 1.1 % of state-action pairs are visited in 1200 training traces per seed.
-* **The reward is a weak proxy for the true effect**: Pearson correlation with the
-  counterfactually measured per-process effect is 0.10 (argmax agreement 15/21 incidents),
-  although it does rank the genuinely best action (`set_sjf`) above the worst
-  (`set_round_robin`).
+* **Verification is honest, and honesty has a price.** The verdict is taken on the
+  phase-adjusted residual of the closure statistic: `accepted` above +0.65, `rejected` below
+  −0.45, `inconclusive` in between (both boundaries are percentiles of the no-action control,
+  false-accept 4.7 %, false-reject 3.9 %). Only **6.1 %** of the genuinely helpful
+  interventions clear the accept boundary at all, because the best action moves the statistic
+  by about 0.45 of the residual spread that one window shows; 95.6–97.2 % of helpful
+  interventions therefore end `inconclusive` and are rolled back after the window. The filter
+  still works in the tails: 24 of 34 accepted interventions helped (base rate 82.3 %) and
+  46.9 % of rejected ones were harmful (base rate 15.9 %).
+* **The learned controller is barely trained relative to its state space**: 29–32 of 648
+  states are visited in 1200 training traces per seed — 6.6–7.9 % of the pairs that are
+  reachable at all from those contexts, and the coverage curve is flat after ~900 episodes.
+* **The reward is a weak proxy for the size of an effect and a decent one for its sign**:
+  pooled Pearson correlation with the counterfactually measured per-process effect is 0.10,
+  but the within-incident rank correlation is 0.622 (median 0.875) and its argmax is the truly
+  best action in 15 of 21 probed incidents.
 * Everything is measured in a **synthetic discrete-event simulator** with switch costs and
   observable burst times; no real kernel, no real hardware, no real workload traces.
   The simulator grants the scheduler burst knowledge, which a real OS does not have.
@@ -256,6 +262,9 @@ results/healing/    healing_metrics_{validation,final_test}.csv   per-trace metr
                     healing_control_incidents.csv                 the no-action control's incident ledger
                     healing_action_probe.csv                      recorded reward vs measured true effect
                     healing_coverage.csv                          Q-table coverage per training seed
+                    healing_coverage_curve.csv                    coverage against training length (does more training still buy new states?)
+                    healing_q_seed_variability.csv                per-seed spread of the learned arms
+                    healing_detection_scenarios.csv               recall/delay/false triggers on controlled injected degradations
                     healing_training_episodes.csv                 training episodes per seed
                     healing_demo.json                             one worked detection→recovery trace
                     healing_report.md, healing_summary.json       generated report and machine-readable summary
@@ -263,3 +272,6 @@ figures/healing/    healing_waiting_time.png                      mean/p95 waiti
                     healing_recovery_outcomes.png                 verdicts and audit outcomes per arm
                     healing_action_effects.png                    recorded reward vs measured effect per action
 ```
+
+20 machine-readable artifacts and 3 figures are written by the default run; an independent
+re-run into a separate directory reproduces all 23 byte for byte.
