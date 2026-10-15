@@ -1,0 +1,35 @@
+quantity,value,source
+traces,6000.0,training
+control_incidents,3737.0,training
+control_incidents_per_trace,0.6228,training
+null_closure_p50,1.4006,training
+null_closure_p90,2.1832,training
+null_closure_p95,2.3786,training
+derived_accept_closure_factor,2.4,training (95th percentile of the null closure)
+declared_accept_closure_factor,2.4,healing/config.py HealingConfig
+declared_false_accept_rate_on_control,0.046,training (control)
+baseline_r2,0.9606,"training (control, least squares)"
+baseline_residual_sd,0.1599,training (control residual)
+control_residual_p95,0.2631,training (95th percentile of the residual)
+control_residual_p05,-0.2565,training (5th percentile of the residual)
+derived_accept_residual_factor,0.3,"training (control residual p95, rounded outward)"
+derived_reject_residual_factor,-0.3,"training (control residual p05, rounded outward)"
+declared_accept_residual_factor,0.3,healing/config.py HealingConfig
+declared_reject_residual_factor,-0.3,healing/config.py HealingConfig
+declared_false_accept_residual_rate_on_control,0.0344,"training (control, declared rule)"
+declared_false_reject_residual_rate_on_control,0.0311,"training (control, declared rule)"
+validation_false_accept_residual_rate,0.0211,"validation (control, out of sample)"
+validation_false_reject_residual_rate,0.0105,"validation (control, out of sample)"
+fitted_post_load_baseline[intercept],-2.422506,"training (control, least squares)"
+fitted_post_load_baseline[trigger_load_level],-0.008145,"training (control, least squares)"
+fitted_post_load_baseline[ready_count_at_trigger],0.9987,"training (control, least squares)"
+fitted_post_load_baseline[log1p_visible_work],-0.082333,"training (control, least squares)"
+declared_post_load_baseline[intercept],-2.422506,healing/config.py HealingConfig
+declared_post_load_baseline[trigger_load_level],-0.008145,healing/config.py HealingConfig
+declared_post_load_baseline[ready_count_at_trigger],0.9987,healing/config.py HealingConfig
+declared_post_load_baseline[log1p_visible_work],-0.082333,healing/config.py HealingConfig
+control_incidents_per_trace@min_load_factor=0.0,1.5167,training (stride 10)
+control_incidents_per_trace@min_load_factor=0.5,1.475,training (stride 10)
+control_incidents_per_trace@min_load_factor=0.8,1.0517,training (stride 10)
+control_incidents_per_trace@min_load_factor=1.0,0.8583,training (stride 10)
+control_incidents_per_trace@min_load_factor=1.25,0.0417,training (stride 10)

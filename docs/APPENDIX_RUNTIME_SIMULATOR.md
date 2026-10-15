@@ -1,10 +1,14 @@
 # Appendix: preserved event-driven runtime simulator
 
-> **This appendix is not the project system.** The project is an offline
-> policy-selection and evaluation system (see `docs/METHODOLOGY.md`). The event-driven
-> runtime simulator described here is preserved infrastructure with its own test suite;
-> no number in `README.md` or `docs/EVALUATION_RESULTS.md` comes from it. Its artifacts
-> live in `results/runtime/` and can be regenerated with
+> **Historical appendix; not the project system.** The event-driven engine described here
+> (`scheduler/runtime.py`) is preserved infrastructure with its own test suite, and it is
+> *reused* by the self-healing scheduler as its simulation engine. The non-healing
+> experiment documented in this file (fixed policies, causal heuristic, runtime Q-learning)
+> is the historical appendix: its numbers are reported in
+> `results/runtime/runtime_final_test_summary.csv` and are *not* the project's headline
+> results. The project system is the self-healing scheduler (`healing/`,
+> `python main.py healing-study`); its results are in `results/healing/` and
+> `docs/EVALUATION_RESULTS.md`. Regenerate the appendix with
 > `python main.py runtime-experiment`.
 
 The original document text follows, describing the simulator's design and protocol.
