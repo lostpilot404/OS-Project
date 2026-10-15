@@ -61,9 +61,21 @@ cd /home/user/OS-Project
 git diff --check                                   # clean, exit 0
 ```
 
-Install (`python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.lock`) was
-verified from a clean environment in the previous round; `requirements.lock` is not modified in
-this round, and every command above was re-run from the frozen source.
+Clean-checkout verification (fresh clone of this branch, fresh environment):
+
+```bash
+git clone <repository> /tmp/clean-check && cd /tmp/clean-check
+python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.lock   # exit 0
+.venv/bin/python -m pytest -q                                                   # 472 passed in 51.83 s, exit 0
+.venv/bin/python main.py healing-study --results-dir /tmp/clean/results \
+                                       --figures-dir /tmp/clean/figures         # exit 0
+diff -r /tmp/clean/results results/healing                                      # 0 lines
+diff -r /tmp/clean/figures figures/healing                                      # 0 lines
+```
+
+So the committed artifacts are not only reproducible in the tree they were produced in: a clean
+clone of the pushed branch rebuilds them byte for byte. `requirements.lock` is not modified in
+this round, and every command above was run from the frozen source.
 
 Determinism: the independent regeneration reproduced **all 21 artifacts** under
 `results/healing/` and **all 3 figures** under `figures/healing/` byte for byte (`diff -r` over
@@ -146,7 +158,7 @@ Targeted evidence quoted in this round (frozen run, held-out seed `23819`):
 | Secrets / `.env` / credentials | none |
 | Machine-specific or absolute paths in tracked files | only inside `docs/TRANSFORMATION_AUDIT.md`'s record of the session environment, which is documentation |
 | Unused dependencies | none added this round; `requirements.lock` unchanged (numpy/pandas/matplotlib/pytest) |
-| Documented install and commands verified | Complete (`requirements.lock` unchanged; the commands in §3 re-run from the frozen source) |
+| Documented install and commands verified | Complete — fresh clone of this branch, fresh `.venv` from `requirements.lock`, full suite 472 passed, and the study regenerates the committed artifacts byte for byte (§3) |
 
 ## 8. Git state at the end of the session
 
