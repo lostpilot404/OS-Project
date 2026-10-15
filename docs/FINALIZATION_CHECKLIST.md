@@ -157,7 +157,9 @@ Targeted evidence quoted in this round (frozen run, held-out seed `23819`):
 | Source, tests, docs and artifacts | `64036348c250246856bb359acf070e833b0518a6` — "Repair recovery verification, prove it, and freeze the study on a declared held-out seed" |
 | Push | `git push origin arena/befa2b94-os-project` → `3866faf..6403634` (fast-forward, no force, no history rewrite), exit 0 |
 | Remote verification | `git ls-remote origin refs/heads/arena/befa2b94-os-project` and `gh api repos/lostpilot404/OS-Project/branches/arena/befa2b94-os-project --jq .commit.sha` both report `64036348c250246856bb359acf070e833b0518a6`, identical to the local HEAD; `git rev-list --left-right --count` reports 0 behind / 0 ahead |
-| Checklist record commit (this file) | the child of `6403634`; it changes only this file, is pushed the same way, and its SHA is quoted in the session report (`git log -1 --format=%H` on the branch) |
+| Checklist record commit | `f19dab3640d8f11bd253392217077cc853b92472` — this file only, pushed as `6403634..f19dab3` (fast-forward, exit 0) |
+| Documentation corrections after that record | `de1085a` — "Correct four doc claims that disagreed with the regenerated artifacts": the fallback episode, the demonstration trace's repetition, the judgeable out-of-sample denominator and two stale numbers in `LIMITATIONS.md`, plus the paired-uncertainty paragraph in `METHODOLOGY.md`; pushed as `f19dab3..de1085a` (fast-forward, exit 0) |
+| Final verification | after those pushes `git ls-remote` reports the branch head equal to the local tip and `git ls-remote origin refs/heads/main` still reports `c26e2a47b637128400f90fe10dec1ce9cf473270`; the commit that contains this row is the branch tip and its SHA is quoted in the session report |
 | `main` | untouched at `c26e2a47b637128400f90fe10dec1ce9cf473270` |
 | Merge / PR actions | none (pull request #5 remains open and untouched; no merge or close in this round) |
 
