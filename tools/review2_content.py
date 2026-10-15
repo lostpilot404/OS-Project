@@ -324,10 +324,10 @@ def _number(blocks: List[Tuple]) -> List[Tuple]:
         elif block[0] == "table":
             payload = dict(block[1])
             caption = payload.get("caption") or ""
-            match = re.match(r"^(Table (A?\d+)) — (.*)$", caption)
+            match = re.match(r"^Table(?: (?:A?\d+))? — (.*)$", caption, re.DOTALL)
             if match:
                 table_number += 1
-                payload["caption"] = f"Table {table_number} — {match.group(3)}"
+                payload["caption"] = f"Table {table_number} — {match.group(1)}"
             blocks[index] = ("table", payload)
     return blocks
 
@@ -448,7 +448,7 @@ def _section_methodology(data: Artifacts) -> List[Tuple]:
         _table(
             [["Feature", "Bins", "Bin count"]] + [[name, meaning, str(bins)]
                                                    for name, meaning, bins in STATE_FEATURES],
-            [0.26, 0.62, 0.12], "Table 1 — The five causal state features.", align_right=(2,)),
+            [0.26, 0.62, 0.12], "Table — The five causal state features.", align_right=(2,)),
         _p(f"The state space is the mixed-radix product "
            f"{' × '.join(str(bins) for _, _, bins in STATE_FEATURES)} = "
            f"<b>{data.coverage['n_states'].iloc[0] if 'n_states' in data.coverage else 648} "
@@ -526,7 +526,7 @@ def _section_methodology(data: Artifacts) -> List[Tuple]:
               "that an action was harmful nor trigger the fallback"],
              ["held", "no configuration change was made",
               "nothing to undo", "scored on the same statistic, so holding competes with acting"]],
-            [0.13, 0.24, 0.30, 0.33], "Table 2 — The four settlement outcomes."),
+            [0.13, 0.24, 0.30, 0.33], "Table — The four settlement outcomes."),
         _h2("1.6 Methodological controls"),
         _bullets([
             "<b>Identical workloads.</b> Every arm of the study runs the same workload "
@@ -554,6 +554,33 @@ def _section_methodology(data: Artifacts) -> List[Tuple]:
             "all 21 machine-readable artifacts and all three figures byte for byte. "
             "Wall-clock timings are recorded but never used as a result and never charged to "
             "simulated time.",
+        ]),
+        _h2("1.7 Scope and assumptions"),
+        _p("The project studies one question — can a CPU scheduler detect that its own "
+           "configuration is failing and recover from causal evidence alone? — under a set of "
+           "assumptions that are stated here so the results can be read correctly."),
+        _bullets([
+            "<b>In scope.</b> A single CPU; one FIFO ready queue; non-preemptive service under "
+            "FCFS, SJF and Priority; quantum-bounded service under Round Robin; one unit of "
+            "switching cost per change of running process; synthetic workloads drawn from the "
+            "seven declared families; an online controller that may act only on arrived work; "
+            "and an offline audit that measures what each intervention actually achieved.",
+            "<b>Out of scope.</b> Real operating-system kernels and hardware. Nothing in this "
+            "repository is a kernel module, a syscall, a patch to a real scheduler or a "
+            "measurement taken on a real machine, and no result here should be read as one. "
+            "Also out of scope: multiple CPUs, hyper-threading, I/O and page-fault behaviour, "
+            "interrupt accounting, priority inheritance or a real clock tick.",
+            "<b>Assumptions.</b> Burst times become visible when a process arrives (which is "
+            "what lets SJF, and the diagnosis features, exist at all); arrivals, bursts and "
+            "priorities are drawn from declared distributions; the trace is finite; and the "
+            "performance statistic the controller watches is the realized waiting time of "
+            "completed work, which a real scheduler can measure from its own dispatch and "
+            "completion events.",
+            "<b>What a good result would look like.</b> The loop must beat the no-action "
+            "control on identical traces, must not damage a configuration that is already "
+            "good, and must not claim a benefit it cannot evidence. The current release "
+            "satisfies the first two and states honestly where it fails the third for "
+            "individual interventions (§7.5–7.6).",
         ]),
     ]
 
@@ -609,7 +636,7 @@ def _section_architecture(data: Artifacts) -> List[Tuple]:
              ["Study harness", "splits, training, statistics, audit",
               "every artifact of a finished run",
               "nothing during a run; it recomputes and audits afterwards"]],
-            [0.16, 0.28, 0.30, 0.26], "Table 3 — Who may see and change what."),
+            [0.16, 0.28, 0.30, 0.26], "Table — Who may see and change what."),
     ]
 
 
@@ -625,7 +652,7 @@ def _section_modules(data: Artifacts) -> List[Tuple]:
         _p("Eight modules carry the system. M1–M2 build and run the simulated machine; "
            "M3–M7 are the healing loop; M8 is the experiment that measures it. Each module has "
            "a single declared contract, listed below with the artifact that demonstrates it."),
-        _table(rows, [0.07, 0.44, 0.49], "Table 4 — The eight major modules."),
+        _table(rows, [0.07, 0.44, 0.49], "Table — The eight major modules."),
         _bullets([
             "<b>M1 — Workload model, generator and fingerprinting.</b> Contract: <i>(family "
             "configuration, seed) → validated, fingerprinted workload</i>. Seven families "
@@ -728,7 +755,7 @@ def _section_dataset(data: Artifacts) -> List[Tuple]:
            "distribution and priority skew rather than in trace size."),
         _h2("5.1 Families"),
         _table(families, [0.19, 0.13, 0.38, 0.20, 0.10],
-               "Table 5 — The seven workload families.", align_right=(4,)),
+               "Table — The seven workload families.", align_right=(4,)),
         _h2("5.2 Splits and seeds"),
         _table(
             [["Split", "Master seed", "Traces", "Purpose"],
@@ -744,7 +771,7 @@ def _section_dataset(data: Artifacts) -> List[Tuple]:
              ["Final test", str(data.final_test_seed),
               f"{data.summary['workloads']}",
               "the headline comparison; evaluated once after the design was frozen"]],
-            [0.12, 0.14, 0.20, 0.54], "Table 6 — Splits. The final-test seed was declared "
+            [0.12, 0.14, 0.20, 0.54], "Table — Splits. The final-test seed was declared "
             "before the frozen run.", align_right=(1,)),
         _p("Workload seeds are derived as <i>derive_seed(master_seed, split_tag, family "
            "index, repetition)</i>, so the three splits are disjoint by construction and a "
@@ -768,7 +795,7 @@ def _section_dataset(data: Artifacts) -> List[Tuple]:
            "counterfactual audit checkable rather than decorative."),
         _h2("5.4 Measured dataset statistics"),
         _table(stats_rows, [0.22, 0.09, 0.15, 0.12, 0.13, 0.14, 0.15],
-               "Table 7 — Dataset statistics over the validation and final-test splits, "
+               "Table — Dataset statistics over the validation and final-test splits, "
                "computed by calling the project's own generator.", align_right=(1, 2, 3, 4, 5, 6)),
         _fig("dataset_profile",
              "Arrival span and burst range of the seven families over the "
@@ -785,7 +812,7 @@ def _section_dataset(data: Artifacts) -> List[Tuple]:
             "them as a held-out seed.",
             "<b>No hand-edited data.</b> Every table and figure in this report is written by "
             "<i>python main.py healing-study</i>; the report itself only reads those "
-            "artifacts (plus the generator, for Table 7).",
+            "artifacts (plus the generator, for the dataset table).",
             "<b>Not a real workload.</b> No trace comes from hardware or from a production "
             "system; that limitation is carried into §9.",
         ]),
@@ -813,7 +840,7 @@ def _section_tools(data: Artifacts) -> List[Tuple]:
              ["pytest", "9.1.1", "the automated test suite (472 tests)"],
              ["ReportLab / python-docx", "5.0.1 / 1.2.0", "report deliverables only: this PDF "
               "and the editable DOCX source, both generated from the committed artifacts"]],
-            [0.20, 0.14, 0.66], "Table 8 — Tools actually used."),
+            [0.20, 0.14, 0.66], "Table — Tools actually used."),
         _p("The platform recorded with the study is "
            f"<i>{data.software['platform']}</i>. No deep-learning framework, database or "
            "scientific-workflow engine is used: the whole pipeline is deterministic Python "
@@ -885,6 +912,61 @@ def _section_tools(data: Artifacts) -> List[Tuple]:
            "controller's own state. Second, the reward is computed from the same window "
            "statistic the verdict uses. Third, no branch of the loop has access to a "
            "counterfactual, to future arrivals or to the finished schedule."),
+        _h2("6.4 Literature the design draws on"),
+        _p("The design stands on standard, well-documented work rather than on a survey: the "
+           "scheduling material establishes what a scheduler can measure and why adaptive "
+           "policies exist, and the reinforcement-learning material establishes what a "
+           "tabular action-value method can and cannot promise. These are the works the "
+           "implemented choices follow; each is a published book or paper that a reader can "
+           "verify directly."),
+        _table(
+            [["Reference", "What this project takes from it"],
+             ["A. Silberschatz, P. B. Galvin and G. Gagne, <i>Operating System Concepts</i>, "
+              "Wiley (current edition).",
+              "The vocabulary and the measurement discipline of CPU scheduling: waiting, "
+              "response and turnaround time, dispatch versus completion, and the classical "
+              "baselines (FCFS, SJF, Round Robin, Priority) that this project keeps as the "
+              "fixed arms of its comparison."],
+             ["R. H. Arpaci-Dusseau and A. C. Arpaci-Dusseau, <i>Operating Systems: Three "
+              "Easy Pieces</i>, Arpaci-Dusseau Books.",
+              "The scheduling chapter's framing of the scheduler's dilemma — policy choice "
+              "under imperfect information — which is exactly the situation this project "
+              "models by hiding the future from the controller."],
+             ["P. J. Denning, “The Working Set Model for Program Behavior”, "
+              "<i>Communications of the ACM</i> 11(5), 1968.",
+              "The idea that a recent, windowed view of a system is the right basis for a "
+              "runtime decision, and that the window must be chosen rather than assumed — "
+              "the monitor's rolling completion window and its declared reference are this "
+              "project's small version of that argument."],
+             ["C. A. Waldspurger and W. E. Weihl, “Lottery Scheduling: Flexible "
+              "Proportional-Share Resource Management”, OSDI 1994.",
+              "The precedent that a fresh scheduling decision at runtime can be a "
+              "first-class mechanism rather than a static choice, and that the fairness of "
+              "such a mechanism is a property to be measured rather than assumed."],
+             ["C. J. C. H. Watkins and P. Dayan, “Q-learning”, <i>Machine Learning</i> 8(3), "
+              "1992.",
+              "The update rule used verbatim in <i>rl/q_learning.py</i>, including the "
+              "conditions on which its convergence result depends — conditions this project "
+              "deliberately does not claim to satisfy, which is why the learned controller "
+              "is reported against the rule rather than asserted to be better."],
+             ["R. S. Sutton and A. G. Barto, <i>Reinforcement Learning: An Introduction</i>, "
+              "2nd edition, MIT Press, 2018.",
+              "The treatment of exploration and of episodic versus continuing returns behind "
+              "the ε-greedy schedule, the first-visit fallback and the choice to make one "
+              "trace one episodic return."],
+             ["G. Tesauro, “Temporal Difference Learning and TD-Gammon”, "
+              "<i>Communications of the ACM</i> 38(3), 1995.",
+              "The demonstration that temporal-difference learning can work well on a hard "
+              "sequential decision problem with a coarse representation — and the caution "
+              "that came with it, that its success depended on the problem, which is why "
+              "this report measures the learned controller instead of assuming it."]],
+            [0.46, 0.54], "Table — The published work the implementation follows."),
+        _p("Two consequences of taking these works seriously are visible in the repository. "
+           "First, the learned controller is evaluated exactly like the rule — same workloads, "
+           "same seeds, paired uncertainty — instead of being assumed superior. Second, the "
+           "verification stage exists at all: none of the references above offers a way to "
+           "confirm, inside a single trace, that a change helped, which is the gap this "
+           "project tried to close and reports as only partly closed."),
     ]
 
 
@@ -918,7 +1000,7 @@ def _section_experiment(data: Artifacts) -> List[Tuple]:
               "reported together"],
              ["rule_wait_from_sjf / q_recovery_from_sjf", "from-SJF",
               "the two recovery methods started from the strongest fixed policy"]],
-            [0.30, 0.12, 0.58], "Table 9 — Arms of the study."),
+            [0.30, 0.12, 0.58], "Table — Arms of the study."),
         _h2("7.2 Evaluation metrics"),
         _bullets([
             "<b>Realized scheduling metrics</b> computed from the finished schedule: mean, "
@@ -963,7 +1045,7 @@ def _section_experiment(data: Artifacts) -> List[Tuple]:
         ])
     blocks += [
         _table(rows, [0.32, 0.15, 0.14, 0.15, 0.12, 0.12],
-               f"Table 10 — Held-out split, {data.summary['workloads']} traces per fixed or "
+               f"Table — Held-out split, {data.summary['workloads']} traces per fixed or "
                "rule arm (learned arms: five seeds, 1050 traces). Waiting, response and "
                "turnaround times are simulated time units.", align_right=(1, 2, 3, 4, 5)),
         _fig("waiting_time",
@@ -991,7 +1073,7 @@ def _section_experiment(data: Artifacts) -> List[Tuple]:
         ])
     blocks += [
         _table(comp_rows, [0.31, 0.14, 0.17, 0.38],
-               "Table 11 — Paired mean-waiting-time differences (1000 bootstrap replicates).",
+               "Table — Paired mean-waiting-time differences (1000 bootstrap replicates).",
                align_right=(1, 2)),
         _fig("forest", "Paired differences with 95 % intervals; an interval that "
                        "crosses zero means the two arms are not distinguishable.", 0.95),
@@ -1008,7 +1090,7 @@ def _section_experiment(data: Artifacts) -> List[Tuple]:
                  str(int(row["episodes_with_fallback"]))]
                 for _, row in verdicts.iterrows()],
             [0.28, 0.16, 0.13, 0.13, 0.16, 0.14],
-            "Table 12 — Verdicts and safe-fallback episodes on the held-out split.",
+            "Table — Verdicts and safe-fallback episodes on the held-out split.",
             align_right=(1, 2, 3, 4, 5)),
         _fig("verdicts", "Settlement outcomes per arm, and the counterfactually "
                          "measured help rate of the same interventions.", 0.95),
@@ -1026,7 +1108,7 @@ def _section_experiment(data: Artifacts) -> List[Tuple]:
                 for row in (data.audit_summary_row(arm) for arm in (
                     "rule_wait", "rule_fairness", "q_recovery", "rule_wait_from_sjf")) if row],
             [0.24, 0.17, 0.16, 0.13, 0.10, 0.10, 0.10],
-            "Table 13 — Matched-replay audit: the marginal value of each intervention in "
+            "Table — Matched-replay audit: the marginal value of each intervention in "
             "waiting-time units. A false recovery is an intervention whose matched gain is "
             "not positive.", align_right=(1, 2, 3, 4, 5, 6)),
         _p("Read together, the two tables describe the honest state of the system. The actions "
@@ -1039,7 +1121,7 @@ def _section_experiment(data: Artifacts) -> List[Tuple]:
            "<b>safety filter with a measured rate</b>, not as a benefit estimator. The "
            "fairness rule shows the other side of the ledger: most of its interventions were "
            "harmful and three quarters of them were false recoveries, which is why the "
-           "comparison in Table 11 places it behind the no-action control."),
+           "paired comparison of §7.4 places it behind the no-action control."),
         _h2("7.6 Verification quality on the held-out interventions"),
         _kpi([
             (f"{acceptance['accepted_n']} / {acceptance['accepted_n']}",
@@ -1085,7 +1167,7 @@ def _section_experiment(data: Artifacts) -> List[Tuple]:
                  fmt(row["median_delay_decisions"], 1)]
                 for _, row in scenarios.iterrows()],
             [0.22, 0.12, 0.14, 0.12, 0.18, 0.22],
-            "Table 14 — Controlled degradation scenarios on the validation split "
+            "Table — Controlled degradation scenarios on the validation split "
             "(‘stable’ traces are never injected).", align_right=(1, 2, 3, 4, 5)),
         _p("Recall on injected degradations is "
            f"{scenarios[scenarios['scenario'] == 'burst_shock']['detection_share'].iloc[0]:.0%} "
@@ -1109,7 +1191,7 @@ def _section_experiment(data: Artifacts) -> List[Tuple]:
                  f"{row['state_action_coverage_of_observed_reachable']:.1%}"]
                 for _, row in data.coverage.iterrows()],
             [0.13, 0.12, 0.11, 0.14, 0.13, 0.19, 0.18],
-            "Table 15 — Coverage of the learned controller's table, per independent training "
+            "Table — Coverage of the learned controller's table, per independent training "
             "seed.", align_right=(1, 2, 3, 4, 5, 6)),
         _fig("coverage", "Visited state-action pairs against the pairs reachable "
                          "from the observed contexts, and their growth with training.", 0.95),
@@ -1140,11 +1222,11 @@ def _section_progress(data: Artifacts) -> List[Tuple]:
              ["3. Causal telemetry", "healing/monitor.py", "Complete",
               "monitor tests; reference-absorption rule"],
              ["4. Degradation detection", "healing/detector.py", "Complete",
-              "detector tests; injection scenarios (Table 14)"],
+              "detector tests; the injection scenarios of §7.7"],
              ["5. Diagnosis", "healing/diagnosis.py", "Complete",
               "diagnosis tests; diagnosis mix on the control"],
              ["6. Recovery decision (rule / Q, masked)", "healing/policies.py, rl/q_learning.py",
-              "Complete", "policy tests; coverage analysis (Table 15)"],
+              "Complete", "policy tests; the coverage analysis of §7.8"],
              ["7. Apply the action", "healing/actions.py, healing/controller.py", "Complete",
               "no-op semantics tests"],
              ["8. Verify over a declared window", "healing/verifier.py", "Complete",
@@ -1152,8 +1234,8 @@ def _section_progress(data: Artifacts) -> List[Tuple]:
              ["9. Accept / roll back / safe fallback", "healing/controller.py", "Complete",
               "verdict and fallback tests; one fallback episode on the held-out split"],
              ["10. Record and audit", "incident ledger, counterfactual replay", "Complete",
-              "audit with divergence checks (Table 13)"]],
-            [0.26, 0.26, 0.10, 0.38], "Table 16 — Lifecycle stages."),
+              "audit with divergence checks (§7.5)"]],
+            [0.26, 0.26, 0.10, 0.38], "Table — Lifecycle stages."),
         _h2("8.2 Automated verification of the implementation"),
         _p("The suite runs in about fifty seconds and covers the engine, the healing loop and "
            "the experiment harness, including end-to-end reproduction of the study on a small "
@@ -1231,7 +1313,7 @@ analysis, and writes the 21 artifacts and three figures.)""",
               "action, window statistics, verdict, cost and reward"],
              ["healing_audit.csv", "one matched-replay row per intervention plus one "
               "never-heal row per episode, with the divergence check"],
-             ["healing_comparisons.csv", "paired bootstrap differences and intervals (Table 11)"],
+             ["healing_comparisons.csv", "paired bootstrap differences and intervals (§7.4)"],
              ["healing_threshold_derivation.csv", "derived thresholds, gate sweep and the "
               "out-of-sample control check"],
              ["healing_verification_models.csv", "the measured comparison of candidate phase "
@@ -1243,7 +1325,7 @@ analysis, and writes the 21 artifacts and three figures.)""",
              ["healing_demo.json", "the worked trace of §8.4, replay-verified"],
              ["healing_summary.json", "machine-readable summary of everything above; the only "
               "source of the numbers in this report"]],
-            [0.36, 0.64], "Table 17 — The artifacts behind this report."),
+            [0.36, 0.64], "Table — The artifacts behind this report."),
         _p("An independent re-run into a separate directory reproduces all 21 artifacts and "
            "all three figures byte for byte, and the report itself is generated from those "
            "files, so a change in the system changes the report."),
@@ -1296,7 +1378,8 @@ def _section_challenges(data: Artifacts) -> List[Tuple]:
             "training budget, is the binding constraint.",
             "<b>Neither recovery method reaches SJF.</b> SJF is handed the one thing a real "
             "scheduler does not have, exact burst times, and on these workloads it is the "
-            "strongest single policy (Table 10). The loop's value proposition is therefore "
+            "strongest single policy (the held-out table of §7.4). The loop's value proposition "
+            "is therefore "
             "adaptation to a configuration it was not given, not superiority to an oracle.",
             "<b>The safety fallback fired once.</b> At most six interventions per trace and "
             "two consecutive <i>confirmed</i> failures disable adaptation; on the held-out "
@@ -1361,7 +1444,7 @@ def _section_challenges(data: Artifacts) -> List[Tuple]:
               "within-incident rank correlation and audit agreement must not degrade"],
              ["Then", "A frozen re-run on a newly declared held-out seed",
               "the design is frozen first; the new seed is declared before the run"]],
-            [0.10, 0.44, 0.46], "Table 18 — Remaining work and the gate each step must pass."),
+            [0.10, 0.44, 0.46], "Table — Remaining work and the gate each step must pass."),
         _p("Two rules govern this plan. Any change is developed on training and validation "
            "data only, and any change that survives is followed by a frozen run on a freshly "
            "declared held-out seed, because the current held-out stream will have been "
@@ -1420,7 +1503,7 @@ python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.lock
               f"{data.summary['bootstrap_replicates']} replicates for every paired interval"],
              ["Retired", "20501, 20719, 21617, 72601, 21977 (and 9401)",
               "examined during development; refused as a held-out seed by the configuration"]],
-            [0.12, 0.30, 0.58], "Table A1 — Seed hygiene."),
+            [0.12, 0.30, 0.58], "Table — Seed hygiene."),
         _h2("A.3 Preserved secondary workflows"),
         _p("Two earlier systems are kept in the repository because they document the path to "
            "the current design and are still runnable. They are <b>not</b> the project system "
@@ -1432,14 +1515,14 @@ python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.lock
             "following held-out objective costs (lower is better):",
         ]),
         _table(study_rows, [0.44, 0.28, 0.28],
-               "Table A2 — Offline selector, held-out mean objective cost and regret.",
+               "Table — Offline selector, held-out mean objective cost and regret.",
                align_right=(1, 2)),
         _bullets([
             "<b>Non-healing runtime appendix</b> (<i>main.py runtime-experiment</i>): the "
             "event engine with a per-epoch Q-learning controller and no healing loop. Mean "
             "waiting time on its own held-out split reads:",
         ]),
-        _table(runtime_rows, [0.6, 0.4], "Table A3 — Runtime appendix, mean waiting time.",
+        _table(runtime_rows, [0.6, 0.4], "Table — Runtime appendix, mean waiting time.",
                align_right=(1,)),
         _p("Both workflows reproduce their committed artifacts (the runtime appendix differs "
            "only in wall-clock timing columns, which are machine-dependent and are never used "
