@@ -1,0 +1,1484 @@
+{
+  "configuration": {
+    "design": {
+      "baseline_arms": [
+        "best_fixed",
+        "fingerprint_rule",
+        "random"
+      ],
+      "best_fixed_action": "SJF",
+      "held_out_families": [
+        "poisson_arrivals",
+        "heavy_tail_stress"
+      ],
+      "poor_regret_threshold": 0.1,
+      "primary_objective": "risk_aware_v1",
+      "q_arms": {
+        "ql_orig": {
+          "encoder": "legacy",
+          "objective": "original"
+        },
+        "ql_orig_fingerprint": {
+          "encoder": "fingerprint",
+          "objective": "original"
+        },
+        "ql_risk": {
+          "encoder": "fingerprint",
+          "objective": "risk_aware_v1"
+        },
+        "ql_risk_origstate": {
+          "encoder": "legacy",
+          "objective": "risk_aware_v1"
+        }
+      },
+      "random_seeds": [
+        7701,
+        7702,
+        7703,
+        7704,
+        7705
+      ],
+      "risk_objective": {
+        "reference_clip": 2.0,
+        "tail_quantile": 0.95,
+        "weights": {
+          "context_switches": 0.15,
+          "response": 0.25,
+          "tail_waiting": 0.25,
+          "waiting": 0.35
+        }
+      },
+      "test_repetitions": 30,
+      "test_seed": 19501,
+      "training_episodes": 3600,
+      "training_families": [
+        "short_jobs",
+        "long_jobs",
+        "mixed",
+        "cpu_bursty",
+        "priority_skewed",
+        "staggered_interactive"
+      ],
+      "training_seeds": [
+        42,
+        43,
+        44,
+        45,
+        46
+      ],
+      "validation_repetitions": 16,
+      "validation_seed": 5501
+    },
+    "name": "risk_aware_offline_policy_selection",
+    "software": {
+      "matplotlib": "3.11.2",
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "platform": "Linux-6.1.158+-x86_64-with-glibc2.36",
+      "python": "3.11.2"
+    }
+  },
+  "study": "risk_aware_v1",
+  "test": {
+    "arms": {
+      "best_fixed": {
+        "hindsight_best_rate": 0.7771739130434783,
+        "label": "Best fixed policy (training-only)",
+        "mean_cost_across_model_seeds": 0.8419423613088762,
+        "mean_objective_cost": 0.8419423613088762,
+        "mean_original_reward": 0.17160067124310605,
+        "mean_regret": 0.10396665082261981,
+        "metrics": {
+          "avg_response_time": {
+            "mean": 78.17384057971014,
+            "sd": 68.32519340443541
+          },
+          "avg_turnaround_time": {
+            "mean": 95.2847463768116,
+            "sd": 79.42325397203767
+          },
+          "avg_waiting_time": {
+            "mean": 78.17384057971014,
+            "sd": 68.32519340443541
+          },
+          "context_switches": {
+            "mean": 15.25,
+            "sd": 3.3116917809959423
+          },
+          "cpu_utilization": {
+            "mean": 94.48140971006018,
+            "sd": 12.930535827070864
+          },
+          "throughput": {
+            "mean": 0.09656266650029154,
+            "sd": 0.07041704626573646
+          }
+        },
+        "per_model_seed_mean_cost": [
+          0.8419423613088762
+        ],
+        "poor_selection_rate": 0.22282608695652173,
+        "rows": 368,
+        "sd_cost_across_model_seeds": 0.0,
+        "sd_objective_cost": 0.14562273841896597,
+        "sd_regret": 0.2134340379756866,
+        "selection_counts": {
+          "FCFS": 0,
+          "Priority": 0,
+          "Round Robin": 0,
+          "SJF": 368
+        },
+        "severe_poor_rate": 0.21467391304347827
+      },
+      "fingerprint_rule": {
+        "hindsight_best_rate": 0.8369565217391305,
+        "label": "Fingerprint rule (predeclared)",
+        "mean_cost_across_model_seeds": 0.7751834710418283,
+        "mean_objective_cost": 0.7751834710418283,
+        "mean_original_reward": 0.22995188944393535,
+        "mean_regret": 0.03720776055557179,
+        "metrics": {
+          "avg_response_time": {
+            "mean": 78.4645652173913,
+            "sd": 74.0723358881159
+          },
+          "avg_turnaround_time": {
+            "mean": 96.30528985507246,
+            "sd": 84.53939722754862
+          },
+          "avg_waiting_time": {
+            "mean": 79.194384057971,
+            "sd": 73.5303099344924
+          },
+          "context_switches": {
+            "mean": 16.97554347826087,
+            "sd": 5.739290439130825
+          },
+          "cpu_utilization": {
+            "mean": 94.48140971006018,
+            "sd": 12.930535827070864
+          },
+          "throughput": {
+            "mean": 0.09656266650029154,
+            "sd": 0.07041704626573646
+          }
+        },
+        "per_model_seed_mean_cost": [
+          0.7751834710418283
+        ],
+        "poor_selection_rate": 0.16304347826086957,
+        "rows": 368,
+        "sd_cost_across_model_seeds": 0.0,
+        "sd_objective_cost": 0.13144951129763421,
+        "sd_regret": 0.11352926291911636,
+        "selection_counts": {
+          "FCFS": 25,
+          "Priority": 0,
+          "Round Robin": 63,
+          "SJF": 280
+        },
+        "severe_poor_rate": 0.09782608695652174
+      },
+      "ql_orig": {
+        "hindsight_best_rate": 0.8559782608695652,
+        "label": "Original Q-learning selector",
+        "mean_cost_across_model_seeds": 0.796329650312536,
+        "mean_objective_cost": 0.7963296503125358,
+        "mean_original_reward": 0.20879377603217988,
+        "mean_regret": 0.05244120405142284,
+        "metrics": {
+          "avg_response_time": {
+            "mean": 77.82864492753623,
+            "sd": 69.39790777451205
+          },
+          "avg_turnaround_time": {
+            "mean": 95.31527536231884,
+            "sd": 80.13110190613844
+          },
+          "avg_waiting_time": {
+            "mean": 78.20436956521739,
+            "sd": 69.05434515072467
+          },
+          "context_switches": {
+            "mean": 16.531521739130437,
+            "sd": 5.09956185619303
+          },
+          "cpu_utilization": {
+            "mean": 94.48140971006018,
+            "sd": 12.916465598935124
+          },
+          "throughput": {
+            "mean": 0.09656266650029155,
+            "sd": 0.07034042268889057
+          }
+        },
+        "per_model_seed_mean_cost": [
+          0.8125573137513132,
+          0.778844584504438,
+          0.7936002943327705,
+          0.7986768883786227,
+          0.7979691705955354
+        ],
+        "poor_selection_rate": 0.14402173913043478,
+        "rows": 1840,
+        "sd_cost_across_model_seeds": 0.012090404504784758,
+        "sd_objective_cost": 0.16260656396550938,
+        "sd_regret": 0.14764305417935564,
+        "selection_counts": {
+          "FCFS": 185,
+          "Priority": 0,
+          "Round Robin": 255,
+          "SJF": 1400
+        },
+        "severe_poor_rate": 0.13532608695652174
+      },
+      "ql_orig_fingerprint": {
+        "hindsight_best_rate": 0.845108695652174,
+        "label": "Ablation: original objective, fingerprint state",
+        "mean_cost_across_model_seeds": 0.7838146156203366,
+        "mean_objective_cost": 0.7838146156203366,
+        "mean_original_reward": 0.22070673352291037,
+        "mean_regret": 0.04052824656069237,
+        "metrics": {
+          "avg_response_time": {
+            "mean": 78.38557971014494,
+            "sd": 71.53890838619866
+          },
+          "avg_turnaround_time": {
+            "mean": 96.46686956521738,
+            "sd": 82.41384546534846
+          },
+          "avg_waiting_time": {
+            "mean": 79.35596376811594,
+            "sd": 71.39222894125317
+          },
+          "context_switches": {
+            "mean": 16.86521739130435,
+            "sd": 6.547047033400242
+          },
+          "cpu_utilization": {
+            "mean": 94.48140971006018,
+            "sd": 12.916465598935124
+          },
+          "throughput": {
+            "mean": 0.09656266650029155,
+            "sd": 0.07034042268889057
+          }
+        },
+        "per_model_seed_mean_cost": [
+          0.7871898499903244,
+          0.7791702568537886,
+          0.786240015825439,
+          0.7830595642079876,
+          0.7834133912241432
+        ],
+        "poor_selection_rate": 0.15489130434782608,
+        "rows": 1840,
+        "sd_cost_across_model_seeds": 0.0031454699653255228,
+        "sd_objective_cost": 0.1428428249308275,
+        "sd_regret": 0.11266257434553181,
+        "selection_counts": {
+          "FCFS": 69,
+          "Priority": 39,
+          "Round Robin": 278,
+          "SJF": 1454
+        },
+        "severe_poor_rate": 0.1298913043478261
+      },
+      "ql_risk": {
+        "hindsight_best_rate": 0.825,
+        "label": "Risk-aware Q-learning selector",
+        "mean_cost_across_model_seeds": 0.7953265985636925,
+        "mean_objective_cost": 0.7953265985636926,
+        "mean_original_reward": 0.2085254529040613,
+        "mean_regret": 0.05735088807743606,
+        "metrics": {
+          "avg_response_time": {
+            "mean": 76.31667391304347,
+            "sd": 70.22441249317382
+          },
+          "avg_turnaround_time": {
+            "mean": 98.90193478260869,
+            "sd": 86.80916267400728
+          },
+          "avg_waiting_time": {
+            "mean": 81.79102898550725,
+            "sd": 76.09150206439409
+          },
+          "context_switches": {
+            "mean": 18.55,
+            "sd": 14.180829372662737
+          },
+          "cpu_utilization": {
+            "mean": 94.48140971006018,
+            "sd": 12.916465598935124
+          },
+          "throughput": {
+            "mean": 0.09656266650029155,
+            "sd": 0.07034042268889057
+          }
+        },
+        "per_model_seed_mean_cost": [
+          0.8041466398805821,
+          0.7823554263274176,
+          0.8177828746173392,
+          0.7818239396764525,
+          0.7905241123166712
+        ],
+        "poor_selection_rate": 0.175,
+        "rows": 1840,
+        "sd_cost_across_model_seeds": 0.015457315771102743,
+        "sd_objective_cost": 0.1568477039293478,
+        "sd_regret": 0.14836212056719172,
+        "selection_counts": {
+          "FCFS": 59,
+          "Priority": 54,
+          "Round Robin": 314,
+          "SJF": 1413
+        },
+        "severe_poor_rate": 0.15815217391304348
+      },
+      "ql_risk_origstate": {
+        "hindsight_best_rate": 0.7635869565217391,
+        "label": "Ablation: risk objective, original state",
+        "mean_cost_across_model_seeds": 0.8253299528895551,
+        "mean_objective_cost": 0.8253299528895549,
+        "mean_original_reward": 0.1771777288905269,
+        "mean_regret": 0.08735424240329859,
+        "metrics": {
+          "avg_response_time": {
+            "mean": 77.89655797101449,
+            "sd": 69.58937227739561
+          },
+          "avg_turnaround_time": {
+            "mean": 98.0534347826087,
+            "sd": 79.89934510834269
+          },
+          "avg_waiting_time": {
+            "mean": 80.94252898550724,
+            "sd": 68.92836587214647
+          },
+          "context_switches": {
+            "mean": 18.026630434782607,
+            "sd": 8.813261027226975
+          },
+          "cpu_utilization": {
+            "mean": 94.48140971006018,
+            "sd": 12.916465598935124
+          },
+          "throughput": {
+            "mean": 0.09656266650029155,
+            "sd": 0.07034042268889057
+          }
+        },
+        "per_model_seed_mean_cost": [
+          0.8367903650954949,
+          0.8359870190297357,
+          0.8079174174907598,
+          0.8369144174190153,
+          0.8090405454127694
+        ],
+        "poor_selection_rate": 0.23641304347826086,
+        "rows": 1840,
+        "sd_cost_across_model_seeds": 0.015392003687301559,
+        "sd_objective_cost": 0.18592620585902842,
+        "sd_regret": 0.18502935686472669,
+        "selection_counts": {
+          "FCFS": 228,
+          "Priority": 71,
+          "Round Robin": 350,
+          "SJF": 1191
+        },
+        "severe_poor_rate": 0.22880434782608697
+      },
+      "random": {
+        "hindsight_best_rate": 0.26358695652173914,
+        "label": "Random policy (seeded)",
+        "mean_cost_across_model_seeds": 0.977804608534227,
+        "mean_objective_cost": 0.977804608534227,
+        "mean_original_reward": 0.015861614449377358,
+        "mean_regret": 0.2398288980479705,
+        "metrics": {
+          "avg_response_time": {
+            "mean": 75.65676086956522,
+            "sd": 76.96951060970738
+          },
+          "avg_turnaround_time": {
+            "mean": 127.49840579710144,
+            "sd": 111.16004917321779
+          },
+          "avg_waiting_time": {
+            "mean": 110.3875,
+            "sd": 100.72302918180358
+          },
+          "context_switches": {
+            "mean": 30.00054347826087,
+            "sd": 32.28449695421961
+          },
+          "cpu_utilization": {
+            "mean": 94.48140971006018,
+            "sd": 12.916465598935124
+          },
+          "throughput": {
+            "mean": 0.09656266650029152,
+            "sd": 0.07034042268889057
+          }
+        },
+        "per_model_seed_mean_cost": [
+          0.9832567690014595,
+          0.9882074772565501,
+          0.9758017712596229,
+          0.9752105299202801,
+          0.9665464952332222
+        ],
+        "poor_selection_rate": 0.7364130434782609,
+        "rows": 1840,
+        "sd_cost_across_model_seeds": 0.00829806374277281,
+        "sd_objective_cost": 0.18317479015815027,
+        "sd_regret": 0.21911633986545292,
+        "selection_counts": {
+          "FCFS": 472,
+          "Priority": 392,
+          "Round Robin": 496,
+          "SJF": 480
+        },
+        "severe_poor_rate": 0.6760869565217391
+      }
+    },
+    "by_family": {
+      "best_fixed": {
+        "cpu_bursty": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.8512762548339181,
+          "mean_original_reward": 0.16191146790303418,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "heavy_tail_stress": {
+          "hindsight_best_rate": 0.32608695652173914,
+          "mean_objective_cost": 0.9188078119392158,
+          "mean_original_reward": 0.0724200433285195,
+          "mean_regret": 0.23825726190390326,
+          "poor_selection_rate": 0.6739130434782609,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "long_jobs": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.7650007942792069,
+          "mean_original_reward": 0.24942338143516504,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "mixed": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.7844836664902849,
+          "mean_original_reward": 0.22933540303757735,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "poisson_arrivals": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.7974226600407329,
+          "mean_original_reward": 0.22886748665354864,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "priority_skewed": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.8015448141599648,
+          "mean_original_reward": 0.21242973871383256,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "short_jobs": {
+          "hindsight_best_rate": 0.8913043478260869,
+          "mean_objective_cost": 0.6915278319233152,
+          "mean_original_reward": 0.30957471878606013,
+          "mean_regret": 0.021830371676124217,
+          "poor_selection_rate": 0.10869565217391304,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "staggered_interactive": {
+          "hindsight_best_rate": 0.0,
+          "mean_objective_cost": 1.1254750568043719,
+          "mean_original_reward": -0.09115686991288896,
+          "mean_regret": 0.5716455730009311,
+          "poor_selection_rate": 1.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        }
+      },
+      "fingerprint_rule": {
+        "cpu_bursty": {
+          "hindsight_best_rate": 0.45652173913043476,
+          "mean_objective_cost": 0.895087180048439,
+          "mean_original_reward": 0.1148095617816924,
+          "mean_regret": 0.04381092521452097,
+          "poor_selection_rate": 0.5434782608695652,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 25,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 21
+          }
+        },
+        "heavy_tail_stress": {
+          "hindsight_best_rate": 0.41304347826086957,
+          "mean_objective_cost": 0.8882536137325686,
+          "mean_original_reward": 0.09859290922087188,
+          "mean_regret": 0.2077030636972561,
+          "poor_selection_rate": 0.5869565217391305,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 6,
+            "SJF": 40
+          }
+        },
+        "long_jobs": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.7650007942792069,
+          "mean_original_reward": 0.24942338143516504,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "mixed": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.7844836664902849,
+          "mean_original_reward": 0.22933540303757735,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "poisson_arrivals": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.7974226600407329,
+          "mean_original_reward": 0.22886748665354864,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "priority_skewed": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.8015448141599648,
+          "mean_original_reward": 0.21242973871383256,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 46
+          }
+        },
+        "short_jobs": {
+          "hindsight_best_rate": 0.8260869565217391,
+          "mean_objective_cost": 0.7158455557799883,
+          "mean_original_reward": 0.2883450070315368,
+          "mean_regret": 0.04614809553279719,
+          "poor_selection_rate": 0.17391304347826086,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 11,
+            "SJF": 35
+          }
+        },
+        "staggered_interactive": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.5538294838034408,
+          "mean_original_reward": 0.4178116276772577,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 46,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 46,
+            "SJF": 0
+          }
+        }
+      },
+      "ql_orig": {
+        "cpu_bursty": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.8512762548339182,
+          "mean_original_reward": 0.16191146790303418,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 230
+          }
+        },
+        "heavy_tail_stress": {
+          "hindsight_best_rate": 0.1956521739130435,
+          "mean_objective_cost": 1.071736121512615,
+          "mean_original_reward": -0.07953525700585906,
+          "mean_regret": 0.3369700353710762,
+          "poor_selection_rate": 0.8043478260869565,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 146,
+            "Priority": 0,
+            "Round Robin": 5,
+            "SJF": 79
+          }
+        },
+        "long_jobs": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.7650007942792071,
+          "mean_original_reward": 0.24942338143516501,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 230
+          }
+        },
+        "mixed": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.7844836664902844,
+          "mean_original_reward": 0.22933540303757735,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 230
+          }
+        },
+        "poisson_arrivals": {
+          "hindsight_best_rate": 0.8739130434782608,
+          "mean_objective_cost": 0.8221733322241565,
+          "mean_original_reward": 0.19995673691404264,
+          "mean_regret": 0.028910749739505994,
+          "poor_selection_rate": 0.12608695652173912,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 29,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 201
+          }
+        },
+        "priority_skewed": {
+          "hindsight_best_rate": 0.9652173913043478,
+          "mean_objective_cost": 0.8068134494576102,
+          "mean_original_reward": 0.20657810446696526,
+          "mean_regret": 0.005851634246867358,
+          "poor_selection_rate": 0.034782608695652174,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 8,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 222
+          }
+        },
+        "short_jobs": {
+          "hindsight_best_rate": 0.8130434782608695,
+          "mean_objective_cost": 0.7153240998990555,
+          "mean_original_reward": 0.28486874382925614,
+          "mean_regret": 0.04779721305393322,
+          "poor_selection_rate": 0.18695652173913044,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 2,
+            "Priority": 0,
+            "Round Robin": 20,
+            "SJF": 208
+          }
+        },
+        "staggered_interactive": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.553829483803441,
+          "mean_original_reward": 0.41781162767725766,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 230,
+            "SJF": 0
+          }
+        }
+      },
+      "ql_orig_fingerprint": {
+        "cpu_bursty": {
+          "hindsight_best_rate": 0.8913043478260869,
+          "mean_objective_cost": 0.8597021726544603,
+          "mean_original_reward": 0.1527305166763295,
+          "mean_regret": 0.009180951226704676,
+          "poor_selection_rate": 0.10869565217391304,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 12,
+            "Priority": 13,
+            "Round Robin": 0,
+            "SJF": 205
+          }
+        },
+        "heavy_tail_stress": {
+          "hindsight_best_rate": 0.3695652173913043,
+          "mean_objective_cost": 0.9026520115943477,
+          "mean_original_reward": 0.08630470065376371,
+          "mean_regret": 0.17113007771145344,
+          "poor_selection_rate": 0.6304347826086957,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 2,
+            "Priority": 4,
+            "Round Robin": 18,
+            "SJF": 206
+          }
+        },
+        "long_jobs": {
+          "hindsight_best_rate": 0.9565217391304348,
+          "mean_objective_cost": 0.7739908504961376,
+          "mean_original_reward": 0.23935737634403997,
+          "mean_regret": 0.010066005091125034,
+          "poor_selection_rate": 0.043478260869565216,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 6,
+            "Priority": 2,
+            "Round Robin": 2,
+            "SJF": 220
+          }
+        },
+        "mixed": {
+          "hindsight_best_rate": 0.9,
+          "mean_objective_cost": 0.8053087338165646,
+          "mean_original_reward": 0.20640966038229322,
+          "mean_regret": 0.022925742655284083,
+          "poor_selection_rate": 0.1,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 15,
+            "Priority": 5,
+            "Round Robin": 3,
+            "SJF": 207
+          }
+        },
+        "poisson_arrivals": {
+          "hindsight_best_rate": 0.9173913043478261,
+          "mean_objective_cost": 0.8169826827847216,
+          "mean_original_reward": 0.20606291419839665,
+          "mean_regret": 0.02280457245515202,
+          "poor_selection_rate": 0.08260869565217391,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 11,
+            "Priority": 5,
+            "Round Robin": 3,
+            "SJF": 211
+          }
+        },
+        "priority_skewed": {
+          "hindsight_best_rate": 0.9478260869565217,
+          "mean_objective_cost": 0.8085321963532389,
+          "mean_original_reward": 0.20500619429121347,
+          "mean_regret": 0.007423544422619155,
+          "poor_selection_rate": 0.05217391304347826,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 6,
+            "Priority": 6,
+            "Round Robin": 0,
+            "SJF": 218
+          }
+        },
+        "short_jobs": {
+          "hindsight_best_rate": 0.7782608695652173,
+          "mean_objective_cost": 0.749518793459781,
+          "mean_original_reward": 0.2519708779599888,
+          "mean_regret": 0.08069507892320052,
+          "poor_selection_rate": 0.2217391304347826,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 17,
+            "Priority": 4,
+            "Round Robin": 22,
+            "SJF": 187
+          }
+        },
+        "staggered_interactive": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.553829483803441,
+          "mean_original_reward": 0.41781162767725766,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 230,
+            "SJF": 0
+          }
+        }
+      },
+      "ql_risk": {
+        "cpu_bursty": {
+          "hindsight_best_rate": 0.8956521739130435,
+          "mean_objective_cost": 0.8701837401316335,
+          "mean_original_reward": 0.13761738092877082,
+          "mean_regret": 0.01890748529771534,
+          "poor_selection_rate": 0.10434782608695652,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 4,
+            "Priority": 7,
+            "Round Robin": 13,
+            "SJF": 206
+          }
+        },
+        "heavy_tail_stress": {
+          "hindsight_best_rate": 0.34347826086956523,
+          "mean_objective_cost": 0.9236157207141339,
+          "mean_original_reward": 0.07059170404930852,
+          "mean_regret": 0.24306517067882158,
+          "poor_selection_rate": 0.6565217391304348,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 1,
+            "Priority": 15,
+            "Round Robin": 17,
+            "SJF": 197
+          }
+        },
+        "long_jobs": {
+          "hindsight_best_rate": 0.9347826086956522,
+          "mean_objective_cost": 0.7821551127327231,
+          "mean_original_reward": 0.22971235276793758,
+          "mean_regret": 0.0171543184535161,
+          "poor_selection_rate": 0.06521739130434782,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 5,
+            "Priority": 1,
+            "Round Robin": 9,
+            "SJF": 215
+          }
+        },
+        "mixed": {
+          "hindsight_best_rate": 0.8695652173913043,
+          "mean_objective_cost": 0.813312329972004,
+          "mean_original_reward": 0.19711269429460174,
+          "mean_regret": 0.028828663481719436,
+          "poor_selection_rate": 0.13043478260869565,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 13,
+            "Priority": 9,
+            "Round Robin": 8,
+            "SJF": 200
+          }
+        },
+        "poisson_arrivals": {
+          "hindsight_best_rate": 0.8782608695652174,
+          "mean_objective_cost": 0.8290287389859934,
+          "mean_original_reward": 0.19247364799699554,
+          "mean_regret": 0.0316060789452604,
+          "poor_selection_rate": 0.12173913043478261,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 11,
+            "Priority": 8,
+            "Round Robin": 9,
+            "SJF": 202
+          }
+        },
+        "priority_skewed": {
+          "hindsight_best_rate": 0.9434782608695652,
+          "mean_objective_cost": 0.8144897761322688,
+          "mean_original_reward": 0.1980484274404883,
+          "mean_regret": 0.012944961972304015,
+          "poor_selection_rate": 0.05652173913043478,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 7,
+            "Priority": 2,
+            "Round Robin": 4,
+            "SJF": 217
+          }
+        },
+        "short_jobs": {
+          "hindsight_best_rate": 0.7347826086956522,
+          "mean_objective_cost": 0.7759978860373429,
+          "mean_original_reward": 0.2248357880771303,
+          "mean_regret": 0.10630042579015163,
+          "poor_selection_rate": 0.26521739130434785,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 18,
+            "Priority": 12,
+            "Round Robin": 24,
+            "SJF": 176
+          }
+        },
+        "staggered_interactive": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.553829483803441,
+          "mean_original_reward": 0.41781162767725766,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 230,
+            "SJF": 0
+          }
+        }
+      },
+      "ql_risk_origstate": {
+        "cpu_bursty": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.8512762548339182,
+          "mean_original_reward": 0.16191146790303418,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 230
+          }
+        },
+        "heavy_tail_stress": {
+          "hindsight_best_rate": 0.1391304347826087,
+          "mean_objective_cost": 1.1076657773418201,
+          "mean_original_reward": -0.11303251070180191,
+          "mean_regret": 0.42711522730650764,
+          "poor_selection_rate": 0.8608695652173913,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 179,
+            "Priority": 11,
+            "Round Robin": 11,
+            "SJF": 29
+          }
+        },
+        "long_jobs": {
+          "hindsight_best_rate": 0.9695652173913043,
+          "mean_objective_cost": 0.7759444661706841,
+          "mean_original_reward": 0.23757640884939918,
+          "mean_regret": 0.010943671891477142,
+          "poor_selection_rate": 0.030434782608695653,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 3,
+            "Priority": 3,
+            "Round Robin": 1,
+            "SJF": 223
+          }
+        },
+        "mixed": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.7844836664902844,
+          "mean_original_reward": 0.22933540303757735,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 0,
+            "SJF": 230
+          }
+        },
+        "poisson_arrivals": {
+          "hindsight_best_rate": 0.3695652173913043,
+          "mean_objective_cost": 0.9697242719960669,
+          "mean_original_reward": 0.032853736855331196,
+          "mean_regret": 0.17230161195533386,
+          "poor_selection_rate": 0.6304347826086957,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 36,
+            "Priority": 42,
+            "Round Robin": 67,
+            "SJF": 85
+          }
+        },
+        "priority_skewed": {
+          "hindsight_best_rate": 0.9304347826086956,
+          "mean_objective_cost": 0.8169393162748432,
+          "mean_original_reward": 0.19491382696222093,
+          "mean_regret": 0.015394502114878493,
+          "poor_selection_rate": 0.06956521739130435,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 4,
+            "Priority": 8,
+            "Round Robin": 4,
+            "SJF": 214
+          }
+        },
+        "short_jobs": {
+          "hindsight_best_rate": 0.7,
+          "mean_objective_cost": 0.7427763862053827,
+          "mean_original_reward": 0.25605187054119666,
+          "mean_regret": 0.07307892595819149,
+          "poor_selection_rate": 0.3,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 6,
+            "Priority": 7,
+            "Round Robin": 37,
+            "SJF": 180
+          }
+        },
+        "staggered_interactive": {
+          "hindsight_best_rate": 1.0,
+          "mean_objective_cost": 0.553829483803441,
+          "mean_original_reward": 0.41781162767725766,
+          "mean_regret": 0.0,
+          "poor_selection_rate": 0.0,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 0,
+            "Priority": 0,
+            "Round Robin": 230,
+            "SJF": 0
+          }
+        }
+      },
+      "random": {
+        "cpu_bursty": {
+          "hindsight_best_rate": 0.2608695652173913,
+          "mean_objective_cost": 0.9638288252800196,
+          "mean_original_reward": 0.021429921201826203,
+          "mean_regret": 0.11255257044610147,
+          "poor_selection_rate": 0.7391304347826086,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 59,
+            "Priority": 49,
+            "Round Robin": 62,
+            "SJF": 60
+          }
+        },
+        "heavy_tail_stress": {
+          "hindsight_best_rate": 0.2782608695652174,
+          "mean_objective_cost": 0.9915555390400019,
+          "mean_original_reward": 0.008946153211809542,
+          "mean_regret": 0.31100498900468937,
+          "poor_selection_rate": 0.7217391304347827,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 59,
+            "Priority": 49,
+            "Round Robin": 62,
+            "SJF": 60
+          }
+        },
+        "long_jobs": {
+          "hindsight_best_rate": 0.2608695652173913,
+          "mean_objective_cost": 0.964352903156857,
+          "mean_original_reward": 0.024977277857470587,
+          "mean_regret": 0.1993521088776499,
+          "poor_selection_rate": 0.7391304347826086,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 59,
+            "Priority": 49,
+            "Round Robin": 62,
+            "SJF": 60
+          }
+        },
+        "mixed": {
+          "hindsight_best_rate": 0.2608695652173913,
+          "mean_objective_cost": 0.9635746122096298,
+          "mean_original_reward": 0.026407978765328508,
+          "mean_regret": 0.17909094571934514,
+          "poor_selection_rate": 0.7391304347826086,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 59,
+            "Priority": 49,
+            "Round Robin": 62,
+            "SJF": 60
+          }
+        },
+        "poisson_arrivals": {
+          "hindsight_best_rate": 0.2608695652173913,
+          "mean_objective_cost": 0.9974702326307149,
+          "mean_original_reward": 0.000667900412925876,
+          "mean_regret": 0.20004757258998196,
+          "poor_selection_rate": 0.7391304347826086,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 59,
+            "Priority": 49,
+            "Round Robin": 62,
+            "SJF": 60
+          }
+        },
+        "priority_skewed": {
+          "hindsight_best_rate": 0.2608695652173913,
+          "mean_objective_cost": 0.9656871548223176,
+          "mean_original_reward": 0.02365992392499256,
+          "mean_regret": 0.16414234066235298,
+          "poor_selection_rate": 0.7391304347826086,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 59,
+            "Priority": 49,
+            "Round Robin": 62,
+            "SJF": 60
+          }
+        },
+        "short_jobs": {
+          "hindsight_best_rate": 0.2565217391304348,
+          "mean_objective_cost": 0.9897061471714217,
+          "mean_original_reward": 0.009525962206026008,
+          "mean_regret": 0.3200086869242307,
+          "poor_selection_rate": 0.7434782608695653,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 59,
+            "Priority": 49,
+            "Round Robin": 62,
+            "SJF": 60
+          }
+        },
+        "staggered_interactive": {
+          "hindsight_best_rate": 0.26956521739130435,
+          "mean_objective_cost": 0.9862614539628531,
+          "mean_original_reward": 0.011277798014639576,
+          "mean_regret": 0.43243197015941237,
+          "poor_selection_rate": 0.7304347826086957,
+          "rows": 230,
+          "selection_counts": {
+            "FCFS": 59,
+            "Priority": 49,
+            "Round Robin": 62,
+            "SJF": 60
+          }
+        }
+      }
+    },
+    "distribution_shift": {
+      "best_fixed": {
+        "in_distribution_mean_cost": 0.8365514030818436,
+        "in_distribution_mean_regret": 0.0989126574461759,
+        "out_of_distribution_mean_cost": 0.8581152359899744,
+        "out_of_distribution_mean_regret": 0.11912863095195166,
+        "out_of_distribution_poor_rate": 0.33695652173913043
+      },
+      "fingerprint_rule": {
+        "in_distribution_mean_cost": 0.7526319157602207,
+        "in_distribution_mean_regret": 0.014993170124553026,
+        "out_of_distribution_mean_cost": 0.8428381368866507,
+        "out_of_distribution_mean_regret": 0.10385153184862805,
+        "out_of_distribution_poor_rate": 0.29347826086956524
+      },
+      "ql_orig": {
+        "in_distribution_mean_cost": 0.7461212914605859,
+        "in_distribution_mean_regret": 0.008941474550133426,
+        "out_of_distribution_mean_cost": 0.9469547268683856,
+        "out_of_distribution_mean_regret": 0.18294039255529113,
+        "out_of_distribution_poor_rate": 0.4652173913043478
+      },
+      "ql_orig_fingerprint": {
+        "in_distribution_mean_cost": 0.7584803717639373,
+        "in_distribution_mean_regret": 0.02171522038648891,
+        "out_of_distribution_mean_cost": 0.8598173471895346,
+        "out_of_distribution_mean_regret": 0.09696732508330273,
+        "out_of_distribution_poor_rate": 0.3565217391304348
+      },
+      "ql_risk": {
+        "in_distribution_mean_cost": 0.7683280548015687,
+        "in_distribution_mean_regret": 0.03068930916590109,
+        "out_of_distribution_mean_cost": 0.8763222298500637,
+        "out_of_distribution_mean_regret": 0.13733562481204098,
+        "out_of_distribution_poor_rate": 0.38913043478260867
+      },
+      "ql_risk_origstate": {
+        "in_distribution_mean_cost": 0.7542082622964255,
+        "in_distribution_mean_regret": 0.016569516660757854,
+        "out_of_distribution_mean_cost": 1.0386950246689435,
+        "out_of_distribution_mean_regret": 0.29970841963092076,
+        "out_of_distribution_poor_rate": 0.7456521739130435
+      },
+      "random": {
+        "in_distribution_mean_cost": 0.9722351827671831,
+        "in_distribution_mean_regret": 0.2345964371315154,
+        "out_of_distribution_mean_cost": 0.9945128858353584,
+        "out_of_distribution_mean_regret": 0.25552628079733564,
+        "out_of_distribution_poor_rate": 0.7304347826086957
+      }
+    },
+    "paired_vs_ql_risk": {
+      "best_fixed": {
+        "ci95_high": -0.017091600214672667,
+        "ci95_low": -0.07132400366023783,
+        "mean_cost_difference_ql_risk_minus_arm": -0.04330526858098631,
+        "paired_workloads": 240
+      },
+      "fingerprint_rule": {
+        "ci95_high": 0.027473562203855818,
+        "ci95_low": 0.009534017126151697,
+        "mean_cost_difference_ql_risk_minus_arm": 0.01813900953921452,
+        "paired_workloads": 240
+      },
+      "ql_orig": {
+        "ci95_high": 0.014195830192919546,
+        "ci95_low": -0.014057261605221182,
+        "mean_cost_difference_ql_risk_minus_arm": 2.4963699956885114e-05,
+        "paired_workloads": 240
+      },
+      "ql_orig_fingerprint": {
+        "ci95_high": 0.018177780809440432,
+        "ci95_low": 0.00668853796206727,
+        "mean_cost_difference_ql_risk_minus_arm": 0.012041042678145037,
+        "paired_workloads": 240
+      },
+      "ql_risk_origstate": {
+        "ci95_high": -0.011992811927590483,
+        "ci95_low": -0.04674822611012964,
+        "mean_cost_difference_ql_risk_minus_arm": -0.029321328185877574,
+        "paired_workloads": 240
+      },
+      "random": {
+        "ci95_high": -0.15701682103901474,
+        "ci95_low": -0.19436845854516302,
+        "mean_cost_difference_ql_risk_minus_arm": -0.17584244164647936,
+        "paired_workloads": 240
+      }
+    },
+    "workloads": 240
+  },
+  "training": {
+    "ql_orig": {
+      "mean_reward_last_100_across_seeds": 0.2634862864877869,
+      "per_seed": {
+        "42": {
+          "episodes": 3600,
+          "mean_reward_all": 0.22745070244227392,
+          "mean_reward_first_100": 0.09199496683356527,
+          "mean_reward_last_100": 0.25366704565857773
+        },
+        "43": {
+          "episodes": 3600,
+          "mean_reward_all": 0.24289023300249887,
+          "mean_reward_first_100": 0.07397184910363162,
+          "mean_reward_last_100": 0.27275040579629617
+        },
+        "44": {
+          "episodes": 3600,
+          "mean_reward_all": 0.24237038272927927,
+          "mean_reward_first_100": 0.02868583482945284,
+          "mean_reward_last_100": 0.2741021151119825
+        },
+        "45": {
+          "episodes": 3600,
+          "mean_reward_all": 0.24317313292326959,
+          "mean_reward_first_100": 0.038623694335907593,
+          "mean_reward_last_100": 0.262681938841979
+        },
+        "46": {
+          "episodes": 3600,
+          "mean_reward_all": 0.24198769337780304,
+          "mean_reward_first_100": 0.04358487594291123,
+          "mean_reward_last_100": 0.2542299270300993
+        }
+      }
+    },
+    "ql_orig_fingerprint": {
+      "mean_reward_last_100_across_seeds": 0.25113176235962587,
+      "per_seed": {
+        "42": {
+          "episodes": 3600,
+          "mean_reward_all": 0.2263835023373146,
+          "mean_reward_first_100": 0.07804159171189048,
+          "mean_reward_last_100": 0.24526989371823874
+        },
+        "43": {
+          "episodes": 3600,
+          "mean_reward_all": 0.22822407376647044,
+          "mean_reward_first_100": 0.06266406299638176,
+          "mean_reward_last_100": 0.25421236167408334
+        },
+        "44": {
+          "episodes": 3600,
+          "mean_reward_all": 0.21848777803756453,
+          "mean_reward_first_100": 0.030334315093645627,
+          "mean_reward_last_100": 0.2611145848463749
+        },
+        "45": {
+          "episodes": 3600,
+          "mean_reward_all": 0.21306677090933207,
+          "mean_reward_first_100": 0.03169057481859265,
+          "mean_reward_last_100": 0.25105149185171355
+        },
+        "46": {
+          "episodes": 3600,
+          "mean_reward_all": 0.2267282399758487,
+          "mean_reward_first_100": 0.05255009992446349,
+          "mean_reward_last_100": 0.244010479707719
+        }
+      }
+    },
+    "ql_risk": {
+      "mean_reward_last_100_across_seeds": -0.7689057434215296,
+      "per_seed": {
+        "42": {
+          "episodes": 3600,
+          "mean_reward_all": -0.7943372540393038,
+          "mean_reward_first_100": -0.9264428127798461,
+          "mean_reward_last_100": -0.7834001013609776
+        },
+        "43": {
+          "episodes": 3600,
+          "mean_reward_all": -0.7976520455028886,
+          "mean_reward_first_100": -0.9520518767772872,
+          "mean_reward_last_100": -0.7654668639604563
+        },
+        "44": {
+          "episodes": 3600,
+          "mean_reward_all": -0.8025757131670653,
+          "mean_reward_first_100": -0.9817167569755411,
+          "mean_reward_last_100": -0.7666300669292044
+        },
+        "45": {
+          "episodes": 3600,
+          "mean_reward_all": -0.7927138876528316,
+          "mean_reward_first_100": -0.9902458450864389,
+          "mean_reward_last_100": -0.7559171467636787
+        },
+        "46": {
+          "episodes": 3600,
+          "mean_reward_all": -0.7906384665412383,
+          "mean_reward_first_100": -0.9464572929677346,
+          "mean_reward_last_100": -0.7731145380933313
+        }
+      }
+    },
+    "ql_risk_origstate": {
+      "mean_reward_last_100_across_seeds": -0.7526959423408472,
+      "per_seed": {
+        "42": {
+          "episodes": 3600,
+          "mean_reward_all": -0.7911553693631913,
+          "mean_reward_first_100": -0.9154939489716489,
+          "mean_reward_last_100": -0.7644938468859809
+        },
+        "43": {
+          "episodes": 3600,
+          "mean_reward_all": -0.7939726797042831,
+          "mean_reward_first_100": -0.9605389930998132,
+          "mean_reward_last_100": -0.7546327237135055
+        },
+        "44": {
+          "episodes": 3600,
+          "mean_reward_all": -0.7878740920090358,
+          "mean_reward_first_100": -1.0064162514650736,
+          "mean_reward_last_100": -0.7375748229918632
+        },
+        "45": {
+          "episodes": 3600,
+          "mean_reward_all": -0.7913994429457418,
+          "mean_reward_first_100": -0.9515162259549267,
+          "mean_reward_last_100": -0.748082601474623
+        },
+        "46": {
+          "episodes": 3600,
+          "mean_reward_all": -0.7903758562493254,
+          "mean_reward_first_100": -0.9524952054855325,
+          "mean_reward_last_100": -0.7586957166382636
+        }
+      }
+    }
+  },
+  "validation": {
+    "workloads": 128
+  }
+}
