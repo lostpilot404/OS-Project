@@ -138,10 +138,10 @@ Targeted evidence quoted in this round:
 | Item | Value |
 |---|---|
 | Working branch | `arena/befa2b94-os-project` |
-| Source + docs commit | `SOURCE_SHA_PLACEHOLDER` |
-| Checklist record commit (this file) | `CHECKLIST_SHA_PLACEHOLDER` |
-| Push | `git push origin arena/befa2b94-os-project` — normal push, no force, no history rewrite |
-| Remote verification | `git fetch origin` + `gh api repos/lostpilot404/OS-Project/branches/arena/befa2b94-os-project` → remote head equals the local commit above |
+| Source + docs commit | `617d77b3f896fb00f5f71ce92b467f5183ca22ac` — "Repair and document recovery verification; freeze the held-out study" |
+| Push | `git push origin arena/befa2b94-os-project` → `7e52412..617d77b` (fast-forward, no force, no history rewrite), exit 0 |
+| Remote verification | `git fetch origin` then `gh api repos/lostpilot404/OS-Project/branches/arena/befa2b94-os-project --jq .commit.sha` → `617d77b3f896fb00f5f71ce92b467f5183ca22ac`, identical to the local HEAD; `git rev-list --left-right --count` reported 0 commits behind / 1 ahead before the push and 0/0 after |
+| Checklist record commit (this file) | the commit that follows the source commit; the checklist is the only file it changes, and the remote head after it is the tip of this branch |
 | `main` | untouched at `c26e2a47b637128400f90fe10dec1ce9cf473270` |
 | Merge / PR actions | none (no pull request opened, merged or closed in this round) |
 
