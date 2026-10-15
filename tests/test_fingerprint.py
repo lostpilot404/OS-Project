@@ -43,6 +43,8 @@ class TestFeatureArithmetic:
         assert fingerprint.burst_cv == pytest.approx(expected_cv)
         # bursts [2, 4, 6]: q10=2, q50=4, q90=6 -> Bowley skew 0
         assert fingerprint.burst_skew == pytest.approx(0.0)
+        # earliest arrivals (time 0) have bursts [2, 4] -> mean 3 over median burst 4
+        assert fingerprint.first_arrival_burst_ratio == pytest.approx(0.75)
         assert fingerprint.priority_std == pytest.approx(math.sqrt(2.0) / 3.0)
         assert fingerprint.priority_unique_fraction == pytest.approx(2.0 / 3.0)
         # (priority, burst) = (1,2), (2,4), (1,6): covariance is exactly 0
@@ -203,6 +205,7 @@ class TestFingerprintStateEncoder:
             burst_mean=1.0,
             burst_cv=99.0,
             burst_skew=5.0,
+            first_arrival_burst_ratio=1.0,
             priority_std=0.0,
             priority_unique_fraction=0.0,
             priority_burst_correlation=-5.0,
@@ -227,6 +230,7 @@ class TestFingerprintStateEncoder:
                 burst_mean=1.0,
                 burst_cv=burst_cv,
                 burst_skew=0.0,
+                first_arrival_burst_ratio=1.0,
                 priority_std=0.0,
                 priority_unique_fraction=1.0,
                 priority_burst_correlation=0.0,

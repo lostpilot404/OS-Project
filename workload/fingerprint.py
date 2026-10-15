@@ -32,6 +32,9 @@ Feature                          Definition
 ``burst_skew``                   Bowley (quantile) skew of bursts:
                                  ``(q90 + q10 - 2*q50) / (q90 - q10)`` with nearest-rank
                                  quantiles; 0 when ``q90 == q10``.
+``first_arrival_burst_ratio``    Mean burst of the earliest-arriving processes divided by
+                                 the median burst: whether the head-of-line job is much
+                                 longer than a typical job (head-of-line blocking risk).
 ``priority_std``                 Population standard deviation of priorities.
 ``priority_unique_fraction``     Distinct priority values / process count.
 ``priority_burst_correlation``   Pearson correlation of (priority, burst); 0 when
@@ -67,6 +70,7 @@ FINGERPRINT_FEATURES: Tuple[str, ...] = (
     "burst_mean",
     "burst_cv",
     "burst_skew",
+    "first_arrival_burst_ratio",
     "priority_std",
     "priority_unique_fraction",
     "priority_burst_correlation",
@@ -139,6 +143,8 @@ class WorkloadFingerprint:
         burst_mean: Mean burst time.
         burst_cv: Coefficient of variation of burst times.
         burst_skew: Bowley skew of burst times.
+        first_arrival_burst_ratio: Mean burst of the earliest-arriving processes divided
+            by the median burst (head-of-line blocking indicator).
         priority_std: Population standard deviation of priorities.
         priority_unique_fraction: Distinct priority values divided by process count.
         priority_burst_correlation: Pearson correlation of priority and burst.
@@ -153,6 +159,7 @@ class WorkloadFingerprint:
     burst_mean: float
     burst_cv: float
     burst_skew: float
+    first_arrival_burst_ratio: float
     priority_std: float
     priority_unique_fraction: float
     priority_burst_correlation: float
@@ -167,6 +174,7 @@ class WorkloadFingerprint:
             "burst_mean": self.burst_mean,
             "burst_cv": self.burst_cv,
             "burst_skew": self.burst_skew,
+            "first_arrival_burst_ratio": self.first_arrival_burst_ratio,
             "priority_std": self.priority_std,
             "priority_unique_fraction": self.priority_unique_fraction,
             "priority_burst_correlation": self.priority_burst_correlation,
@@ -211,6 +219,7 @@ def fingerprint_workload(workload: Workload) -> WorkloadFingerprint:
             burst_mean=0.0,
             burst_cv=0.0,
             burst_skew=0.0,
+            first_arrival_burst_ratio=0.0,
             priority_std=0.0,
             priority_unique_fraction=0.0,
             priority_burst_correlation=0.0,
@@ -231,6 +240,17 @@ def fingerprint_workload(workload: Workload) -> WorkloadFingerprint:
     burst_mean = sum(bursts) / count
     burst_cv = _population_std(bursts) / burst_mean if burst_mean > 0.0 else 0.0
 
+    median_burst = workload.median_burst_time
+    first_arrival = min(arrivals)
+    first_bursts = [
+        float(p.burst_time) for p in processes if p.arrival_time == first_arrival
+    ]
+    first_arrival_burst_ratio = (
+        (sum(first_bursts) / len(first_bursts)) / median_burst
+        if median_burst > 0.0
+        else 0.0
+    )
+
     return WorkloadFingerprint(
         workload_name=workload.name,
         digest=workload.fingerprint,
@@ -241,6 +261,7 @@ def fingerprint_workload(workload: Workload) -> WorkloadFingerprint:
         burst_mean=burst_mean,
         burst_cv=burst_cv,
         burst_skew=_bowley_skew(bursts),
+        first_arrival_burst_ratio=first_arrival_burst_ratio,
         priority_std=_population_std(priorities),
         priority_unique_fraction=len(set(priorities)) / count,
         priority_burst_correlation=_pearson_correlation(priorities, bursts),
