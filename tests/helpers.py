@@ -50,6 +50,44 @@ def mean(values: Sequence[float]) -> float:
     return sum(values) / len(values)
 
 
+def make_metrics(
+    policy_name: str = "FCFS",
+    fingerprint: str = "f" * 16,
+    avg_waiting_time: float = 0.0,
+    avg_turnaround_time: float = 0.0,
+    avg_response_time: float = 0.0,
+    cpu_utilization: float = 0.0,
+    throughput: float = 0.0,
+    context_switches_per_process: float = 0.0,
+) -> WorkloadMetrics:
+    """Build a :class:`WorkloadMetrics` with the objective-relevant fields set.
+
+    Fields that no objective reads are filled with consistent defaults.  This helper is
+    for objective/explanation arithmetic tests; metric correctness is covered by
+    ``tests/test_metrics.py`` against real schedules.
+    """
+    n = 4
+    return WorkloadMetrics(
+        policy_name=policy_name,
+        workload_name="synthetic",
+        workload_fingerprint=fingerprint,
+        num_processes=n,
+        total_waiting_time=int(avg_waiting_time * n),
+        total_turnaround_time=int(avg_turnaround_time * n),
+        total_response_time=int(avg_response_time * n),
+        avg_waiting_time=avg_waiting_time,
+        avg_turnaround_time=avg_turnaround_time,
+        avg_response_time=avg_response_time,
+        cpu_utilization=cpu_utilization,
+        throughput=throughput,
+        context_switches=int(context_switches_per_process * n),
+        context_switches_per_process=context_switches_per_process,
+        cpu_busy_time=10,
+        cpu_idle_time=0,
+        total_elapsed_time=10,
+    )
+
+
 def metrics_stub(
     workload_fingerprint: str = "fingerprint",
     policy_name: str = "Test",
