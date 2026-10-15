@@ -837,6 +837,16 @@ class SelfHealingController:
             load_band=pending.load_band_at_trigger,
             trigger_load=pending.trigger_load_level,
             reference_load=pending.pre_load_level,
+            # Progress observables: the controller's own decision counter and the simulated
+            # clock at the trigger epoch. Both are recorded in the incident ledger and in the
+            # derivation artifact as evidence of when the trigger happened, and the declared
+            # reference deliberately does not read them: a clock feature would make the
+            # expectation depend on how far the trace has already run, and the candidate
+            # comparison measured no decision-relevant gain from adding it.
+            ready_count=int(pending.evidence.ready_count),
+            visible_work=float(pending.evidence.visible_remaining_work),
+            decision_index=pending.decision_index,
+            elapsed_time=pending.simulated_time,
         )
 
     def _load_closure(self, pending: _PendingIncident) -> Tuple[Optional[float], Optional[float], Optional[float]]:

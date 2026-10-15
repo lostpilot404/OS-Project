@@ -67,7 +67,8 @@ visualization/    figures rendered from the study artifacts
   Q-table coverage, demo selection and the generated report.
 * `healing_thresholds.py` — derives the declared boundaries from the **no-action control** on
   the training split: the congestion gate's effect, the null distribution of the closure
-  statistic (p50/p90/p95), the phase model (`closure_baseline`) and its residual percentiles,
+  statistic (p50/p90/p95), the phase model (`post_load_baseline`) and its residual percentiles,
+  the comparison of candidate phase-model specifications (`healing_verification_models.csv`),
   plus the measured false-accept / false-reject rates of the declared rule on that control and
   out of sample on the validation control.
 * `healing_detection.py` — controlled-degradation scenarios (`burst_shock`, `arrival_storm`)

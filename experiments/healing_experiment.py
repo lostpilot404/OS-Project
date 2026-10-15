@@ -1583,7 +1583,11 @@ def run_healing_experiment(
     trained = {model.training_seed: model for model in models}
 
     # Imported here because the derivation module reuses this module's workload builder.
-    from experiments.healing_thresholds import derivation_rows, derive_thresholds
+    from experiments.healing_thresholds import (
+        derivation_rows,
+        derive_thresholds,
+        verification_model_comparison,
+    )
 
     if progress:
         print("Deriving the declared thresholds from the training control ...", flush=True)
@@ -1634,6 +1638,14 @@ def run_healing_experiment(
             audit_frames.append(pd.DataFrame(audit_rows))
 
     audit_frame = pd.concat(audit_frames, ignore_index=True) if audit_frames else pd.DataFrame()
+    if progress:
+        print("Comparing candidate phase baselines on the control and the audit ...", flush=True)
+    verification_models = verification_model_comparison(
+        config,
+        control=control_incidents,
+        audit=audit_frame,
+        incidents=incidents_by_split.get("validation", pd.DataFrame()),
+    )
     evaluation_metrics = metrics_by_split["final_test"]
     comparisons = _comparison_table(evaluation_metrics, config)
     detection_frames = [
@@ -1911,6 +1923,7 @@ def run_healing_experiment(
         ("action_probe", probe_frame),
         ("training_episodes", training_episodes),
         ("threshold_derivation", pd.DataFrame(derivation_rows(threshold_derivation))),
+        ("verification_models", verification_models),
         ("control_incidents", control_incidents),
     ):
         path = results_dir / f"healing_{name}.csv"

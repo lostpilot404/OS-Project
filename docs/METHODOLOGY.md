@@ -42,7 +42,7 @@ final_test: 83}`):
 |---|---:|---|---|
 | training | `7101…7105` | 1200 per seed, cycling the six non-`poisson_arrivals` families | training the learned controllers; deriving the declared thresholds from the no-action control |
 | validation | `8201` | 20 per family (140) | development decisions, the worked demonstration trace |
-| final test | `21977` | 30 per family (210) | the reported comparison; touched once, after the design was frozen |
+| final test | `23819` | 30 per family (210) | the reported comparison; touched once, after the design was frozen |
 
 Workload seeds come from `derive_seed(master_seed, SPLIT_TAGS[split], family_index,
 repetition)`, so the three splits are disjoint **by construction** (verified by a test that
@@ -54,15 +54,17 @@ instead of fitting it.
 
 **Seed hygiene.** `20501` was used by an early end-to-end smoke run before the detector's
 congestion gate and the verification rule were finalised, and the `9401` stream was used
-while the harness was built. `20719` and `21617` were each declared as a held-out seed,
-evaluated **once**, and then *examined*: after their runs the verification rule, the reward
-and the audit were reworked (tri-state verification with a phase-aware residual, the
-truncated-window rollback rule, the audit denominator fix). Because substantive changes were
-made after looking at them, both are retired as evidence and cannot be used to report results
-again; the same is true of `72601`. The seed used for the reported study, **`21977`**, was
-declared in `experiments/healing_config.py` *before* the final evaluation of the frozen
-system and is refused as a development seed by the configuration's own validation. The
-offline policy-selection study and the runtime appendix have their own, separate seed streams.
+while the harness was built. `20719`, `21617` and `21977` were each declared as a held-out
+seed, evaluated **once**, and then *examined*: after their runs the verification rule, the
+reward and the audit were reworked (tri-state verification with a phase-aware residual, the
+truncated-window rollback rule, the audit denominator fix, and the replacement of the free
+closure fit by a physical observation row for the phase reference). Because substantive
+changes were made after looking at them, all of them are retired as evidence and cannot be
+used to report results again; the same is true of `72601`. The seed used for the reported
+study, **`23819`**, was declared in `experiments/healing_config.py` *before* the final
+evaluation of the frozen system and is refused as a development seed by the configuration's
+own validation. The offline policy-selection study and the runtime appendix have their own,
+separate seed streams.
 
 ## 3. Arms
 
@@ -158,16 +160,21 @@ derives:
 * `accept_closure_factor`: the *unconditional* share of the closure gap the window must close
   (declared 2.4, i.e. more than the whole gap, as the null distribution sits above 1). It is
   reported for continuity and for the derivation table, not used for the verdict.
-* `closure_baseline`: the phase model. A least-squares fit on the training control predicts
-  the closure a window would show with **no intervention** from features that are known at the
-  trigger (excess over the threshold, band, load band, trigger load, reference load, window
-  length). It explains 81.9 % of the null closure variance (residual sd 0.339 vs 0.797 raw),
-  which is what makes the residual comparable across traces.
+* `post_load_baseline`: the phase model. A least-squares fit on the training control predicts
+  the **no-action post-window load** from three physically observed quantities that are known
+  at the trigger (the trigger's own queue level, the ready-set size, `log1p` of the visible
+  remaining work), and the expectation of the closure statistic is then formed with the
+  statistic's own denominator. It explains 96.1 % of the post-load variance and removes 80.2 %
+  of the null closure's spread (residual sd 0.160 vs 0.806 raw), which is what makes the
+  residual comparable across traces. The comparison of candidate specifications — including the
+  free closure fit this replaced — is written to `results/healing/healing_verification_models.csv`
+  by the run itself.
 * `accept_residual_factor` / `reject_residual_factor`: the two operative boundaries, declared
-  at the **95th and 5th percentiles of the same control residual** (measured +0.62 / −0.41 →
-  declared +0.65 / −0.45, i.e. rounded outward). The measured false-accept / false-reject
-  rates are 4.7 % / 3.9 % on the training control and 3.1 % / 6.1 % out of sample on the
-  98 control windows of the validation split — the split that took no part in the fit.
+  at the **95th and 5th percentiles of the same control residual** (measured +0.263 / −0.257 →
+  declared +0.30 / −0.30, i.e. rounded outward to the declared step of 0.05). The measured
+  false-accept / false-reject rates are 3.4 % / 3.1 % on the training control and 2.1 % / 1.1 %
+  out of sample on the 98 control windows of the validation split — the split that took no part
+  in the fit.
 
 The verification rule is therefore a *conservative safety gate*, not a claim of benefit; the
 audit supplies the benefit measurement, and `healing_summary.json` reports the measured
@@ -181,8 +188,8 @@ discrimination of the statistic itself (`verification_discrimination`).
 2. Develop thresholds, gates and the reward shape on the **training** and **validation**
    splits only. Every rejected alternative is recorded in `docs/DESIGN_AND_CHOICES.md`
    together with the measurement that rejected it.
-3. Freeze `experiments/healing_config.py`, declare a new held-out seed (`21977`, with
-   `20501`, `20719`, `21617` and `72601` recorded as retired), and run
+3. Freeze `experiments/healing_config.py`, declare a new held-out seed (`23819`, with
+   `20501`, `20719`, `21617`, `72601` and `21977` recorded as retired), and run
    `python main.py healing-study` once.
 4. Report every arm — including the arms that lose — and both the favourable and the
    unfavourable audit outcomes.
@@ -193,10 +200,11 @@ discrimination of the statistic itself (`verification_discrimination`).
 * No guarantee that recovery beats a fixed policy; the measured answer is that it does not, on
   these families.
 * No claim that the in-run verdicts are causal evidence; they are a runtime decision rule,
-  and the audit shows they can be wrong in both directions (24 of 34 accepted interventions
-  helped, 15 of 32 rejected ones were harmful).
+  and the audit measures where it stands: on the reported split **65 of 65** accepted
+  interventions were genuinely helpful and 26 of 34 rejected ones were harmful, but the audit
+  also records 8 interventions that were rejected although they helped.
 * No claim that an inconclusive verdict means "no effect": it means the declared evidence was
-  insufficient. Measured on the held-out split, 95.6–97.2 % of the genuinely helpful
+  insufficient. Measured on the held-out split, 91.0–92.1 % of the genuinely helpful
   interventions end inconclusive.
 * Intervals are conditional on the declared design (five training seeds, seven families,
   fixed repetitions); they are not a claim about all workloads.

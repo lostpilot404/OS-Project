@@ -57,7 +57,8 @@ on the **phase-adjusted residual** of the normalised load closure
 `(trigger_load − post_load) / max(trigger_load − reference_load, load_band)`: the declared
 *phase model* is subtracted from that statistic, and the residual is compared with two
 boundaries derived from the **no-action control** of the training split (95th percentile
-*+0.62 → declared +0.65*, 5th percentile *−0.41 → declared −0.45*). The window produces one of
+*+0.263 → declared +0.30*, 5th percentile *−0.257 → declared −0.30*, rounded outward to the
+declared step of 0.05). The window produces one of
 three verdicts — `accepted`, `rejected` (a *confirmed* failure), `inconclusive` (insufficient
 evidence) — and the controller applies the declared posture: `accepted` keeps the change,
 `rejected` and `inconclusive` roll back to the last accepted configuration
@@ -71,16 +72,17 @@ whether or not anything changed (*control median closure 1.406*, which is also t
 helpful interventions), so the old rule rolled back helpful changes and — because the reward
 was tied to the same statistic — taught the learner that they were bad. Two measured facts
 made the fix possible: (i) the closure of a no-action window is predictable from evidence
-available **at the trigger** (the load gap, its band, the trigger and reference loads, the
-window length) — the fitted phase model explains *81.9 %* of its variance and cuts the
-residual spread from *0.797 to 0.339*; (ii) the effect of the best action on the same
-statistic is *+0.152* on average (*0.45 residual sd*, `healing_action_probe.csv`).
+available **at the trigger** (the trigger's own queue level, its ready-set
+size and the visible remaining work) — the declared phase model removes *80.2 %* of that
+statistic's no-action variance and cuts its
+residual spread from *0.806 to 0.160*; (ii) the effect of the best action on the same
+statistic is *+0.152* on average (*0.95 residual sd*, `healing_action_probe.csv`).
 
 **Why three verdicts instead of two.** With one window's evidence the honest answer is often
-"cannot tell": at a 5 % false-accept budget, only *6.1 %* of the genuinely helpful
-interventions clear the null boundary at all (`verification_discrimination` in
-`healing_summary.json`), because certifying an action whose effect is 0.45 residual sd would
-need about *39 windows* of the same action. Collapsing that case into `rejected` would be a
+"cannot tell": at a 5 % false-accept budget, only *6.7 %* of the genuinely helpful
+interventions clear the declared null boundary at all (`verification_discrimination` in
+`healing_summary.json`), and certifying an action whose effect is 0.95 of the residual spread
+would still need about *39 windows* of the same action. Collapsing that case into `rejected` would be a
 false statement about the action *and* would drive the safety fallback on ambiguity, so
 `inconclusive` is kept semantically distinct: it rolls the change back (the loop never keeps a
 configuration it could not verify) but is not a failure, carries no rollback penalty and
@@ -94,12 +96,13 @@ harmful (`rule_fairness` 133.40 vs 144.77), while halving the number of configur
 `inconclusive_rollback = true`.
 
 **Also measured, and worth stating plainly.** The revised rule accepts a population that is
-enriched in benefit (*24 of 34 accepted interventions helped* on the held-out split, against a
-base rate of 82.3 %) and rejects a population that is enriched in harm (*46.9 % of rejected
-interventions were harmful* against a base rate of 15.9 %). Its discrimination is real but
-modest: rank AUC of the residual for predicting "this intervention helped" is *0.720*
-(*0.610* for the raw closure). The rule is a safety gate that filters the tails; it is not a
-benefit estimator.
+enriched in benefit (*65 of 65 accepted interventions helped* on the reported split, against a
+base rate of 83.9 %, and no harmful intervention was accepted) and rejects a population that is
+enriched in harm (*76.5 % of rejected interventions were harmful* against a base rate of
+14.0 %, a 5.5× enrichment). Its ranking is strong (rank AUC of the residual for predicting
+"this intervention helped" is *0.951*, against *0.613* for the raw closure) but its
+certification rate is low (6.7 % of helpful interventions). The rule is a safety gate that
+filters the tails; it is not a benefit estimator.
 
 **Why the correction was not simply a laxer threshold.**
 `(trigger_load − post_load) / max(trigger_load − reference_load, load_band)`, and the
@@ -108,7 +111,7 @@ threshold is derived as the *95th percentile of that statistic under the no-acti
 
 Laxer boundaries would certify no-change windows at the same rate: both operative boundaries
 are percentile points of the control residual (*95th and 5th*), and their measured error is
-*4.7 % / 3.9 %* on the training control and *3.1 % / 6.1 %* out of sample on the 98 control
+*3.4 % / 3.1 %* on the training control and *2.1 % / 1.1 %* out of sample on the 98 control
 windows of the validation split. A rule that accepted the helpful 98 % would have to accept
 roughly the same share of windows in which nothing happened, and the ledger would stop meaning
 anything. The conservative gate plus an honest `inconclusive` category was chosen over a
@@ -222,7 +225,8 @@ streams are retired as evidence: `9401` (harness development), `20501` (an early
 smoke run), and `20719`, `21617` and `72601` — each of which was declared as a held-out seed,
 evaluated once, and then *examined* while the verification rule, the reward and the audit
 denominators were reworked. Substantive changes after looking at a stream invalidate that
-stream as evidence, so all three are retired; `21977` was declared before the final evaluation
+stream as evidence, and `21977` is retired the same way after the phase reference was replaced
+by the physical observation row; `23819` was declared before the final evaluation
 of the frozen system and is refused as a development seed by the configuration's own
 validation (`HealingExperimentConfig.__post_init__`).
 

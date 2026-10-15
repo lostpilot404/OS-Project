@@ -35,33 +35,41 @@ about a real operating system.
 
 ## 3. Measured weaknesses of the healing loop (with numbers)
 
-* **The loop does not beat fixed SJF.** Final-test means: SJF 94.56 vs `rule_wait` 120.77 vs
-  `q_recovery` 121.01 vs FCFS 128.93. The paired intervals exclude zero
+* **The loop does not beat fixed SJF.** Final-test means: SJF 94.66 vs `rule_wait` 122.39 vs
+  `q_recovery` 122.56 vs FCFS 130.84. The paired intervals exclude zero
   (see `docs/EVALUATION_RESULTS.md` §2), and the learned arm is statistically
   indistinguishable from the hand-written rule.
 * **Verification can certify only an extreme tail of the genuinely helpful interventions.**
-  At the declared 5 % false-accept budget on the control, *6.1 %* of the helpful interventions
-  clear the null boundary at all (49 of 802 on the held-out split; their mean gain is +244 wait
-  units). The measured reason: the best action moves the window statistic by +0.152, which is
-  0.45 of the residual spread (0.339) that the phase model leaves, so a single 5-decision window
-  cannot certify an ordinary improvement — roughly 39 windows of the same action would be
-  needed for 80 % power at α = 0.05. What one window *can* do is filter the tails: 24 of 34
-  accepted interventions helped the trace (base rate 82.3 %) and 46.9 % of the rejected ones
-  were harmful (base rate 15.9 %). Rank AUC of the residual for "this intervention helped" is
-  0.720; the raw closure statistic reaches 0.610.
-* **`inconclusive` swallows most of the helpful interventions** (95.6 % for `rule_wait`, 97.2 %
+  At the declared 5 % false-accept budget on the control, *6.7 %* of the helpful interventions
+  clear the declared null boundary at all (54 of 812 on the held-out split; their mean gain is
+  +184.9 wait units), and 8.0 % clear the declared accept boundary. The measured reason: the
+  best action moves the window statistic by +0.152, which is 0.95 of the residual spread
+  (0.160) the phase model leaves, so a single 5-decision window cannot certify an ordinary
+  improvement — the same *≈ 39 windows* per action would be needed for 80 % power at α = 0.05.
+  What one window *can* do is filter the tails: **65 of 65 accepted interventions helped** the
+  trace (base rate 83.9 %) and 76.5 % of the rejected ones were harmful (base rate 14.0 %, a
+  5.5× enrichment). Rank AUC of the residual for "this intervention helped" is 0.951; the raw
+  closure statistic reaches 0.613.
+* **`inconclusive` swallows most of the helpful interventions** (91.0 % for `rule_wait`, 92.1 %
   for `q_recovery`). The declared posture still rolls them back after the verification window,
   so the loop executes a change, benefits from it for 5–14 decisions, and then undoes it. The
-  benefit that remains visible in the arm means (≈8 wait units over FCFS) is the residual of
-  that behaviour, not the value of the actions themselves (the audit measures ≈+179 to +185 per
+  benefit that remains visible in the arm means (≈8.5 wait units over FCFS) is the residual of
+  that behaviour, not the value of the actions themselves (the audit measures ≈+189 to +192 per
   intervention).
-* **The verifier also accepted harmful changes**: 3 of the 6 `rule_wait_from_sjf` interventions
-  (an arm whose every audited intervention was harmful, mean −145) were accepted, and 1
-  `rule_fairness` and 4 `q_recovery` accepted interventions were harmful. With 34 accepted
-  interventions in total, 8 were wrong — small numbers, and the reason they are reported as
-  counts with their denominator rather than as rates.
+* **The verifier's accepted set is not guaranteed clean — it is a calibrated rate.** The accept
+  boundary is the 95th percentile of the *no-action* residual, so any intervention whose window
+  statistic happens to look like a no-action window clears it, whatever its end-of-trace effect
+  was: on the retired `21977` stream 10 of the 34 accepted interventions were harmful (29.4 %),
+  and the expected count for a harmful population that the window cannot separate is exactly
+  the 5 % design budget. On the reported stream the same rule accepted 65 interventions and
+  **none** of them was harmful, but that is one split's draw, not an invariant — the audit, not
+  the verdict, is what establishes benefit. The `rule_wait_from_sjf` arm is the case where the
+  safety posture is the only protection: every audited intervention was harmful (mean −169) and
+  one window was rejected, which is what the failure counter saw. That is why every
+  accept/reject number in this documentation is reported as a count *with* its denominator
+  rather than as a rate.
 * **The detector has a measurable false-trigger rate.** On the no-action control it declares
-  0.62 events per trace on the training split and 0.66 on the held-out split. With a controlled
+  0.62 events per trace on the training split and 0.65 on the held-out split. With a controlled
   step change injected into validation traces, recall is 75.0 % (`burst_shock`) and 56.4 %
   (`arrival_storm`) at a median delay of 6 decision intervals, *while 0.70 events per stable
   trace are still declared* — the false-trigger rate is the honest weak point of a
@@ -70,12 +78,12 @@ about a real operating system.
   congestion gate to 1.25 removes the false triggers and with them almost all true detections
   (0.042 events/trace), so the trade-off is documented rather than optimised away.
 * **The learned controller is undertrained, and more training does not fix it.** 1200 training
-  traces per seed visit 29–32 of 648 states — 6.6–7.9 % of the state-action pairs that are
-  *reachable at all* from the training contexts (864 of the declared 5184, because the
-  `current_policy` dimension is always the starting FCFS). The coverage curve is flat after
-  ~900 episodes: seed 7101 gains one new state-action pair between episodes 900 and 1200
-  (`healing_coverage_curve.csv`). 11–16 visited states ever saw a single action, and 8.8–12.5 %
-  of decisions could only fall back to the initial value. The state space is larger than the
+  traces per seed visit 29–33 of 648 states — 1.1–1.3 % of the declared 5184-pair table, and
+  3.8–7.2 % of the pairs *reachable at all* from the training contexts (864 of them for four
+  seeds, 1728 for seed 7104, whose traces expose a second starting-policy bin). The coverage
+  curve is flat after ~900 episodes: seed 7101 gains one new state-action pair between episodes
+  900 and 1200 (`healing_coverage_curve.csv`). 13–17 visited states ever saw a single action,
+  and 8.8–13.8 % of decisions could only fall back to the initial value. The state space is larger than the
   event supply of this study; that is a limitation of the design, and it is reported rather
   than papered over with a more complex algorithm.
 * **The reward is a weak proxy for the size of an effect, and a decent one for its sign.**
@@ -120,10 +128,11 @@ about a real operating system.
 * That a counterfactual-matched verifier would fix the certification problem online: the
   *offline* matched replay is implemented and is the audit's ground truth, but reproducing it
   at run time requires the no-action counterfactual of the same trace, which a live scheduler
-  does not have. The measured gap between the phase model's residual spread (0.339) and the
+  does not have. The measured gap between the phase model's residual spread (0.160) and the
   paired spread of the same statistic against its own hold run (0.103) is the size of the
-  remaining headroom; closing it (for example with a better phase model or several windows per
-  action) is **not** implemented here.
+  remaining headroom; closing it (for example with a per-trace drain model or several windows
+  per action) is **not** implemented here, and the specification search that was run on
+  train/validation (`healing_verification_models.csv`) is recorded, not hidden.
 * That the tri-state verdict generalises beyond the family mix tested: the accept/reject
   boundaries are percentiles of a control distribution measured on six training families, and
   `poisson_arrivals` (never seen in training) is the only distribution shift in the evaluation.

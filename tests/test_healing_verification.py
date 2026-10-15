@@ -86,14 +86,36 @@ def _evidence(
 # The verifier in isolation
 # --------------------------------------------------------------------------------------
 def test_the_phase_baseline_is_the_declared_linear_function_of_trigger_observables() -> None:
-    """The expectation is a declared linear combination of quantities the controller can see
-    at the trigger epoch: nothing else takes part in it."""
+    """The expectation is built from declared quantities the controller can see at the
+    trigger epoch: a linear prediction of the no-action post-window load, turned into a
+    closure with the statistic's own denominator, and nothing else takes part in it."""
     config = HealingConfig()
-    coefficients = config.closure_baseline
-    assert len(coefficients) == len(PHASE.features())
-    assert expected_closure(PHASE, config) == pytest.approx(
-        sum(c * f for c, f in zip(coefficients, PHASE.features()))
+    coefficients = config.post_load_baseline
+    assert len(coefficients) == len(PHASE.features()) + 1
+    predicted_post = coefficients[0] + sum(
+        c * f for c, f in zip(coefficients[1:], PHASE.features())
     )
+    denominator = max(
+        PHASE.trigger_load - PHASE.reference_load, max(PHASE.load_band, 1e-9)
+    )
+    assert expected_closure(PHASE, config) == pytest.approx(
+        (PHASE.trigger_load - predicted_post) / denominator
+    )
+    # No clock and no decision counter is a regressor: a phase that differs only in how long
+    # the trace has been running, or in how many decisions the controller has taken, is the
+    # same phase as far as the expectation is concerned.
+    late = TriggerPhase(
+        PHASE.excess_band_units,
+        PHASE.relative_band,
+        PHASE.load_band,
+        PHASE.trigger_load,
+        PHASE.reference_load,
+        ready_count=PHASE.ready_count,
+        visible_work=PHASE.visible_work,
+        decision_index=PHASE.decision_index + 400,
+        elapsed_time=PHASE.elapsed_time + 5000,
+    )
+    assert expected_closure(late, config) == pytest.approx(expected_closure(PHASE, config))
     # A trigger that stands out less from its own reference is expected to close less of the
     # gap, so the same closure means something different in the two phases.
     quiet = TriggerPhase(1.3, 0.15, 3.0, 9.3, 9.2)
@@ -230,9 +252,17 @@ class _ScriptedTrace:
     The monitor's load statistic is the waiting-time accrual rate of a decision interval, so
     the caller controls it exactly through ``rate`` (waiting processes per unit time) and
     ``completions`` (observed waiting times revealed at the end of the interval).
+
+    The ready set defaults to nine processes of ten units each because that is the population
+    the declared phase baseline is calibrated on: the training control's ready-set size at a
+    trigger has a median of nine and its visible work a median of about one hundred units. A
+    synthetic trigger with three ready processes and a load of 11.5 belongs to no real trace
+    -- no scheduling statistic stays at the level of nine waiting processes while only three
+    exist -- and the phase baseline correctly says such a queue would drain by itself, so
+    every window in such a trace would be judged against an expectation it cannot reach.
     """
 
-    def __init__(self, controller: SelfHealingController, *, ready: int = 3, mean_burst: float = 10.0):
+    def __init__(self, controller: SelfHealingController, *, ready: int = 9, mean_burst: float = 10.0):
         self.controller = controller
         self._ready = ready
         self._mean_burst = mean_burst
@@ -343,9 +373,12 @@ def _close_window(trace: _ScriptedTrace, *, rate: float, completions: int = 30, 
 
 #: Window accrual rates measured to land in the three declared outcomes in this scripted
 #: scenario. The phase of the trigger is identical in all of them (queue length 11.5 against
-#: the trace's own reference of 11.5 in a band of 1.72, expected closure 2.99): draining the
-#: queue to zero closes the gap, half the load stays inside the control's own range, and the
-#: full load is below the control's lower tail.
+#: the trace's own reference of 11.47 in a band of 1.72 with nine ready processes holding
+#: ninety units of work, which the declared baseline turns into an expected closure of
+#: 3.139). Measured residuals against that expectation: 0.0 -> +2.15 and accepted, 4.5 ->
+#: +0.06 and inconclusive, 12.0 -> -3.43 and rejected. Draining the queue to zero closes the
+#: gap, holding the full load keeps the statistic inside the control's own range, and
+#: accruing at the trigger rate throughout stays below the control's lower tail.
 ACCEPTING_RATE = 0.0
 AMBIGUOUS_RATE = 4.5
 REJECTING_RATE = 12.0

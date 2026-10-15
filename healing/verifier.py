@@ -23,14 +23,21 @@ that the window closed::
     closure = (trigger_load - post_load) / max(trigger_load - reference_load, load_band)
 
 All three loads are observed before the verdict, so the statistic is causal.  Its
-*unconditional* distribution is however dominated by the trigger's own load geometry, which
-is measured: a linear baseline of five quantities that are all visible at the trigger epoch
-explains 82 % of the no-action variance of the statistic on the training control.  The rule
-therefore compares the **residual** after that phase-aware baseline, not the raw statistic,
-and its two boundaries are percentile points of the control residual distribution measured
-by :mod:`experiments.healing_thresholds`.  Both constants are declared in
-:class:`healing.config.HealingConfig`; nothing here is fitted at run time, and no quantity
-used by the rule refers to unarrived work, remaining work or the finished schedule.
+*unconditional* distribution is however dominated by the trigger's own situation, which is
+measured: a **structural** baseline of trigger-observable quantities explains most of the
+no-action variance of the statistic on the training control.  Predicting the no-action
+post-window load from the trigger's own observables and dividing by the statistic's own
+denominator leaves an out-of-sample residual spread of 0.160, against 0.294 for the same
+prediction restricted to the two queue levels, 0.288 for the earlier free fit of the closure
+itself and 0.806 for the raw statistic; the declared row is the physically observed
+``trigger_load``, ready-set size and visible work (``healing_verification_models.csv``).  The
+rule therefore compares the
+**residual** after that phase-aware baseline, not the raw statistic, and its two boundaries
+are percentile points of the control residual distribution over the windows the rule can
+actually judge, measured by :mod:`experiments.healing_thresholds`.  Both constants are
+declared in :class:`healing.config.HealingConfig`; nothing here is fitted at run time, and
+no quantity used by the rule refers to unarrived work, remaining work or the finished
+schedule.
 
 Three intervention outcomes are kept distinct:
 
@@ -54,14 +61,18 @@ Why this is a filter and not an estimator
 -----------------------------------------
 Development measurement on the validation split (matched counterfactual: the same
 controller, one incident forced to hold) shows that an intervention moves the closure
-statistic by about ``+0.14`` while the control's residual spread is ``0.34``: the verifier
-can therefore accept only a small share of genuinely useful interventions, and it is
-reported as a safety filter with a measured accept rate, never as evidence that the
-recommended action was the best one.
+statistic by about ``+0.15`` while the residual spread is ``0.16``: the rule can certify a
+minority of genuinely useful interventions and is nearly silent about harmful ones, and it
+is reported as a safety filter with a measured rate in
+``docs/EVALUATION_RESULTS.md``, never as evidence that the recommended action was the best
+one.  What it cannot do — and what no single five-decision window can do — is turn an
+average improvement into a certificate for every intervention; that limit is quantified in
+the same document.
 """
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -108,15 +119,24 @@ REASON_AMBIGUOUS = "inconclusive_residual_within_null_range"
 
 @dataclass(frozen=True)
 class TriggerPhase:
-    """The five quantities the phase-aware baseline reads, all visible at the trigger.
+    """The quantities the phase-aware baseline reads, all observable at the trigger.
+
+    The baseline predicts the queue level the window would have shown with **no
+    intervention**, so its features are the ones that determine how fast this trace drains
+    from where it stands: the queue level at the trigger, the trace's own normal level, how
+    many processes are ready, and how much CPU work they still hold.
 
     Attributes:
         excess_band_units: Detection excess ``(window_mean - reference) / band`` of the
             completion window that fired the incident.
         relative_band: Waiting-time dispersion band divided by the reference waiting time.
         load_band: Dispersion band of the queue-length statistic at the trigger.
-        trigger_load: Observed queue length (waiting accrueal rate) at the trigger.
+        trigger_load: Observed queue length (waiting accrual rate) at the trigger.
         reference_load: The trace's own normal queue length at the trigger.
+        ready_count: Number of ready processes observed at the trigger epoch.
+        visible_work: Remaining CPU work of the ready set, in simulated time units.
+        decision_index: The controller's own decision counter at the trigger epoch.
+        elapsed_time: Simulated time elapsed since the start of the trace at the trigger.
     """
 
     excess_band_units: float
@@ -124,16 +144,29 @@ class TriggerPhase:
     load_band: float
     trigger_load: float
     reference_load: float
+    ready_count: int = 0
+    visible_work: float = 0.0
+    decision_index: int = 0
+    elapsed_time: int = 0
 
     def features(self) -> Tuple[float, ...]:
-        """Return ``(1, features...)`` in the declared coefficient order."""
+        """Return the declared baseline regressors, in coefficient order.
+
+        This is the design row of :data:`healing.config.HealingConfig.post_load_baseline`:
+        the queue level at the trigger, how many processes are ready, and how much CPU work
+        the ready set still holds (log scale). The trace's own normal level enters through
+        the denominator of the closure, and adding it as a regressor was measured to add
+        nothing (it is collinear with the trigger level and its coefficient changes sign
+        between control halves); ``healing_verification_models.csv`` reports that comparison.
+        Every entry is observed at the trigger epoch and none of them is a clock or a
+        decision counter, so the expectation neither drifts with the length of a trace nor
+        depends on how long the controller has been running. The decision counter and the
+        elapsed time are still recorded in the ledger (see ``as_dict``) as phase evidence.
+        """
         return (
-            1.0,
-            float(self.excess_band_units),
-            float(self.relative_band),
-            float(self.load_band),
             float(self.trigger_load),
-            float(self.reference_load),
+            float(self.ready_count),
+            math.log1p(max(float(self.visible_work), 0.0)),
         )
 
     def as_dict(self) -> dict:
@@ -144,11 +177,34 @@ class TriggerPhase:
             "phase_load_band": self.load_band,
             "phase_trigger_load": self.trigger_load,
             "phase_reference_load": self.reference_load,
+            "phase_ready_count": self.ready_count,
+            "phase_visible_work": self.visible_work,
+            "phase_decision_index": self.decision_index,
+            "phase_elapsed_time": self.elapsed_time,
         }
+
+    def as_row(self) -> dict:
+        """Flat dictionary with the regression row itself, for the derivation artifacts."""
+        payload = self.as_dict()
+        payload.update({f"feature_{index}": value for index, value in enumerate(self.features())})
+        return payload
 
 
 def expected_closure(phase: TriggerPhase, config: HealingConfig) -> float:
-    """Return the control-fitted expected closure of a window in this phase.
+    """Return the closure a window in this phase would have shown with **no intervention**.
+
+    The expectation is structural rather than a free fit of the closure statistic itself: the
+    declared baseline predicts the *queue level* the window would have drained to with
+    nothing changed, and that prediction is turned into a closure through the same formula
+    the controller uses for the observed value::
+
+        expected = (trigger_load - expected_post_load) / max(trigger_load - reference_load,
+                                                             load_band)
+
+    Keeping the statistics' own denominator (including its dispersion floor) inside the
+    expectation is what makes the residual comparable across triggers whose load gap is
+    smaller than their noise band; a free linear fit of the closure cannot follow that
+    non-linearity and was measured to leave twice the residual spread.
 
     Raises:
         ValidationError: If ``phase`` or ``config`` has the wrong type.
@@ -157,8 +213,17 @@ def expected_closure(phase: TriggerPhase, config: HealingConfig) -> float:
         raise ValidationError("expected_closure() requires a TriggerPhase")
     if not isinstance(config, HealingConfig):
         raise ValidationError("expected_closure() requires a HealingConfig")
-    coefficients = config.closure_baseline
-    return float(sum(c * f for c, f in zip(coefficients, phase.features())))
+    coefficients = config.post_load_baseline
+    if len(coefficients) != len(phase.features()) + 1:
+        raise ValidationError("post_load_baseline must hold the intercept and every feature")
+    expected_post_load = coefficients[0] + sum(
+        coefficient * feature for coefficient, feature in zip(coefficients[1:], phase.features())
+    )
+    denominator = max(
+        float(phase.trigger_load) - float(phase.reference_load),
+        max(float(phase.load_band), 1e-9),
+    )
+    return float((float(phase.trigger_load) - expected_post_load) / denominator)
 
 
 def closure_residual(

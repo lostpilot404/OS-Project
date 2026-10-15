@@ -15,17 +15,18 @@ Splits and seeds
   ``docs/DESIGN_AND_CHOICES.md``. No final-test data informed any of them.
 * **Final test**: ``final_test_seed``, ``final_test_repetitions`` traces per family. The
   seed is declared in this file **before** the frozen run of the study and is never used for
-  any development decision. Five earlier streams are retired as evidence and are not reused:
+  any development decision. Six earlier streams are retired as evidence and are not reused:
   the ``9401`` stream, which was used while the harness was built; the ``20501`` stream, which
   was touched by an early end-to-end smoke run before the detector's congestion gate was
-  finalised; and the ``20719``, ``21617`` and ``72601`` streams, each of which was declared as
-  a held-out seed, evaluated once and then *examined* while the system was still changing
-  (phase-aware residual boundaries with accepted/rejected/inconclusive verdicts, the
-  truncated-window rollback rule, the matched-counterfactual audit and its denominators).
-  Reporting any of them again would mean quoting a held-out number that a later version of the
-  system was built against; the declared stream ``21977`` is the only one evaluated with the
-  frozen implementation, and it is refused as a development seed by
-  :meth:`HealingExperimentConfig.__post_init__`.
+  finalised; and the ``20719``, ``21617``, ``72601`` and ``21977`` streams, each of which was
+  declared as a held-out seed, evaluated once and then *examined* while the system was still
+  changing (phase-aware residual boundaries with accepted/rejected/inconclusive verdicts, the
+  truncated-window rollback rule, the matched-counterfactual audit and its denominators, and,
+  for ``21977``, the replacement of the free closure fit by the structural phase baseline with
+  a physically observed design row). Reporting any of them again would mean quoting a held-out
+  number that a later version of the system was built against; ``23819`` is the stream declared
+  for the frozen run of the repaired verification rule, and every retired stream is refused as
+  a development seed by :meth:`HealingExperimentConfig.__post_init__`.
 
 Workload seeds are derived with split-specific tags, so training, validation and final
 test cannot share a workload instance even in principle.
@@ -112,16 +113,19 @@ class HealingExperimentConfig:
     training_seeds: Tuple[int, ...] = (7101, 7102, 7103, 7104, 7105)
     training_episodes_per_seed: int = 1200
     validation_seed: int = 8201
-    #: Declared on 2026-10-15, *before* the frozen run of the repaired verification rule and
-    #: the matched-counterfactual audit, and never evaluated with any earlier version of the
-    #: system.
-    final_test_seed: int = 21977
+    #: Declared on 2026-10-15, *before* the frozen run of the structural phase baseline (the
+    #: declared design row is the physically observed ``trigger_load, ready_count,
+    #: log1p(visible_work)``; the previous free closure fit and the decision-counter variant
+    #: were both measured on train/validation and set aside), and never evaluated with any
+    #: earlier version of the system.
+    final_test_seed: int = 23819
     #: Streams that were already used to make development decisions and must not come back.
     #: 20501 and 20719 were consumed by the earlier single-threshold verification rule; 21617
-    #: was used to check the repaired loop end to end during development, and 72601 was
-    #: touched by audit/coverage development. Their tables are development evidence, never
-    #: held-out results, and the guard below makes that structural rather than a promise.
-    retired_final_test_seeds: Tuple[int, ...] = (20501, 20719, 21617, 72601)
+    #: was used to check the repaired loop end to end during development; 72601 was touched by
+    #: audit/coverage development; and 21977 was examined while the structural phase baseline
+    #: was being chosen. Their tables are development evidence, never held-out results, and the
+    #: guard below makes that structural rather than a promise.
+    retired_final_test_seeds: Tuple[int, ...] = (20501, 20719, 21617, 72601, 21977)
     validation_repetitions: int = 20
     final_test_repetitions: int = 30
     bootstrap_replicates: int = 1000

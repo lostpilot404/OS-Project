@@ -2,7 +2,7 @@
 
 The study declares constants whose values are not free parameters: the congestion gate
 ``min_load_factor``, the *unconditional* reporting threshold ``accept_closure_factor``, the
-phase model ``closure_baseline`` and the two operative verification boundaries
+phase model ``post_load_baseline`` and the two operative verification boundaries
 ``accept_residual_factor`` / ``reject_residual_factor``. All of them are derived here from the
 *no-action control* (the full monitoring, detection and diagnosis loop with a policy that
 never intervenes) on the training split, and the derivation is stored as an artifact of the
@@ -24,10 +24,12 @@ What is measured
 
 * **Phase-aware baseline.** The closure statistic's no-action distribution depends strongly
   on the load geometry observed at the trigger, so a single marginal percentile wastes most
-  of the available discrimination. The derivation therefore fits a least-squares baseline
-  ``E[closure | trigger phase]`` on the control incidents (five features, all of them
-  visible at the trigger epoch), declares its coefficients, and takes the verification
-  boundaries from the *residual* distribution instead. Conditioning is a power improvement
+  of the available discrimination. The derivation therefore fits a least-squares baseline for
+  the *no-action post-window load* on the control incidents (three physically observed
+  trigger features plus an intercept, all visible at the trigger epoch), forms the closure
+  expectation with the statistic's own denominator, declares those coefficients, and takes
+  the verification boundaries from the *residual* distribution instead. Conditioning is a
+  power improvement
   at an unchanged false-accept budget, not a relaxation of the rule: both boundaries stay at
   the 95th/5th percentile of the control, now of the residual.
 * **Calibration check.** The same rates are recomputed on the *validation* control (a split
@@ -71,20 +73,94 @@ __all__ = [
     "collect_control_incidents",
     "derive_thresholds",
     "derivation_rows",
-    "fit_closure_baseline",
+    "fit_post_load_baseline",
+    "expected_closure_column",
+    "judgeable",
+    "verification_model_comparison",
     "residuals",
 ]
 
-#: Feature order of the declared phase-aware baseline (intercept first). A single place
-#: defines what "the trigger phase" means, and ``tests/test_healing_thresholds.py`` pins the
-#: mapping against the verifier's own :class:`healing.verifier.TriggerPhase`.
+#: Regressor order of the declared structural baseline (intercept first). A single place
+#: defines what "the trigger phase" means, and the test suite pins the mapping against the
+#: verifier's own :meth:`healing.verifier.TriggerPhase.features`.
 BASELINE_FEATURES: Tuple[str, ...] = (
     "intercept",
-    "excess_band_units",
-    "relative_band",
-    "load_band_at_trigger",
     "trigger_load_level",
-    "reference_load_level",
+    "ready_count_at_trigger",
+    "log1p_visible_work",
+)
+
+#: Regressor sets that were measured on the control *before* the declared one was chosen.
+#: They are fitted and reported by :func:`verification_model_comparison`, so the choice of
+#: the declared specification is reproducible instead of a narrative. The first entry is the
+#: free fit of the closure statistic itself that the structural specification replaced.
+ALTERNATIVE_FEATURES: Tuple[Tuple[str, ...], ...] = (
+    # The free fit of the closure statistic that the structural specification replaced.
+    (
+        "intercept",
+        "excess_band_units",
+        "relative_band",
+        "load_band_at_trigger",
+        "trigger_load_level",
+        "reference_load_level",
+    ),
+    # The trigger's two queue levels and nothing else: the reference point the structural
+    # specification has to beat.
+    (
+        "intercept",
+        "trigger_load_level",
+        "reference_load_level",
+    ),
+    # Levels plus a clock term, i.e. "the trace has been running for a while".
+    (
+        "intercept",
+        "trigger_load_level",
+        "reference_load_level",
+        "log1p_simulated_time",
+    ),
+    # Levels plus the controller's own decision counter and the clock. This was the first
+    # structural specification tried; it is kept in the table because its coefficients are a
+    # warning: the decision counter alone replaced most of the ready-set information in the
+    # training control, which is an artefact of a population whose triggers all happen in the
+    # first ten decisions, not a property of the workload.
+    (
+        "intercept",
+        "trigger_load_level",
+        "reference_load_level",
+        "decision_index",
+        "log1p_simulated_time",
+    ),
+    # The declared specification plus the trace's own normal level (collinear with the
+    # trigger level; the coefficient changes sign between control halves).
+    (
+        "intercept",
+        "trigger_load_level",
+        "reference_load_level",
+        "ready_count_at_trigger",
+        "log1p_visible_work",
+    ),
+    # The declared specification reduced to the ready set alone.
+    (
+        "intercept",
+        "ready_count_at_trigger",
+    ),
+    # The declared specification plus the monitor window's own size (an instrumentation
+    # constant rather than a workload quantity).
+    (
+        "intercept",
+        "trigger_load_level",
+        "ready_count_at_trigger",
+        "log1p_visible_work",
+        "window_size_at_trigger",
+    ),
+    # The declared specification plus the simulated clock.
+    (
+        "intercept",
+        "trigger_load_level",
+        "ready_count_at_trigger",
+        "log1p_visible_work",
+        "log1p_simulated_time",
+    ),
 )
 
 #: Step the declared residual boundaries are rounded outward to.
@@ -97,50 +173,134 @@ GATE_SWEEP: Tuple[float, ...] = (0.0, 0.5, 0.8, 1.0, 1.25)
 SWEEP_STRIDE = 10
 
 
-def _design_matrix(frame: pd.DataFrame) -> np.ndarray:
-    """Return the declared phase features of every control incident, in order."""
-    return np.column_stack(
-        [
-            np.ones(len(frame)),
-            frame["excess_band_units"].astype(float).to_numpy(),
-            frame["relative_band"].astype(float).to_numpy(),
-            frame["load_band_at_trigger"].astype(float).to_numpy(),
-            frame["trigger_load_level"].astype(float).to_numpy(),
-            frame["reference_load_level"].astype(float).to_numpy(),
-        ]
+def _column(frame: pd.DataFrame, name: str) -> np.ndarray:
+    """Return one regressor column by its declared name.
+
+    Raises:
+        ValidationError: If the column is missing from the ledger.
+    """
+    if name == "intercept":
+        return np.ones(len(frame))
+    if name == "gap":
+        return (
+            frame["trigger_load_level"].astype(float) - frame["reference_load_level"].astype(float)
+        ).to_numpy()
+    if name == "log1p_visible_work":
+        return np.log1p(np.maximum(frame["visible_remaining_work_at_trigger"].astype(float), 0.0))
+    if name == "log1p_simulated_time":
+        return np.log1p(np.maximum(frame["simulated_time"].astype(float), 0.0))
+    for candidate in (name, f"{name}_at_trigger"):
+        if candidate in frame.columns:
+            return frame[candidate].astype(float).to_numpy()
+    raise ValidationError(f"control ledger has no column for regressor {name!r}")
+
+
+def _design_matrix(frame: pd.DataFrame, features: Sequence[str] = BASELINE_FEATURES) -> np.ndarray:
+    """Return the requested regressors of every control incident, in order."""
+    return np.column_stack([_column(frame, name) for name in features])
+
+
+def judgeable(incidents: pd.DataFrame) -> pd.DataFrame:
+    """Return the control windows the verifier would actually score.
+
+    The boundaries are percentiles of the no-action residual, so the population they are
+    taken over has to be the population the rule can judge. A window that was truncated by
+    the end of the trace, that observed no interval at all, or that never reached the
+    declared completion floor is concluded as inconclusive without any comparison against
+    the boundaries (:func:`healing.verifier.verify`), so including those windows would
+    calibrate the rule on evidence it never sees and make every declared rate an
+    overstatement of its strictness.
+    """
+    frame = incidents[incidents["closure_fraction"].notna()].copy()
+    if "window_truncated" in frame.columns:
+        frame = frame[~frame["window_truncated"].astype(bool)]
+    if "verification_decisions" in frame.columns:
+        frame = frame[frame["verification_decisions"].astype(int) > 0]
+    if "verification_completions" in frame.columns and "verify_completions" in frame.attrs:
+        floor = int(frame.attrs["verify_completions"])
+        frame = frame[frame["verification_completions"].astype(int) >= floor]
+    return frame
+
+
+def _closure_denominator(frame: pd.DataFrame) -> np.ndarray:
+    """Return ``max(trigger - reference, max(load_band, 1e-9))`` for every incident row."""
+    return np.maximum(
+        frame["trigger_load_level"].astype(float).to_numpy()
+        - frame["reference_load_level"].astype(float).to_numpy(),
+        np.maximum(frame["load_band_at_trigger"].astype(float).to_numpy(), 1e-9),
     )
 
 
-def fit_closure_baseline(incidents: pd.DataFrame) -> Tuple[float, ...]:
-    """Fit the phase-aware baseline of the closure statistic on control incidents.
+def _rank_auc(scores, positive) -> float:
+    """Return the rank AUC of ``scores`` separating ``positive`` from the rest.
+
+    Ties contribute half, which is the convention of the reported discrimination metric.
+    """
+    scores = pd.Series(np.asarray(scores, dtype=float))
+    label = pd.Series(np.asarray(positive, dtype=bool))
+    positives = int(label.sum())
+    negatives = int((~label).sum())
+    if not positives or not negatives:
+        return float("nan")
+    ranks = scores.rank()
+    return float((ranks[label.to_numpy()].sum() - positives * (positives + 1) / 2) / (positives * negatives))
+
+
+def fit_post_load_baseline(
+    incidents: pd.DataFrame, features: Sequence[str] = BASELINE_FEATURES
+) -> Tuple[float, ...]:
+    """Fit the structural phase-aware reference on the no-action control.
 
     Args:
-        incidents: Control incident ledger with the declared phase columns and a
-            ``closure_fraction`` column.
+        incidents: Control incident ledger with the regressor columns, the observed
+            ``post_load_level`` and a ``closure_fraction`` column.
+        features: Regressor names to fit (defaults to the declared set).
 
     Returns:
-        ``(intercept, excess, relative_band, load_band, trigger_load, reference_load)``,
-        the least-squares coefficients in :data:`BASELINE_FEATURES` order.
+        ``(intercept, ...)``, the least-squares coefficients in ``features`` order.
 
     Raises:
         ValidationError: If there is not enough evidence to fit a baseline.
     """
-    usable = incidents[incidents["closure_fraction"].notna()]
-    if len(usable) < len(BASELINE_FEATURES) + 1:
+    usable = judgeable(incidents)
+    usable = usable[usable["post_load_level"].notna()]
+    if len(usable) < len(features) + 1:
         raise ValidationError("not enough control incidents to fit the phase baseline")
-    design = _design_matrix(usable)
-    target = usable["closure_fraction"].astype(float).to_numpy()
+    design = _design_matrix(usable, features)
+    target = usable["post_load_level"].astype(float).to_numpy()
     beta, *_ = np.linalg.lstsq(design, target, rcond=None)
     return tuple(float(value) for value in beta)
 
 
-def residuals(incidents: pd.DataFrame, baseline: Sequence[float]) -> np.ndarray:
-    """Return the phase-aware residuals of a control incident ledger."""
-    usable = incidents[incidents["closure_fraction"].notna()]
+def expected_closure_column(
+    incidents: pd.DataFrame, baseline: Sequence[float], features: Sequence[str] = BASELINE_FEATURES
+) -> np.ndarray:
+    """Return the structural expectation of the closure statistic for every row.
+
+    The expectation is formed exactly like the observed statistic: the fitted queue level is
+    turned into a closure with ``(trigger_load - expected_post_load) / max(trigger_load -
+    reference_load, load_band)``, so the dispersion floor and the ratio stay in the
+    reference instead of being linearised away.
+    """
+    usable = incidents
+    trigger = usable["trigger_load_level"].astype(float).to_numpy()
+    reference = usable["reference_load_level"].astype(float).to_numpy()
+    band = np.maximum(usable["load_band_at_trigger"].astype(float).to_numpy(), 1e-9)
+    denominator = np.maximum(trigger - reference, band)
+    expected_post = _design_matrix(usable, features) @ np.asarray(list(baseline), dtype=float)
+    return (trigger - expected_post) / denominator
+
+
+def residuals(
+    incidents: pd.DataFrame, baseline: Sequence[float], features: Sequence[str] = BASELINE_FEATURES
+) -> np.ndarray:
+    """Return the phase-aware residuals of the control windows the rule can judge."""
+    usable = judgeable(incidents)
     if usable.empty:
         return np.asarray([], dtype=float)
-    expected = _design_matrix(usable) @ np.asarray(list(baseline), dtype=float)
-    return usable["closure_fraction"].astype(float).to_numpy() - expected
+    return usable["closure_fraction"].astype(float).to_numpy() - expected_closure_column(
+        usable, baseline, features
+    )
 
 
 def _round_outward(quantile: float) -> float:
@@ -182,6 +342,17 @@ class ThresholdDerivation:
     validation_incidents: int
     validation_false_accept_rate: float
     validation_false_reject_rate: float
+    #: Calibration population: how many declared events the verifier can actually judge, and
+    #: how many were excluded because the trace end truncated them or their telemetry was
+    #: below the declared completion floor.
+    judged_incidents: int
+    excluded_truncated: int
+    excluded_thin: int
+    #: The same null statistics over *every* declared event, for continuity with the earlier
+    #: derivation and to make the effect of the population choice visible.
+    all_events_incidents: int
+    all_events_null_p95: float
+    all_events_residual_sd: float
     gate_sweep: Tuple[Dict[str, Any], ...]
 
     def as_dict(self) -> Dict[str, Any]:
@@ -198,8 +369,14 @@ class ThresholdDerivation:
             "declared_accept_closure_factor": self.declared_accept_closure_factor,
             "declared_false_accept_rate_on_control": self.declared_false_accept_rate,
             "baseline_features": list(BASELINE_FEATURES),
-            "fitted_closure_baseline": list(self.fitted_baseline),
-            "declared_closure_baseline": list(self.declared_baseline),
+            "fitted_post_load_baseline": list(self.fitted_baseline),
+            "declared_post_load_baseline": list(self.declared_baseline),
+            "judged_incidents": self.judged_incidents,
+            "excluded_truncated": self.excluded_truncated,
+            "excluded_thin": self.excluded_thin,
+            "all_events_incidents": self.all_events_incidents,
+            "all_events_null_p95": self.all_events_null_p95,
+            "all_events_residual_sd": self.all_events_residual_sd,
             "baseline_r2": self.baseline_r2,
             "baseline_residual_sd": self.residual_sd,
             "residual_sd_reduction": self.residual_reduction,
@@ -268,7 +445,9 @@ def collect_control_incidents(
                     "trace_index": index,
                     "family": item.family,
                     "decision_index": incident.decision_index,
+                    "simulated_time": incident.simulated_time,
                     "window_mean_at_trigger": incident.window_mean_at_trigger,
+                    "window_size_at_trigger": incident.window_size_at_trigger,
                     "trigger_load_level": incident.trigger_load_level,
                     "reference_load_level": incident.pre_load_level,
                     "post_load_level": incident.post_load_level,
@@ -280,12 +459,232 @@ def collect_control_incidents(
                         if incident.reference_at_trigger > 0.0
                         else float("nan")
                     ),
+                    "ready_count_at_trigger": incident.ready_count_at_trigger,
+                    "visible_remaining_work_at_trigger": (
+                        incident.visible_remaining_work_at_trigger
+                    ),
+                    "verification_decisions": incident.verification_decisions,
+                    "verification_completions": incident.verification_completions,
+                    "window_truncated": incident.window_truncated,
                     "verdict": incident.verdict,
                 }
             )
     frame = pd.DataFrame(rows)
     frame.attrs["traces"] = evaluated
+    frame.attrs["verify_completions"] = int(thresholds.verify_completions)
     return frame
+
+
+def verification_model_comparison(
+    config,
+    *,
+    control: Optional[pd.DataFrame] = None,
+    validation_control: Optional[pd.DataFrame] = None,
+    audit: Optional[pd.DataFrame] = None,
+    incidents: Optional[pd.DataFrame] = None,
+) -> pd.DataFrame:
+    """Compare the candidate phase-aware references honestly and return the evidence table.
+
+    The declared specification was chosen by **control fit only**: each candidate's
+    out-of-sample residual spread is estimated by five-fold cross-validation grouped by
+    trace (folds never share a trace, so the estimate cannot be inflated by the control's own
+    within-trace structure), and the decision-relevant behaviour of each candidate is then
+    *reported* rather than used for the choice. When a validation audit frame and the
+    matching incident ledger are supplied, the table also gives the share of genuinely
+    helpful and genuinely harmful interventions whose window would clear that candidate's
+    95th-percentile boundary.
+
+    Args:
+        config: The study configuration (splits, families, declared constants).
+        control: Training control ledger (collected here when not supplied).
+        validation_control: Validation control ledger, used for the calibration check.
+        audit: Optional intervention-level audit frame (``healing_audit.csv``); only
+            ``split == "validation"`` rows are used.
+        incidents: Optional validation incident ledger holding the trigger-time regressors
+            of the audited interventions (``healing_incidents_validation.csv``).
+
+    Returns:
+        One row per candidate specification.
+    """
+    control = collect_control_incidents(config, "training") if control is None else control
+    validation_control = (
+        collect_control_incidents(config, "validation")
+        if validation_control is None
+        else validation_control
+    )
+    judged = judgeable(control).reset_index(drop=True)
+    folds = pd.factorize(judged["trace_index"].to_numpy())[0] % 5
+    joined: Optional[pd.DataFrame] = None
+    if audit is not None and incidents is not None and not audit.empty:
+        held = audit[
+            (audit["split"].astype(str) == "validation")
+            & (audit["verdict"].astype(str) != "episode_level")
+        ]
+        key = ["arm", "training_seed", "family", "repetition", "decision_index"]
+        ledger = incidents[
+            key
+            + [
+                "trigger_load_level",
+                "load_band_at_trigger",
+                "simulated_time",
+                "ready_count_at_trigger",
+                "visible_remaining_work_at_trigger",
+                "window_size_at_trigger",
+                "excess_band_units",
+                "band_at_trigger",
+                "reference_at_trigger",
+            ]
+            + (["reference_load_level"] if "reference_load_level" in incidents.columns else ["pre_load_level"])
+        ].copy()
+        ledger["relative_band"] = (
+            ledger["band_at_trigger"].astype(float)
+            / ledger["reference_at_trigger"].astype(float).where(
+                ledger["reference_at_trigger"].astype(float) > 0.0
+            )
+        )
+        if "reference_load_level" not in ledger.columns:
+            # The incident ledger names the trace's own normal level ``pre_load_level``; the
+            # control ledger (and every regressor name) calls it ``reference_load_level``.
+            ledger = ledger.rename(columns={"pre_load_level": "reference_load_level"})
+        joined = held.merge(ledger, on=key, how="inner")
+    specs: List[Tuple[str, Tuple[str, ...]]] = [("declared", BASELINE_FEATURES)] + [
+        (f"alternative_{index}", features)
+        for index, features in enumerate(ALTERNATIVE_FEATURES, start=1)
+    ]
+    # The audited windows are the same rows for every candidate: the population the verifier
+    # is judged on must not change with the specification being compared.
+    scored = None
+    helped_mask: Optional[np.ndarray] = None
+    clusters: Optional[np.ndarray] = None
+    if joined is not None and len(joined):
+        scored = joined[joined["closure_fraction"].notna()].reset_index(drop=True)
+        if len(scored):
+            helped_mask = scored["matched_gain"].astype(float).to_numpy() > 0
+            clusters = scored.groupby(["family", "repetition"]).ngroup().to_numpy()
+    rows: List[Dict[str, Any]] = []
+    certified_by_spec: Dict[str, np.ndarray] = {}
+    for name, features in specs:
+        design = _design_matrix(judged, features)
+        target = judged["post_load_level"].astype(float).to_numpy()
+        out_of_fold = np.empty(len(judged))
+        for fold in range(5):
+            mask = folds != fold
+            coefficients, *_ = np.linalg.lstsq(design[mask], target[mask], rcond=None)
+            out_of_fold[~mask] = target[~mask] - design[~mask] @ coefficients
+        coefficients, *_ = np.linalg.lstsq(design, target, rcond=None)
+        residual = residuals(control, coefficients, features)
+        boundary = float(np.percentile(residual, 95)) if len(residual) else float("nan")
+        validation_residual = residuals(validation_control, coefficients, features)
+        row: Dict[str, Any] = {
+            "specification": name,
+            "features": ",".join(features),
+            "parameters": len(features),
+            "judged_incidents": int(len(judged)),
+            "out_of_sample_post_load_sd": float(out_of_fold.std(ddof=0)),
+            "out_of_sample_closure_residual_sd": float(
+                (-(out_of_fold / _closure_denominator(judged))).std(ddof=0)
+            ),
+            "residual_sd": float(residual.std(ddof=0)) if len(residual) else float("nan"),
+            "residual_p95_boundary": boundary,
+            "validation_false_accept": (
+                float((validation_residual >= boundary).mean())
+                if len(validation_residual)
+                else float("nan")
+            ),
+            "audited_interventions": int(len(joined)) if joined is not None else 0,
+            "certified_share_of_helpful": float("nan"),
+            "certified_share_of_harmful": float("nan"),
+        }
+        if scored is not None and len(scored):
+            window_residual = scored["closure_fraction"].astype(float).to_numpy() - (
+                expected_closure_column(scored, coefficients, features)
+            )
+            certified = window_residual >= boundary
+            helped = helped_mask
+            harmful = scored["matched_gain"].astype(float).to_numpy() < 0
+            certified_by_spec[name] = certified
+            if helped.any():
+                row["certified_share_of_helpful"] = float(certified[helped].mean())
+            if harmful.any():
+                row["certified_share_of_harmful"] = float(certified[harmful].mean())
+            row["rank_auc_helpful_over_harmful"] = _rank_auc(window_residual, helped)
+        rows.append(row)
+    frame = pd.DataFrame(rows)
+    _attach_paired_uncertainty(frame, certified_by_spec, helped_mask, clusters)
+    return frame
+
+
+def _attach_paired_uncertainty(
+    frame: pd.DataFrame,
+    certified_by_spec: Dict[str, np.ndarray],
+    helped: Optional[np.ndarray],
+    clusters: Optional[np.ndarray],
+    *,
+    reference: str = "declared",
+    draws: int = 2000,
+    seed: int = 20261015,
+) -> None:
+    """Add the paired uncertainty of the decision-relevant metric to the comparison table.
+
+    ``certified_share_of_helpful`` is a share over *interventions*, but interventions are
+    clustered: several of them belong to the same workload trace, and the traces differ in how
+    much a recovery window can possibly close. The difference between two candidate
+    specifications is therefore resampled over the workload clusters (paired: the same clusters
+    are used for both specifications in every draw), which is the only comparison the study
+    makes for the choice of the declared reference. The table is written even when the interval
+    excludes zero for a candidate that was not adopted — the numbers are recorded, not hidden.
+    """
+    columns = (
+        "paired_delta_certified_helpful",
+        "paired_delta_ci_low",
+        "paired_delta_ci_high",
+        "paired_delta_includes_zero",
+    )
+    for column in columns:
+        frame[column] = float("nan")
+    frame["paired_delta_includes_zero"] = pd.Series(
+        [pd.NA] * len(frame), dtype="boolean"
+    )
+    if (
+        helped is None
+        or clusters is None
+        or reference not in certified_by_spec
+        or not helped.any()
+    ):
+        return
+    unique = np.unique(clusters)
+    index_by_cluster = {cluster: np.flatnonzero(clusters == cluster) for cluster in unique}
+    # Draw once and reuse the same clusters for every candidate: the comparison is paired.
+    rng = np.random.default_rng(seed)
+    resamples = [
+        np.concatenate([index_by_cluster[cluster] for cluster in rng.choice(unique, size=len(unique), replace=True)])
+        for _ in range(draws)
+    ]
+    baseline = certified_by_spec[reference]
+    for position, name in enumerate(frame["specification"]):
+        if name not in certified_by_spec:
+            continue
+        if name == reference:
+            frame.loc[position, "paired_delta_certified_helpful"] = 0.0
+            frame.loc[position, "paired_delta_ci_low"] = 0.0
+            frame.loc[position, "paired_delta_ci_high"] = 0.0
+            frame.loc[position, "paired_delta_includes_zero"] = True
+            continue
+        candidate = certified_by_spec[name]
+        deltas = np.asarray(
+            [
+                candidate[index][helped[index]].mean() - baseline[index][helped[index]].mean()
+                for index in resamples
+            ]
+        )
+        point = float(
+            candidate[helped].mean() - baseline[helped].mean()
+        )
+        low, high = (float(value) for value in np.percentile(deltas, [2.5, 97.5]))
+        frame.loc[position, "paired_delta_certified_helpful"] = point
+        frame.loc[position, "paired_delta_ci_low"] = low
+        frame.loc[position, "paired_delta_ci_high"] = high
+        frame.loc[position, "paired_delta_includes_zero"] = bool(low <= 0.0 <= high)
 
 
 def derive_thresholds(config, split: str = "training") -> Tuple[ThresholdDerivation, pd.DataFrame]:
@@ -296,7 +695,20 @@ def derive_thresholds(config, split: str = "training") -> Tuple[ThresholdDerivat
     """
     incidents = collect_control_incidents(config, split)
     traces = int(incidents.attrs.get("traces", 0))
-    closure = incidents["closure_fraction"].dropna() if not incidents.empty else pd.Series(dtype=float)
+    # Two populations are reported side by side: every declared event (the detector's
+    # behaviour) and the windows the verifier can actually judge (the rule's calibration).
+    all_closure = (
+        incidents["closure_fraction"].dropna() if not incidents.empty else pd.Series(dtype=float)
+    )
+    judged = judgeable(incidents)
+    judged_closure = judged["closure_fraction"].astype(float)
+    closure = judged_closure
+    excluded_truncated = (
+        int(incidents["window_truncated"].astype(bool).sum())
+        if "window_truncated" in incidents.columns
+        else 0
+    )
+    excluded_thin = int(len(all_closure) - len(judged_closure) - excluded_truncated)
     null_p50 = float(np.percentile(closure, 50)) if len(closure) else float("nan")
     null_p90 = float(np.percentile(closure, 90)) if len(closure) else float("nan")
     null_p95 = float(np.percentile(closure, 95)) if len(closure) else float("nan")
@@ -305,16 +717,15 @@ def derive_thresholds(config, split: str = "training") -> Tuple[ThresholdDerivat
     false_accept = float((closure >= declared).mean()) if len(closure) else float("nan")
 
     if len(closure):
-        fitted = fit_closure_baseline(incidents)
+        fitted = fit_post_load_baseline(incidents)
         residual = residuals(incidents, fitted)
-        predicted = closure.to_numpy() - residual
         spread = float(closure.std(ddof=0))
         r2 = float(1.0 - residual.var() / closure.var()) if closure.var() > 0 else float("nan")
         residual_sd = float(residual.std(ddof=0))
         residual_p05 = float(np.percentile(residual, 5))
         residual_p95 = float(np.percentile(residual, 95))
     else:  # pragma: no cover - an empty control is a broken experiment, reported, not hidden
-        fitted = tuple(config.healing.closure_baseline)
+        fitted = tuple(config.healing.post_load_baseline)
         residual = np.asarray([], dtype=float)
         residual_sd = float("nan")
         r2 = float("nan")
@@ -326,7 +737,7 @@ def derive_thresholds(config, split: str = "training") -> Tuple[ThresholdDerivat
     derived_reject_residual = (
         _round_outward(residual_p05) if len(residual) else float(config.healing.reject_residual_factor)
     )
-    declared_baseline = tuple(float(value) for value in config.healing.closure_baseline)
+    declared_baseline = tuple(float(value) for value in config.healing.post_load_baseline)
     declared_residual = residuals(incidents, declared_baseline) if len(closure) else np.asarray([], dtype=float)
     false_accept_residual = (
         float((declared_residual >= config.healing.accept_residual_factor).mean())
@@ -398,6 +809,18 @@ def derive_thresholds(config, split: str = "training") -> Tuple[ThresholdDerivat
         validation_incidents=int(len(validation)),
         validation_false_accept_rate=validation_false_accept,
         validation_false_reject_rate=validation_false_reject,
+        judged_incidents=int(len(judged)),
+        excluded_truncated=excluded_truncated,
+        excluded_thin=max(0, excluded_thin),
+        all_events_incidents=int(len(all_closure)),
+        all_events_null_p95=(
+            float(np.percentile(all_closure, 95)) if len(all_closure) else float("nan")
+        ),
+        all_events_residual_sd=(
+            float(residuals(incidents, declared_baseline).std(ddof=0))
+            if len(all_closure)
+            else float("nan")
+        ),
         gate_sweep=tuple(sweep),
     )
     return derivation, incidents
@@ -495,7 +918,7 @@ def derivation_rows(derivation: ThresholdDerivation) -> List[Dict[str, Any]]:
     for name, coefficient in zip(BASELINE_FEATURES, derivation.fitted_baseline):
         rows.append(
             {
-                "quantity": f"fitted_closure_baseline[{name}]",
+                "quantity": f"fitted_post_load_baseline[{name}]",
                 "value": round(coefficient, 6),
                 "source": f"{derivation.split} (control, least squares)",
             }
@@ -503,7 +926,7 @@ def derivation_rows(derivation: ThresholdDerivation) -> List[Dict[str, Any]]:
     for name, coefficient in zip(BASELINE_FEATURES, derivation.declared_baseline):
         rows.append(
             {
-                "quantity": f"declared_closure_baseline[{name}]",
+                "quantity": f"declared_post_load_baseline[{name}]",
                 "value": round(coefficient, 6),
                 "source": "healing/config.py HealingConfig",
             }

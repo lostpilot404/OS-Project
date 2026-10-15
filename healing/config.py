@@ -93,19 +93,27 @@ class HealingConfig:
             because they are the simple rule this design replaces, and the study reports
             both; the verdict itself uses the phase-aware rule below because the
             unconditional one was measured to waste most of the available discrimination
-            (the trigger's own load geometry explains 82 % of the statistic's no-action
-            variance, so a single marginal percentile is a poor null).
-        closure_baseline: Coefficients ``(intercept, excess, relative_band, load_band,
-            trigger_load, reference_load)`` of the linear **phase-aware baseline** of the
-            closure statistic, in that order. ``excess`` is the detection excess in
-            dispersion-band units, ``relative_band`` is the waiting-dispersion band divided
-            by the reference waiting time, and the three load features are the queue-length
-            level at the trigger, its dispersion band and the trace's own normal level.
-            Every one of them is observable at the trigger epoch, so subtracting the
-            baseline stays causal. The coefficients are fitted by
+            (the trigger's own observed phase explains 80 % of the statistic's no-action
+            variance -- a residual spread of 0.160 against 0.806 -- so a single marginal
+            percentile is a poor null).
+        post_load_baseline: Coefficients ``(intercept, trigger_load, ready_count,
+            log1p(visible_work))`` of the **structural phase-aware reference**, in that
+            order. The baseline predicts the queue level the window would have shown with
+            *no intervention*; the expectation of the closure statistic is then formed with
+            the statistic's own formula, ``(trigger_load - expected_post_load) /
+            max(trigger_load - reference_load, load_band)``, which keeps the dispersion floor
+            and the non-linearity of the ratio inside the reference instead of forcing a
+            straight line through them. The trace's own normal level therefore takes part
+            through the denominator of the statistic rather than as a regressor: it is
+            collinear with the trigger level and was measured to add nothing (its coefficient
+            changes sign between control halves). Every feature is observable at the trigger
+            epoch (the three queue/ready-set observables), so subtracting the reference stays
+            causal, and none of them is a clock or a decision counter, so the expectation
+            cannot drift with the length of a trace. The coefficients are fitted by
             :mod:`experiments.healing_thresholds` on the *no-action control of the training
-            split* (least squares, no other data), so the residual is the part of the
-            observed closure that the trace's own phase does not explain.
+            split* (least squares on the observed post-window load), and the
+            boundaries below are percentiles of the residual distribution over the control
+            windows the rule can actually judge.
         accept_residual_factor, reject_residual_factor: The two declared boundaries of the
             phase-aware rule implemented in :mod:`healing.verifier`:
             ``residual >= accept_residual_factor`` accepts the change,
@@ -178,16 +186,14 @@ class HealingConfig:
     verify_max_decisions: int = 14
     accept_closure_factor: float = 2.4
     reject_closure_factor: float = 0.0
-    closure_baseline: Tuple[float, ...] = (
-        -0.1156,
-        0.0187,
-        0.3527,
-        -0.4229,
-        0.1685,
-        0.1132,
+    post_load_baseline: Tuple[float, ...] = (
+        -2.422506,
+        -0.008145,
+        0.998700,
+        -0.082333,
     )
-    accept_residual_factor: float = 0.65
-    reject_residual_factor: float = -0.45
+    accept_residual_factor: float = 0.30
+    reject_residual_factor: float = -0.30
     max_consecutive_failures: int = 2
     fallback_policy: int = ACTION_FCFS
     #: Consequence of an *inconclusive* window (a change the rule could neither verify nor
@@ -246,13 +252,13 @@ class HealingConfig:
             raise ConfigurationError(
                 "reject_closure_factor must be below accept_closure_factor"
             )
-        if len(self.closure_baseline) != 6:
+        if len(self.post_load_baseline) != 4:
             raise ConfigurationError(
-                "closure_baseline must hold the intercept and five phase coefficients"
+                "post_load_baseline must hold the intercept and three phase coefficients"
             )
-        for value in self.closure_baseline:
+        for value in self.post_load_baseline:
             if not math.isfinite(float(value)):
-                raise ConfigurationError("closure_baseline coefficients must be finite")
+                raise ConfigurationError("post_load_baseline coefficients must be finite")
         _require_finite(self.accept_residual_factor, "accept_residual_factor")
         if not isinstance(self.inconclusive_rollback, bool):
             raise ConfigurationError("inconclusive_rollback must be a bool")

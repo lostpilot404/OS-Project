@@ -32,25 +32,29 @@ held-out seed.
 
 ```
 .venv/bin/python -m pytest -q
-469 passed, 1 skipped
+472 passed in 50.20s        (exit code 0)
 ```
 
 The suite includes the 386 pre-existing tests (offline study, runtime appendix, engine,
-metrics, reproducibility) plus the tests added with the healing system (84 in total): monitor 8,
-detector 14, diagnosis 11, policies 8, controller 8, verification 18, detection scenarios 6,
-study harness 11.
+metrics, reproducibility) plus the tests added with the healing system (86 in total): monitor 8,
+detector 14, diagnosis 11, policies 8, controller 10, verification 18, detection scenarios 6,
+study harness 11. Seven of them carry a guard that skips the check when a randomized trace
+produces no incident or no audited intervention to inspect; the run recorded above skipped
+none (repeated runs of the same source land between 49.5 s and 50.2 s).
 
 ## Results status
 
-One frozen run of `python main.py healing-study` (≈ 46 s) produced every table quoted in
-`docs/EVALUATION_RESULTS.md`: 550 hold-out traces for the fixed/rule arms, 1050 per learned
-arm, 975 audited interventions on the held-out split, 168 probed action effects and 420
-controlled-degradation traces. An independent re-run into a separate directory reproduced all
-20 artifacts and all 3 figures byte for byte. The headline honest findings — recovery beats
-doing nothing but does not beat fixed SJF; the verifier filters the tails of the effect
-distribution but can certify only 6.1 % of genuinely helpful interventions; the detector
-delivers a 75 %/56 % recall on injected degradations at the price of 0.70 false triggers per
-stable trace — are documented with the numbers and their denominators behind them.
+One frozen run of `python main.py healing-study` (≈ 47 s) produced every table quoted in
+`docs/EVALUATION_RESULTS.md`: 210 hold-out traces per arm (1680 for the fixed/rule/control arms,
+1050 per learned arm — 3780 rows in `healing_metrics_final_test.csv`), 973 audited interventions
+on the held-out split, 168 probed action effects and 420 controlled-degradation traces. An
+independent re-run into a separate directory reproduced all 21 machine-readable artifacts and
+all 3 figures byte for byte. The headline honest findings — recovery beats doing nothing but
+does not beat fixed SJF; the verifier filters the tails of the effect distribution (65 of 65
+accepted interventions genuinely helpful, none harmful) but can certify only 6.7 % of the
+genuinely helpful ones; the detector delivers 75 %/56 % recall on injected degradations at the
+price of 0.70 false triggers per stable trace — are documented with the numbers and their
+denominators behind them.
 
 ## Preserved historical components
 

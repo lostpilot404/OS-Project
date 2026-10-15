@@ -1,226 +1,64 @@
 {
   "arm": {
-    "description": "tabular Q-learning recovery, independent seed 7101",
+    "description": "tabular Q-learning recovery, independent seed 7105",
     "initial_policy": "FCFS",
     "name": "q_recovery",
     "policy_kind": "q_learning",
-    "training_seed": 7101
+    "training_seed": 7105
   },
   "decisions": [
-    {
-      "completed_pids": [
-        4
-      ],
-      "completed_waiting_times": [
-        0
-      ],
-      "decision_index": 0,
-      "executed_from": 1,
-      "executed_to": 44,
-      "forced_hold_reason": "no_new_completions",
-      "policy": "FCFS",
-      "policy_changed": false,
-      "quantum": 4,
-      "selected_pid": 4,
-      "simulated_time": 1,
-      "switch_overhead": 0
-    },
-    {
-      "completed_pids": [
-        14
-      ],
-      "completed_waiting_times": [
-        41
-      ],
-      "decision_index": 1,
-      "executed_from": 45,
-      "executed_to": 63,
-      "forced_hold_reason": null,
-      "policy": "FCFS",
-      "policy_changed": false,
-      "quantum": 4,
-      "selected_pid": 14,
-      "simulated_time": 44,
-      "switch_overhead": 1
-    },
-    {
-      "completed_pids": [
-        9
-      ],
-      "completed_waiting_times": [
-        59
-      ],
-      "decision_index": 2,
-      "executed_from": 64,
-      "executed_to": 74,
-      "forced_hold_reason": null,
-      "policy": "FCFS",
-      "policy_changed": false,
-      "quantum": 4,
-      "selected_pid": 9,
-      "simulated_time": 63,
-      "switch_overhead": 1
-    },
-    {
-      "completed_pids": [
-        1
-      ],
-      "completed_waiting_times": [
-        69
-      ],
-      "decision_index": 3,
-      "executed_from": 75,
-      "executed_to": 83,
-      "forced_hold_reason": null,
-      "policy": "FCFS",
-      "policy_changed": false,
-      "quantum": 4,
-      "selected_pid": 1,
-      "simulated_time": 74,
-      "switch_overhead": 1
-    },
-    {
-      "completed_pids": [
-        13
-      ],
-      "completed_waiting_times": [
-        78
-      ],
-      "decision_index": 4,
-      "executed_from": 84,
-      "executed_to": 130,
-      "forced_hold_reason": null,
-      "policy": "FCFS",
-      "policy_changed": false,
-      "quantum": 4,
-      "selected_pid": 13,
-      "simulated_time": 83,
-      "switch_overhead": 1
-    },
-    {
-      "completed_pids": [
-        8
-      ],
-      "completed_waiting_times": [
-        122
-      ],
-      "decision_index": 5,
-      "executed_from": 131,
-      "executed_to": 167,
-      "forced_hold_reason": null,
-      "policy": "FCFS",
-      "policy_changed": false,
-      "quantum": 4,
-      "selected_pid": 8,
-      "simulated_time": 130,
-      "switch_overhead": 1
-    },
-    {
-      "completed_pids": [
-        11
-      ],
-      "completed_waiting_times": [
-        158
-      ],
-      "decision_index": 6,
-      "executed_from": 168,
-      "executed_to": 173,
-      "forced_hold_reason": null,
-      "policy": "FCFS",
-      "policy_changed": false,
-      "quantum": 4,
-      "selected_pid": 11,
-      "simulated_time": 167,
-      "switch_overhead": 1
-    },
-    {
-      "completed_pids": [
-        3
-      ],
-      "completed_waiting_times": [
-        156
-      ],
-      "decision_index": 7,
-      "executed_from": 174,
-      "executed_to": 175,
-      "forced_hold_reason": null,
-      "policy": "SJF",
-      "policy_changed": true,
-      "quantum": 4,
-      "selected_pid": 3,
-      "simulated_time": 173,
-      "switch_overhead": 1
-    },
-    {
-      "completed_pids": [
-        7
-      ],
-      "completed_waiting_times": [
-        161
-      ],
-      "decision_index": 8,
-      "executed_from": 176,
-      "executed_to": 184,
-      "forced_hold_reason": "verification-window-open",
-      "policy": "SJF",
-      "policy_changed": false,
-      "quantum": 4,
-      "selected_pid": 7,
-      "simulated_time": 175,
-      "switch_overhead": 1
-    },
-    {
-      "completed_pids": [
-        15
-      ],
-      "completed_waiting_times": [
-        165
-      ],
-      "decision_index": 9,
-      "executed_from": 185,
-      "executed_to": 197,
-      "forced_hold_reason": "verification-window-open",
-      "policy": "SJF",
-      "policy_changed": false,
-      "quantum": 4,
-      "selected_pid": 15,
-      "simulated_time": 184,
-      "switch_overhead": 1
-    },
     {
       "completed_pids": [
         12
       ],
       "completed_waiting_times": [
-        186
+        0
       ],
-      "decision_index": 10,
-      "executed_from": 198,
-      "executed_to": 212,
-      "forced_hold_reason": "verification-window-open",
-      "policy": "SJF",
+      "decision_index": 0,
+      "executed_from": 0,
+      "executed_to": 27,
+      "forced_hold_reason": "no_new_completions",
+      "policy": "FCFS",
       "policy_changed": false,
       "quantum": 4,
       "selected_pid": 12,
-      "simulated_time": 197,
-      "switch_overhead": 1
+      "simulated_time": 0,
+      "switch_overhead": 0
     },
     {
       "completed_pids": [
         10
       ],
       "completed_waiting_times": [
-        201
+        27
       ],
-      "decision_index": 11,
-      "executed_from": 213,
-      "executed_to": 233,
-      "forced_hold_reason": "verification-window-open",
-      "policy": "SJF",
+      "decision_index": 1,
+      "executed_from": 28,
+      "executed_to": 32,
+      "forced_hold_reason": null,
+      "policy": "FCFS",
       "policy_changed": false,
       "quantum": 4,
       "selected_pid": 10,
-      "simulated_time": 212,
+      "simulated_time": 27,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        4
+      ],
+      "completed_waiting_times": [
+        29
+      ],
+      "decision_index": 2,
+      "executed_from": 33,
+      "executed_to": 59,
+      "forced_hold_reason": null,
+      "policy": "FCFS",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 4,
+      "simulated_time": 32,
       "switch_overhead": 1
     },
     {
@@ -228,35 +66,89 @@
         6
       ],
       "completed_waiting_times": [
-        216
+        55
       ],
-      "decision_index": 12,
-      "executed_from": 234,
-      "executed_to": 258,
+      "decision_index": 3,
+      "executed_from": 60,
+      "executed_to": 89,
       "forced_hold_reason": null,
-      "policy": "SJF",
+      "policy": "FCFS",
       "policy_changed": false,
       "quantum": 4,
       "selected_pid": 6,
-      "simulated_time": 233,
+      "simulated_time": 59,
       "switch_overhead": 1
     },
     {
       "completed_pids": [
-        2
+        9
       ],
       "completed_waiting_times": [
-        246
+        85
       ],
-      "decision_index": 13,
-      "executed_from": 259,
-      "executed_to": 295,
+      "decision_index": 4,
+      "executed_from": 90,
+      "executed_to": 96,
       "forced_hold_reason": null,
+      "policy": "FCFS",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 9,
+      "simulated_time": 89,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        11
+      ],
+      "completed_waiting_times": [
+        92
+      ],
+      "decision_index": 5,
+      "executed_from": 97,
+      "executed_to": 142,
+      "forced_hold_reason": null,
+      "policy": "FCFS",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 11,
+      "simulated_time": 96,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        14
+      ],
+      "completed_waiting_times": [
+        135
+      ],
+      "decision_index": 6,
+      "executed_from": 143,
+      "executed_to": 147,
+      "forced_hold_reason": null,
+      "policy": "SJF",
+      "policy_changed": true,
+      "quantum": 4,
+      "selected_pid": 14,
+      "simulated_time": 142,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        13
+      ],
+      "completed_waiting_times": [
+        131
+      ],
+      "decision_index": 7,
+      "executed_from": 148,
+      "executed_to": 154,
+      "forced_hold_reason": "verification-window-open",
       "policy": "SJF",
       "policy_changed": false,
       "quantum": 4,
-      "selected_pid": 2,
-      "simulated_time": 258,
+      "selected_pid": 13,
+      "simulated_time": 147,
       "switch_overhead": 1
     },
     {
@@ -264,32 +156,132 @@
         5
       ],
       "completed_waiting_times": [
-        284
+        141
       ],
-      "decision_index": 14,
-      "executed_from": 296,
-      "executed_to": 336,
-      "forced_hold_reason": null,
+      "decision_index": 8,
+      "executed_from": 155,
+      "executed_to": 168,
+      "forced_hold_reason": "verification-window-open",
       "policy": "SJF",
       "policy_changed": false,
       "quantum": 4,
       "selected_pid": 5,
-      "simulated_time": 295,
+      "simulated_time": 154,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        2
+      ],
+      "completed_waiting_times": [
+        149
+      ],
+      "decision_index": 9,
+      "executed_from": 169,
+      "executed_to": 188,
+      "forced_hold_reason": "verification-window-open",
+      "policy": "SJF",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 2,
+      "simulated_time": 168,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        8
+      ],
+      "completed_waiting_times": [
+        180
+      ],
+      "decision_index": 10,
+      "executed_from": 189,
+      "executed_to": 215,
+      "forced_hold_reason": "verification-window-open",
+      "policy": "SJF",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 8,
+      "simulated_time": 188,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        3
+      ],
+      "completed_waiting_times": [
+        206
+      ],
+      "decision_index": 11,
+      "executed_from": 216,
+      "executed_to": 243,
+      "forced_hold_reason": null,
+      "policy": "SJF",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 3,
+      "simulated_time": 215,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        15
+      ],
+      "completed_waiting_times": [
+        239
+      ],
+      "decision_index": 12,
+      "executed_from": 244,
+      "executed_to": 286,
+      "forced_hold_reason": null,
+      "policy": "SJF",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 15,
+      "simulated_time": 243,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        1
+      ],
+      "completed_waiting_times": [
+        272
+      ],
+      "decision_index": 13,
+      "executed_from": 287,
+      "executed_to": 335,
+      "forced_hold_reason": null,
+      "policy": "SJF",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 1,
+      "simulated_time": 286,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        7
+      ],
+      "completed_waiting_times": [
+        324
+      ],
+      "decision_index": 14,
+      "executed_from": 336,
+      "executed_to": 385,
+      "forced_hold_reason": null,
+      "policy": "SJF",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 7,
+      "simulated_time": 335,
       "switch_overhead": 1
     }
   ],
   "healing_config": {
     "accept_closure_factor": 2.4,
-    "accept_residual_factor": 0.65,
+    "accept_residual_factor": 0.3,
     "band_ewma": 0.25,
-    "closure_baseline": [
-      -0.1156,
-      0.0187,
-      0.3527,
-      -0.4229,
-      0.1685,
-      0.1132
-    ],
     "congestion_ready_count": 5,
     "cooldown_decisions": 3,
     "fallback_policy": 0,
@@ -309,9 +301,15 @@
     "min_ready_processes": 2,
     "min_remaining_work_factor": 1.5,
     "min_window_completions": 4,
+    "post_load_baseline": [
+      -2.422506,
+      -0.008145,
+      0.9987,
+      -0.082333
+    ],
     "reference_ewma": 0.35,
     "reject_closure_factor": 0.0,
-    "reject_residual_factor": -0.45,
+    "reject_residual_factor": -0.3,
     "rollback_penalty": 0.02,
     "starvation_age_factor": 3.0,
     "tail_dispersion_factor": 5.0,
@@ -323,314 +321,314 @@
   },
   "incidents": [
     {
-      "accept_residual_factor": 0.65,
+      "accept_residual_factor": 0.3,
       "action": 2,
       "action_changed": true,
       "action_name": "set_sjf",
       "action_note": "policy changed",
-      "band_at_trigger": 6.7128749999999995,
-      "closure_fraction": 2.665436094622351,
-      "closure_residual": 0.6576368712646063,
+      "band_at_trigger": 4.1625,
+      "closure_fraction": 2.3239399081169294,
+      "closure_residual": 0.31406212566901504,
       "confirmed_failure": false,
       "consecutive_failures": 0,
-      "context_state_index": 205,
+      "context_state_index": 206,
       "cost_band_units": 0.06666666666666668,
-      "decision_index": 7,
+      "decision_index": 6,
       "detector_reason": "degradation_detected",
       "diagnosis": "fairness_starvation",
       "diagnosis_index": 1,
       "diagnosis_matched": "fairness_starvation,queue_congestion",
-      "diagnosis_statement": "fairness_starvation: oldest ready job has waited at least 161 time units (recent completed-work wait 75.3 vs reference 44.8 (band 6.7, window 7 completions); also matched: fairness_starvation, queue_congestion)",
+      "diagnosis_statement": "fairness_starvation: oldest ready job has waited at least 137 time units (recent completed-work wait 48.0 vs reference 27.8 (band 4.2, window 6 completions); also matched: fairness_starvation, queue_congestion)",
       "episode_index": 0,
       "epsilon": 0.0,
-      "excess_band_units": 4.5484556595667724,
-      "expected_closure": 2.0077992233577446,
+      "excess_band_units": 4.864864864864865,
+      "expected_closure": 2.0098777824479144,
       "explored": false,
       "fallback_triggered": false,
       "forced_hold": false,
-      "improvement": -2.8835819227976094,
-      "improvement_band_units": -19.223879485317397,
+      "improvement": -4.3045045045045045,
+      "improvement_band_units": -28.696696696696698,
       "incident_index": 0,
-      "load_band_at_trigger": 2.338093584718558,
-      "load_improvement": 0.5865992063154561,
-      "load_improvement_band_units": 2.6399611246732175,
+      "load_band_at_trigger": 2.359077380952381,
+      "load_improvement": 0.5009564174722587,
+      "load_improvement_band_units": 2.2500062647491643,
       "offered_actions": "hold,set_sjf,set_round_robin,set_priority",
-      "post_load_level": 4.35,
-      "post_window_mean": 173.8,
-      "pre_load_level": 10.52247616950484,
-      "ready_count_at_trigger": 8,
-      "reference_at_trigger": 44.7525,
+      "post_load_level": 5.287671232876712,
+      "post_window_mean": 147.2,
+      "pre_load_level": 10.59561011904762,
+      "ready_count_at_trigger": 9,
+      "reference_at_trigger": 27.75,
       "reject_closure_factor": 0.0,
-      "reject_residual_factor": -0.45,
+      "reject_residual_factor": -0.3,
       "request_note": "",
       "required_closure_factor": 2.4,
-      "reward": -0.05902979540206035,
+      "reward": -0.05260454099765163,
       "rollback_target_policy": "",
       "rollback_target_quantum": "",
       "settings_after_policy": "SJF",
       "settings_after_quantum": 4,
       "settings_before_policy": "FCFS",
       "settings_before_quantum": 4,
-      "simulated_time": 173,
+      "simulated_time": 142,
       "suspicion_evaluations": 2,
       "switch_overhead_units": 5,
-      "trigger_load_level": 10.582039033313807,
-      "trigger_threshold": 53.143593749999994,
+      "trigger_load_level": 10.770025304807914,
+      "trigger_threshold": 32.953125,
       "verdict": "accepted",
       "verification_completions": 5,
       "verification_decisions": 5,
       "verifier_reason": "verified_phase_residual",
-      "visible_remaining_work_at_trigger": 155,
-      "window_end_time": 233,
-      "window_max_at_trigger": 158.0,
-      "window_mean_at_trigger": 75.28571428571429,
-      "window_median_at_trigger": 69.0,
-      "window_size_at_trigger": 7,
+      "visible_remaining_work_at_trigger": 234,
+      "window_end_time": 215,
+      "window_max_at_trigger": 92.0,
+      "window_mean_at_trigger": 48.0,
+      "window_median_at_trigger": 42.0,
+      "window_size_at_trigger": 6,
       "window_truncated": false
     }
   ],
   "result": {
     "context_switches": 14,
-    "mean_response_time": 142.8,
-    "mean_waiting_time": 142.8,
+    "mean_response_time": 137.66666666666666,
+    "mean_waiting_time": 137.66666666666666,
     "outcomes": [
       {
-        "arrival_time": 6,
-        "burst_time": 8,
-        "completion_time": 83,
-        "pid": 1,
-        "response_time": 69,
-        "start_time": 75,
-        "waiting_time": 69
-      },
-      {
-        "arrival_time": 13,
-        "burst_time": 36,
-        "completion_time": 295,
-        "pid": 2,
-        "response_time": 246,
-        "start_time": 259,
-        "waiting_time": 246
-      },
-      {
-        "arrival_time": 18,
-        "burst_time": 1,
-        "completion_time": 175,
-        "pid": 3,
-        "response_time": 156,
-        "start_time": 174,
-        "waiting_time": 156
-      },
-      {
-        "arrival_time": 1,
-        "burst_time": 43,
-        "completion_time": 44,
-        "pid": 4,
-        "response_time": 0,
-        "start_time": 1,
-        "waiting_time": 0
-      },
-      {
-        "arrival_time": 12,
-        "burst_time": 40,
-        "completion_time": 336,
-        "pid": 5,
-        "response_time": 284,
-        "start_time": 296,
-        "waiting_time": 284
-      },
-      {
-        "arrival_time": 18,
-        "burst_time": 24,
-        "completion_time": 258,
-        "pid": 6,
-        "response_time": 216,
-        "start_time": 234,
-        "waiting_time": 216
-      },
-      {
         "arrival_time": 15,
-        "burst_time": 8,
-        "completion_time": 184,
-        "pid": 7,
-        "response_time": 161,
-        "start_time": 176,
-        "waiting_time": 161
-      },
-      {
-        "arrival_time": 9,
-        "burst_time": 36,
-        "completion_time": 167,
-        "pid": 8,
-        "response_time": 122,
-        "start_time": 131,
-        "waiting_time": 122
-      },
-      {
-        "arrival_time": 5,
-        "burst_time": 10,
-        "completion_time": 74,
-        "pid": 9,
-        "response_time": 59,
-        "start_time": 64,
-        "waiting_time": 59
-      },
-      {
-        "arrival_time": 12,
-        "burst_time": 20,
-        "completion_time": 233,
-        "pid": 10,
-        "response_time": 201,
-        "start_time": 213,
-        "waiting_time": 201
-      },
-      {
-        "arrival_time": 10,
-        "burst_time": 5,
-        "completion_time": 173,
-        "pid": 11,
-        "response_time": 158,
-        "start_time": 168,
-        "waiting_time": 158
-      },
-      {
-        "arrival_time": 12,
-        "burst_time": 14,
-        "completion_time": 212,
-        "pid": 12,
-        "response_time": 186,
-        "start_time": 198,
-        "waiting_time": 186
-      },
-      {
-        "arrival_time": 6,
-        "burst_time": 46,
-        "completion_time": 130,
-        "pid": 13,
-        "response_time": 78,
-        "start_time": 84,
-        "waiting_time": 78
-      },
-      {
-        "arrival_time": 4,
-        "burst_time": 18,
-        "completion_time": 63,
-        "pid": 14,
-        "response_time": 41,
-        "start_time": 45,
-        "waiting_time": 41
+        "burst_time": 48,
+        "completion_time": 335,
+        "pid": 1,
+        "response_time": 272,
+        "start_time": 287,
+        "waiting_time": 272
       },
       {
         "arrival_time": 20,
-        "burst_time": 12,
-        "completion_time": 197,
+        "burst_time": 19,
+        "completion_time": 188,
+        "pid": 2,
+        "response_time": 149,
+        "start_time": 169,
+        "waiting_time": 149
+      },
+      {
+        "arrival_time": 10,
+        "burst_time": 27,
+        "completion_time": 243,
+        "pid": 3,
+        "response_time": 206,
+        "start_time": 216,
+        "waiting_time": 206
+      },
+      {
+        "arrival_time": 4,
+        "burst_time": 26,
+        "completion_time": 59,
+        "pid": 4,
+        "response_time": 29,
+        "start_time": 33,
+        "waiting_time": 29
+      },
+      {
+        "arrival_time": 14,
+        "burst_time": 13,
+        "completion_time": 168,
+        "pid": 5,
+        "response_time": 141,
+        "start_time": 155,
+        "waiting_time": 141
+      },
+      {
+        "arrival_time": 5,
+        "burst_time": 29,
+        "completion_time": 89,
+        "pid": 6,
+        "response_time": 55,
+        "start_time": 60,
+        "waiting_time": 55
+      },
+      {
+        "arrival_time": 12,
+        "burst_time": 49,
+        "completion_time": 385,
+        "pid": 7,
+        "response_time": 324,
+        "start_time": 336,
+        "waiting_time": 324
+      },
+      {
+        "arrival_time": 9,
+        "burst_time": 26,
+        "completion_time": 215,
+        "pid": 8,
+        "response_time": 180,
+        "start_time": 189,
+        "waiting_time": 180
+      },
+      {
+        "arrival_time": 5,
+        "burst_time": 6,
+        "completion_time": 96,
+        "pid": 9,
+        "response_time": 85,
+        "start_time": 90,
+        "waiting_time": 85
+      },
+      {
+        "arrival_time": 1,
+        "burst_time": 4,
+        "completion_time": 32,
+        "pid": 10,
+        "response_time": 27,
+        "start_time": 28,
+        "waiting_time": 27
+      },
+      {
+        "arrival_time": 5,
+        "burst_time": 45,
+        "completion_time": 142,
+        "pid": 11,
+        "response_time": 92,
+        "start_time": 97,
+        "waiting_time": 92
+      },
+      {
+        "arrival_time": 0,
+        "burst_time": 27,
+        "completion_time": 27,
+        "pid": 12,
+        "response_time": 0,
+        "start_time": 0,
+        "waiting_time": 0
+      },
+      {
+        "arrival_time": 17,
+        "burst_time": 6,
+        "completion_time": 154,
+        "pid": 13,
+        "response_time": 131,
+        "start_time": 148,
+        "waiting_time": 131
+      },
+      {
+        "arrival_time": 8,
+        "burst_time": 4,
+        "completion_time": 147,
+        "pid": 14,
+        "response_time": 135,
+        "start_time": 143,
+        "waiting_time": 135
+      },
+      {
+        "arrival_time": 5,
+        "burst_time": 42,
+        "completion_time": 286,
         "pid": 15,
-        "response_time": 165,
-        "start_time": 185,
-        "waiting_time": 165
+        "response_time": 239,
+        "start_time": 244,
+        "waiting_time": 239
       }
     ],
     "policy_name": "q_recovery",
-    "total_elapsed_time": 336,
-    "total_waiting_time": 2142.0
+    "total_elapsed_time": 385,
+    "total_waiting_time": 2065.0
   },
   "selection_rule": "validation split only, deterministic: prefer the learned arm, then an episode that shows both an accepted and a rolled-back verdict, then more accepted verdicts, then more interventions, then more incidents; ties break on family and repetition. The episode is identified by arm *and* training seed, so the trace below is the same trace the tables summarize.",
   "workload": {
     "family": "long_jobs",
-    "fingerprint": "d1f128605bac62b4",
+    "fingerprint": "2cc74cad24d7c29d",
     "processes": [
       {
+        "arrival_time": 0,
+        "burst_time": 27,
+        "pid": 12,
+        "priority": 5
+      },
+      {
         "arrival_time": 1,
-        "burst_time": 43,
-        "pid": 4,
+        "burst_time": 4,
+        "pid": 10,
         "priority": 3
       },
       {
         "arrival_time": 4,
-        "burst_time": 18,
-        "pid": 14,
+        "burst_time": 26,
+        "pid": 4,
+        "priority": 1
+      },
+      {
+        "arrival_time": 5,
+        "burst_time": 29,
+        "pid": 6,
         "priority": 2
       },
       {
         "arrival_time": 5,
-        "burst_time": 10,
+        "burst_time": 6,
         "pid": 9,
         "priority": 3
       },
       {
-        "arrival_time": 6,
-        "burst_time": 8,
-        "pid": 1,
-        "priority": 1
-      },
-      {
-        "arrival_time": 6,
-        "burst_time": 46,
-        "pid": 13,
-        "priority": 4
-      },
-      {
-        "arrival_time": 9,
-        "burst_time": 36,
-        "pid": 8,
-        "priority": 2
-      },
-      {
-        "arrival_time": 10,
-        "burst_time": 5,
+        "arrival_time": 5,
+        "burst_time": 45,
         "pid": 11,
         "priority": 1
       },
       {
+        "arrival_time": 5,
+        "burst_time": 42,
+        "pid": 15,
+        "priority": 3
+      },
+      {
+        "arrival_time": 8,
+        "burst_time": 4,
+        "pid": 14,
+        "priority": 5
+      },
+      {
+        "arrival_time": 9,
+        "burst_time": 26,
+        "pid": 8,
+        "priority": 3
+      },
+      {
+        "arrival_time": 10,
+        "burst_time": 27,
+        "pid": 3,
+        "priority": 3
+      },
+      {
         "arrival_time": 12,
-        "burst_time": 40,
+        "burst_time": 49,
+        "pid": 7,
+        "priority": 5
+      },
+      {
+        "arrival_time": 14,
+        "burst_time": 13,
         "pid": 5,
         "priority": 5
       },
       {
-        "arrival_time": 12,
-        "burst_time": 20,
-        "pid": 10,
-        "priority": 1
-      },
-      {
-        "arrival_time": 12,
-        "burst_time": 14,
-        "pid": 12,
-        "priority": 4
-      },
-      {
-        "arrival_time": 13,
-        "burst_time": 36,
-        "pid": 2,
+        "arrival_time": 15,
+        "burst_time": 48,
+        "pid": 1,
         "priority": 5
       },
       {
-        "arrival_time": 15,
-        "burst_time": 8,
-        "pid": 7,
-        "priority": 3
-      },
-      {
-        "arrival_time": 18,
-        "burst_time": 1,
-        "pid": 3,
-        "priority": 2
-      },
-      {
-        "arrival_time": 18,
-        "burst_time": 24,
-        "pid": 6,
-        "priority": 4
+        "arrival_time": 17,
+        "burst_time": 6,
+        "pid": 13,
+        "priority": 1
       },
       {
         "arrival_time": 20,
-        "burst_time": 12,
-        "pid": 15,
-        "priority": 3
+        "burst_time": 19,
+        "pid": 2,
+        "priority": 5
       }
     ],
-    "repetition": 6,
-    "seed": 4523902802324264350
+    "repetition": 0,
+    "seed": 285009788170867903
   }
 }

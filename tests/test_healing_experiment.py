@@ -76,13 +76,16 @@ def test_experiment_config_validates_its_declared_seeds() -> None:
         _tiny(final_test_seed=8201)
     # A stream that has already been used for development decisions cannot come back as a
     # held-out split, and can never be reused as a training seed either.
-    for retired in (20501, 20719, 21617, 72601):
+    for retired in (20501, 20719, 21617, 72601, 21977):
         with pytest.raises(ValidationError, match="already used"):
             _tiny(final_test_seed=retired)
-    assert {20719, 21617, 72601} <= set(HealingExperimentConfig().retired_final_test_seeds), (
+    assert {20719, 21617, 72601, 21977} <= set(HealingExperimentConfig().retired_final_test_seeds), (
         "streams consumed by development must stay retired"
     )
-    assert HealingExperimentConfig().final_test_seed == 21977, (
+    assert HealingExperimentConfig().final_test_seed not in {20501, 20719, 21617, 72601, 21977}, (
+        "the declared held-out stream must be fresh"
+    )
+    assert HealingExperimentConfig().final_test_seed == 23819, (
         "the declared held-out stream of the frozen study"
     )
     with pytest.raises(ValidationError):
@@ -175,6 +178,7 @@ def test_experiment_writes_machine_readable_artifacts(tmp_path) -> None:
         "demo",
         "report",
         "threshold_derivation",
+        "verification_models",
         "control_incidents",
     ):
         assert name in artifacts.paths and artifacts.paths[name].exists(), name
@@ -197,9 +201,15 @@ def test_experiment_writes_machine_readable_artifacts(tmp_path) -> None:
         "declared_accept_residual_factor",
         "declared_reject_residual_factor",
         "validation_false_accept_residual_rate",
-        "fitted_closure_baseline[intercept]",
-        "declared_closure_baseline[intercept]",
+        "fitted_post_load_baseline[intercept]",
+        "declared_post_load_baseline[intercept]",
     }
+    models = pd.read_csv(artifacts.paths["verification_models"])
+    # The declared specification must appear in the comparison table together with the
+    # candidates it was chosen over, and every candidate must report a finite spread.
+    assert "declared" in set(models["specification"])
+    assert (models["parameters"] >= 2).all()
+    assert models["out_of_sample_closure_residual_sd"].notna().all()
     declared = derivation.set_index("quantity").loc["declared_accept_closure_factor", "value"]
     assert float(declared) == pytest.approx(summary["healing_config"]["accept_closure_factor"])
     # The derivation is part of the study's evidence trail: the report must quote it.
@@ -430,7 +440,7 @@ def test_thresholds_are_derived_from_the_control_and_not_from_the_final_test(tmp
     assert 0.0 <= derivation.validation_false_accept_rate <= 1.0
     # The phase baseline must be the declared one, and conditioning must not inflate the
     # null spread it is supposed to shrink.
-    assert derivation.declared_baseline == config.healing.closure_baseline
+    assert derivation.declared_baseline == config.healing.post_load_baseline
     if len(incidents) >= 20:
         assert derivation.residual_sd <= float(incidents["closure_fraction"].std()) + 1e-9
     if len(incidents) >= 20:
