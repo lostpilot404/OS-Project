@@ -1,4 +1,10 @@
-# Repository audit and implementation plan
+# Repository audit and implementation plan (historical)
+
+> **Historical document, superseded.** It records the state of the repository at commit
+> `cfdafa2` and the plan that produced the *offline policy-selection* system. The project
+> system is now the **self-healing scheduler**; see `README.md`,
+> `docs/ARCHITECTURE.md`, `docs/METHODOLOGY.md` and `docs/EVALUATION_RESULTS.md`.
+> Nothing below describes the current primary architecture.
 
 Official project title (preserved throughout the rework):
 

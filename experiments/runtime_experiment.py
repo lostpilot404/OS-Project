@@ -23,6 +23,7 @@ import numpy as np
 import pandas as pd
 
 from config import ACTION_NAMES, derive_seed
+from evaluation.paired import paired_bootstrap_difference, paired_matrices
 from errors import ValidationError
 from evaluation.comparison import ALL_METRICS
 from evaluation.metrics import compute_metrics
@@ -565,39 +566,8 @@ def _paired_matrices(
     method: str,
     metric: str,
 ) -> tuple[list[str], Dict[str, np.ndarray], list[Any]]:
-    subset = frame[frame["method"] == method].copy()
-    if subset.empty:
-        raise ValidationError(f"no rows for method {method!r}")
-    seed_values = sorted(subset["training_seed"].dropna().unique().tolist())
-    if not seed_values:
-        seed_values = [None]
-        subset["_seed_key"] = 0
-        seed_keys: list[Any] = [None]
-    else:
-        subset["_seed_key"] = subset["training_seed"]
-        seed_keys = seed_values
-    family_names = sorted(subset["family"].unique().tolist())
-    matrices: Dict[str, np.ndarray] = {}
-    for family in family_names:
-        family_frame = subset[subset["family"] == family]
-        workload_keys = sorted(
-            set(zip(family_frame["repetition"], family_frame["workload_fingerprint"]))
-        )
-        matrix = np.empty((len(seed_keys), len(workload_keys)), dtype=float)
-        for seed_index, seed in enumerate(seed_keys):
-            seed_key = 0 if seed is None else seed
-            seed_frame = family_frame[family_frame["_seed_key"] == seed_key]
-            lookup = {
-                (row.repetition, row.workload_fingerprint): float(getattr(row, metric))
-                for row in seed_frame.itertuples()
-            }
-            if set(workload_keys) - set(lookup):
-                raise ValidationError(
-                    f"method {method!r} has incomplete paired workloads in {family!r}"
-                )
-            matrix[seed_index, :] = [lookup[key] for key in workload_keys]
-        matrices[family] = matrix
-    return family_names, matrices, seed_keys
+    """Delegate to the shared paired-statistics module (identical semantics)."""
+    return paired_matrices(frame, method, metric)
 
 
 def _paired_bootstrap_difference(
@@ -609,39 +579,10 @@ def _paired_bootstrap_difference(
     replicates: int,
     seed: int,
 ) -> Dict[str, float]:
-    """Family-stratified, crossed workload/model-seed paired bootstrap interval."""
-    target_families, target_data, target_seeds = _paired_matrices(frame, target, metric)
-    ref_families, ref_data, ref_seeds = _paired_matrices(frame, reference, metric)
-    if target_families != ref_families:
-        raise ValidationError("comparison methods do not cover the same workload families")
-    rng = np.random.default_rng(seed)
-    observed_family_means: list[float] = []
-    for family in target_families:
-        if target_data[family].shape[1] != ref_data[family].shape[1]:
-            raise ValidationError("comparison methods do not cover paired workload counts")
-        target_mean = float(target_data[family].mean())
-        ref_mean = float(ref_data[family].mean())
-        observed_family_means.append(target_mean - ref_mean)
-    observed = float(np.mean(observed_family_means))
-
-    draws = np.empty(replicates, dtype=float)
-    for replicate in range(replicates):
-        target_seed_indices = rng.integers(0, len(target_seeds), size=len(target_seeds))
-        ref_seed_indices = rng.integers(0, len(ref_seeds), size=len(ref_seeds))
-        family_draws: list[float] = []
-        for family in target_families:
-            workload_count = target_data[family].shape[1]
-            sampled_workloads = rng.integers(0, workload_count, size=workload_count)
-            target_values = target_data[family][target_seed_indices][:, sampled_workloads]
-            reference_values = ref_data[family][ref_seed_indices][:, sampled_workloads]
-            family_draws.append(float(np.mean(target_values - reference_values)))
-        draws[replicate] = float(np.mean(family_draws))
-    low, high = np.quantile(draws, [0.025, 0.975])
-    return {
-        "mean_difference": observed,
-        "ci95_low": float(low),
-        "ci95_high": float(high),
-    }
+    """Delegate to the shared paired-statistics module (identical semantics)."""
+    return paired_bootstrap_difference(
+        frame, target, reference, metric, replicates=replicates, seed=seed
+    )
 
 
 def _summary_statistics(metrics: pd.DataFrame) -> pd.DataFrame:

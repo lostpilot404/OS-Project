@@ -1,45 +1,53 @@
 # Implementation progress
 
-Official title: **Adaptive CPU Scheduling Using Reinforcement Learning for Dynamic
-Workloads**.  Status of every requested component, with the verification that backs it.
-Full suite: **386 tests, all passing** (`python -m pytest -q`); 273 of those are the
-preserved pre-rework tests.
+Official title: **Adaptive CPU Scheduling Using Reinforcement Learning for Dynamic Workloads**
 
-| # | Requested component | Status | Where | Verification |
-|---|---|---|---|---|
-| 1 | Workload fingerprinting (process count, arrival distribution, burst variability, burst skew, priority distribution) | **Implemented** | `workload/fingerprint.py` (11 features), `rl/fingerprint_state.py` | `tests/test_fingerprint.py` (20): hand-computed values, determinism, order invariance |
-| 1 | Information boundary documented and enforced | **Implemented** | `docs/METHODOLOGY.md` §1 | import-boundary + behavioural purity tests (same module) |
-| 2 | Risk-aware objective (waiting, response, switch overhead) with normalisation and documented weights/risk criterion | **Implemented** | `rl/objective.py`, `config.RiskObjectiveConfig` | `tests/test_objective.py` (20): hand-computed J, clipping, zero-reference, tail-weight ranking flip |
-| 2 | Comparison against the original objective (not a silent replacement) | **Implemented** | both objectives scored for every arm/workload in all artifacts | original preserved byte-equality test; ablation `ql_orig_fingerprint` vs `ql_risk`; `orig_*`/`risk_*` columns |
-| 3 | Structured decision explanations with computed evidence | **Implemented** | `rl/explain.py`, `results/study/explanations/`, `explanations_examples.json` | `tests/test_explanations.py` (14): evidence recomputation, verdict agreement, no fabricated claims, fallback labelling |
-| 4 | Counterfactual evaluation after the decision | **Implemented** | `evaluation/counterfactual.py` | `tests/test_counterfactual.py`: isolation spies, call-order pin, direct-computation match |
-| 4 | Hindsight selection regret | **Implemented** | `RegretRecord`, both objectives | regret arithmetic + non-negativity tests; artifact consistency tests |
-| 5 | Robustness: workload families, held-out workloads, multiple seeds, distribution shift, variability, poor-selection frequency, regret, standard metrics | **Implemented** | `results/study/robustness.csv`, `summary.json`, `docs/EVALUATION_RESULTS.md` §4 | split-disjointness tests; output-validation of rates and row accounting |
-| 5 | Genuinely held-out test set | **Implemented** | test seed 19501, untouched at design freeze (`docs/METHODOLOGY.md` §5) | `tests/test_study_design.py` (families + fingerprints disjoint) |
-| 6 | Baselines: original Q selector, risk-aware selector, non-learning selection baselines | **Implemented** | 4 Q arms + `best_fixed` / `fingerprint_rule` / `random` | legacy-equivalence pin; baseline provenance + rule determinism tests |
-| 6 | Ablations isolating features and the risk objective | **Implemented** | `ql_risk` / `ql_risk_origstate` / `ql_orig_fingerprint` (2×2 minus pinned legacy arm) | ablation-matrix completeness test; reported paired CIs |
-| 7 | Tests: leakage, objective, explanation, counterfactual isolation, regret, reproducibility, output validation | **Implemented** | `tests/test_fingerprint.py`, `test_objective.py`, `test_explanations.py`, `test_counterfactual.py`, `test_selector.py`, `test_study_design.py`, `test_reproducibility.py`, `test_output_validation.py` | full suite green; byte-identical reruns |
-| 7 | Regenerate all experiments and artifacts after implementation | **Done** | `results/study/` (study), `results/` + `figures/` (legacy pipeline), `results/runtime/` (preserved simulator) | manifests and generated reports carry only post-rework values |
-| 8 | Documentation: architecture, methodology, diagrams, progress, evaluation, limitations; title preserved; offline-not-runtime stated | **Done** | `README.md`, `docs/{ARCHITECTURE,METHODOLOGY,EVALUATION_RESULTS,DESIGN_AND_CHOICES,LIMITATIONS,AUDIT_AND_PLAN}.md`, `docs/APPENDIX_RUNTIME_SIMULATOR.md` | values on doc pages traced to `results/study/summary.json` |
+Project system: **self-healing CPU scheduler** (Python 3.11, NumPy/pandas/Matplotlib,
+pytest). State at the end of the finalization session: implemented, tested and evaluated on a
+held-out seed.
 
-## Sequence of reviewable commits
+| Component | File(s) | Status | Evidence |
+|---|---|---|---|
+| Reproducible workloads, fingerprinting | `workload/models.py`, `workload/generator.py`, `workload/fingerprint.py` | Complete | `tests/test_generator.py`, `tests/test_fingerprint.py`, `tests/test_workload_models.py` |
+| Event-driven engine, causal observation boundary, quantum override | `scheduler/runtime.py` | Complete (extended additively) | `tests/test_runtime_scheduler.py` (23 tests) |
+| Fixed schedulers (baselines) | `scheduler/fcfs.py`, `sjf.py`, `round_robin.py`, `priority.py` | Complete | `tests/test_fcfs.py`, `test_sjf.py`, `test_round_robin.py`, `test_priority.py` |
+| Causal monitor (window, reference, band, load accrual) | `healing/monitor.py` | Complete | `tests/test_healing_monitor.py` (7 tests) |
+| Degradation detector (threshold, hysteresis, cooldown, gates) | `healing/detector.py` | Complete | `tests/test_healing_detector.py` (14 tests) |
+| Evidence-backed diagnosis | `healing/diagnosis.py` | Complete | `tests/test_healing_diagnosis.py` (11 tests) |
+| Recovery action space and no-op semantics | `healing/actions.py` | Complete | `tests/test_healing_diagnosis.py`, `tests/test_healing_policies.py` |
+| Recovery policies (rule, hold control, tabular Q-learning) | `healing/policies.py`, `rl/q_learning.py` | Complete | `tests/test_healing_policies.py` (8 tests) |
+| Healing state machine: incident, verification, accept/rollback, safe fallback, ledger | `healing/controller.py` | Complete | `tests/test_healing_controller.py` (8 tests) |
+| Study design (splits, seeds, arms) | `experiments/healing_config.py` | Complete, frozen | `tests/test_healing_experiment.py` |
+| Study runner (training, evaluation, comparisons, audit, probe, coverage, demo, report) | `experiments/healing_experiment.py` | Complete | `tests/test_healing_experiment.py` (8 tests) |
+| Threshold derivation from the no-action control | `experiments/healing_thresholds.py` | Complete | `tests/test_healing_experiment.py::test_thresholds_are_derived_from_the_control_and_not_from_the_final_test` |
+| Shared paired bootstrap | `evaluation/paired.py` | Complete | `tests/test_runtime_experiment.py` |
+| Figures | `visualization/healing_plots.py` | Complete | `figures/healing/*.png` |
+| CLI | `main.py` | Complete | `python main.py healing-study` |
+| Results and report | `results/healing/*` | Complete | generated by the frozen run |
+| Docs | `README.md`, `docs/*` | Complete | this documentation set |
 
-1. `docs` repository audit and implementation plan (`docs/AUDIT_AND_PLAN.md`).
-2. `feat` workload fingerprinting + tested information boundary.
-3. `feat` `risk_aware_v1` objective alongside the preserved original reward.
-4. `feat` selector decision boundary, counterfactuals, regret, explanations.
-5. `feat` study pipeline (arms, baselines, robustness, artifacts, CLI).
-6. `test` study-design / reproducibility / output-validation suites.
-7. `fix` visited-action masking and the 81-state mechanism subset (reward-scale
-   artifact and state-sparsity fixes, documented in `docs/DESIGN_AND_CHOICES.md`).
-8. `chore` regenerated study, legacy and runtime artifacts; documentation rewrite.
+## Test status
 
-## Known deviations from the initial plan (all documented)
+```
+.venv/bin/python -m pytest -q
+443 passed
+```
 
-* The tabular state uses 4 of the 11 fingerprint features (the 5-feature/243-state
-  pilot was under-trained at equal budget); all 11 remain in explanations.
-* The new arms use visited-action masking; `ql_orig` preserves the legacy full-space
-  argmax and is test-pinned.  This difference is declared in
-  `docs/LIMITATIONS.md`.
-* Training budget is 3600 episodes/arm/seed for every Q arm (legacy pipeline keeps
-  1200); rationale in `docs/METHODOLOGY.md` §5.
+The suite includes the 386 pre-existing tests (offline study, runtime appendix, engine,
+metrics, reproducibility) plus 57 tests added with the healing system.
+
+## Results status
+
+One frozen run of `python main.py healing-study` (28 s) produced every table quoted in
+`docs/EVALUATION_RESULTS.md`: 550 hold-out traces for the fixed/rule arms, 1050 per learned
+arm, 1948 audited interventions, 168 probed action effects. The headline honest finding —
+recovery beats doing nothing but does not beat fixed SJF, and the in-run verifier rejects most
+helpful interventions — is documented with the numbers behind it.
+
+## Preserved historical components
+
+| Component | Status | Note |
+|---|---|---|
+| Offline policy-selection study (`experiments/study.py`, `rl/adaptive.py`, `main.py study`) | preserved, tested, documented as historical | its own seed stream and artifacts under `results/study/` |
+| Runtime simulator appendix (`main.py runtime-experiment`) | preserved, tested, documented as an appendix | engine reused by the healing system; artifacts under `results/runtime/` |
+| Legacy offline pipeline (`main.py experiment`, `main.py train`) | preserved for compatibility | not part of the reported results |

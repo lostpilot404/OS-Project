@@ -1,105 +1,118 @@
 # Architecture
 
-Official title: **Adaptive CPU Scheduling Using Reinforcement Learning for Dynamic
-Workloads** — implemented as an **offline, one-policy-per-workload policy selection and
-evaluation system** (not a runtime OS scheduler).
+Official title: **Adaptive CPU Scheduling Using Reinforcement Learning for Dynamic Workloads**
 
-## Module map
+The project system is the **self-healing CPU scheduler**. This document describes its
+modules, its data flow and — most importantly — the boundary that makes its claims causal.
 
-```text
-workload/models.py            Process, Workload (canonical order, SHA-256 digest),
-                              ScheduleResult + trace validation
-workload/generator.py         Seeded synthetic families (8: 6 training + 2 held-out OOD)
-workload/fingerprint.py       11 interpretable process-table-only features
-                              (the selector's complete information set)
+## 1. Layers
 
-scheduler/{fcfs,sjf,round_robin,priority}.py, scheduler/base.py
-                              The four fixed policies and shared simulation engine
-evaluation/metrics.py         The six standard metrics (waiting, turnaround, response,
-                              utilisation, throughput, context switches)
-evaluation/counterfactual.py  POST-decision four-policy evaluation, both objectives,
-                              hindsight selection regret
-
-rl/q_learning.py              Tabular Q-learning agent (visits, masking, epsilon)
-rl/state.py                   Original 4-feature state encoder (ablation + ql_orig)
-rl/fingerprint_state.py       Fingerprint-subset state encoder (81 states)
-rl/reward.py                  Preserved original six-metric reward
-rl/objective.py               PolicyOutcome; original + risk_aware_v1 objectives,
-                              normalisation and weights; both scored everywhere
-rl/selector.py                WorkloadPolicySelector: select() is a pure decision
-                              function; train_episode()/evaluate() compute
-                              counterfactuals only after the action is fixed
-rl/explain.py                 Structured evidence-backed explanations
-
-experiments/study_config.py   Frozen design: seeds, splits, arms, OOD families
-experiments/baselines.py      Predeclared rule, training-only best-fixed, random
-experiments/study.py          Study runner: training, held-out evaluation, robustness
-                              tables, generated report, artifacts
-experiments/{train,evaluate,report,run_experiment}.py
-                              Preserved legacy offline pipeline (main.py experiment)
-experiments/runtime_*.py      Preserved simulator appendix (main.py runtime-experiment)
-
-visualization/study_plots.py  Study figures, drawn from generated tables only
-results/study/                Study artifacts (decisions, counterfactuals, robustness,
-                              explanations, summary, report)
+```
+workload/         reproducible workloads and their models
+scheduler/        the event-driven engine (RuntimeSimulator) and the four fixed policies
+healing/          the self-healing controller: monitor, detector, diagnosis, actions,
+                  recovery policies, verification, rollback, ledger
+rl/               Q-learning agent, runtime controllers, offline selector and reward models
+experiments/      the studies that run the above and write artifacts
+evaluation/       metrics, comparison statistics and paired bootstrap
+visualization/    figures rendered from the study artifacts
 ```
 
-## Data flow
+### `workload/`
 
-```text
-                    ┌────────────────────────────────────────────────┐
-                    │ declared process table (pid, arrival, burst,    │
-                    │ priority) — the INFORMATION BOUNDARY            │
-                    └───────────────┬────────────────────────────────┘
-                                    │ pure functions only
-                    ┌───────────────▼───────────────┐
-                    │ workload.fingerprint (11)     │
-                    │ + state encoder (4 → 81 bins) │
-                    └───────────────┬───────────────┘
-                                    │
-   Q-table ──────────────►  rl.selector.select()  ──► SelectionDecision
-   (learned values)            (no schedulers,           (policy, rule,
-                                no metrics)               Q-values, visits)
-                                    │
-                        action fixed; only now:
-                                    │
-                    ┌───────────────▼───────────────────────────────┐
-                    │ evaluation.counterfactual.run_counterfactuals │
-                    │  FCFS │ SJF │ Round Robin │ Priority (same    │
-                    │  workload; digests checked)                   │
-                    └───────────────┬───────────────────────────────┘
-                                    │
-              ┌─────────────────────┼──────────────────────┐
-              ▼                     ▼                      ▼
-   rl.objective (both)     regret = cost − min cost   rl.explain
-   = training reward       (both objectives)          (evidence-backed
-   (after the action)                                reasons per selection)
-```
+* `models.py` — `Process`, `Workload` (canonically ordered, fingerprinted),
+  `ProcessOutcome`, `ScheduleResult`.
+* `generator.py` — `WorkloadGenerator.generate(family, seed)` draws a workload from a
+  declared family (arrival pattern × burst distribution × priority pattern) with
+  `numpy.random.default_rng(seed)`, so a `(family, seed)` pair is a reproducible instance.
+* `fingerprint.py` — content fingerprint used to prove that two arms were evaluated on the
+  same instance.
 
-## Invariants (enforced by tests)
+### `scheduler/`
 
-1. `select()` cannot execute a policy or read counterfactual outcomes
-   (`tests/test_counterfactual.py::TestSelectionIsolation`).
-2. Fingerprint features import nothing from schedulers/metrics/RL and are pure
-   functions of the process table (`tests/test_fingerprint.py`).
-3. Counterfactuals are computed strictly after the action is fixed (same test module;
-   training order pinned by a call-order test).
-4. The original objective reproduces `rl.reward.compute_reward` exactly
-   (`tests/test_objective.py`).
-5. Every explanation claim re-derives from recorded evidence
-   (`tests/test_explanations.py`).
-6. Regret is `cost(selected) − min_a cost(a)` with non-negative values
-   (`tests/test_counterfactual.py`).
-7. Same seeds ⇒ byte-identical artifacts (`tests/test_reproducibility.py`).
-8. Artifacts satisfy schema/consistency contracts
-   (`tests/test_output_validation.py`).
-9. `ql_orig` is decision-equivalent to the preserved legacy selector
-   (`tests/test_study_design.py::TestLegacyPinning`); held-out families never enter
-   training and splits are fingerprint-disjoint (same module).
+* `runtime.py` — the event engine. One evolving FIFO ready queue; FCFS/RR dispatch the head,
+  SJF picks the shortest remaining burst, Priority picks the highest priority. Non-RR service
+  is non-preemptive; RR service is `min(quantum, remaining_burst)`. Switching cost is charged
+  when the running process changes. The engine
+  * exposes only `RuntimeObservation` (ready set, counters, observed mean burst, previous
+    policy) to a controller and never the workload, the future event list or the schedule;
+  * records per-decision `RuntimeDecisionRecord`s, including the processes that completed
+    during the interval and their realized waiting times;
+  * accepts an optional per-decision `quantum` override, so a controller can change the
+    Round-Robin quantum without touching the reward normalization (documented in the class
+    docstring).
+* `fcfs.py`, `sjf.py`, `round_robin.py`, `priority.py` — standalone reference schedulers used
+  as untouched baselines; `POLICY_CLASSES` maps names to classes. The test suite pins the
+  engine to these implementations for constant configurations.
 
-## Preserved components
+### `healing/`
 
-The legacy offline pipeline (`main.py experiment`, `main.py train`) and the
-event-driven simulator (`main.py runtime-experiment`) remain runnable and tested.  The
-simulator is documented in `docs/APPENDIX_RUNTIME_SIMULATOR.md`; it is not the project
-system and no reported result comes from it.
+| Module | Responsibility |
+|---|---|
+| `config.py` | every declared threshold, gate, cost and bound, validated in `__post_init__` and serialized into the summary artifact |
+| `monitor.py` | `CausalMonitor`: rolling completion window, EWMA reference and dispersion band with floors, trailing-window load level and its own reference/band; `MonitorSnapshot` is the immutable evidence object |
+| `detector.py` | `DegradationDetector.evaluate(...)` → `DetectionOutcome`. Suspect when the window mean exceeds `reference + k·band`; declared only after hysteresis, outside cooldown, inside the intervention budget, past the ready/work/congestion gates. Every suppression path has its own reason, so "no action" is always explained in the ledger |
+| `diagnosis.py` | `build_ready_evidence` + `diagnose`: a fixed-precedence mapping from *visible* ready-set evidence to one primary category (head-of-line blocking, fairness starvation, priority-ordering anomaly, tail dispersion, queue congestion) or `unexplained`, with the matched evidence attached |
+| `actions.py` | the 8-action recovery space, `SchedulerSettings`, `apply_healing_action`, and the no-op rule: an action that cannot change the live configuration reports `changed=False` and is never counted as an intervention |
+| `policies.py` | `HealingContext` + `HealingContextEncoder` (648 states), `MappedRulePolicy` (predeclared diagnosis→action rules), `HoldOnlyPolicy` (the detection control), `QLearningHealingPolicy` (epsilon-greedy with forced first visits, masked exploration and masked bootstrapping; greedy and read-only during evaluation) |
+| `controller.py` | `SelfHealingController`: the state machine (idle → verification window open → verdict), the incident ledger, the reward assignment, the rollback at the next epoch, the safe fallback, and the counterfactual replay helpers |
+
+### `experiments/` and `evaluation/`
+
+* `healing_config.py` — frozen design: `SPLIT_TAGS`, seeds, repetitions, arms, the six
+  training families (all but `poisson_arrivals`).
+* `healing_experiment.py` — training, per-split evaluation of every arm, detection summary,
+  the 10 predeclared paired comparisons, the counterfactual audit, the action-effect probe,
+  Q-table coverage, demo selection and the generated report.
+* `healing_thresholds.py` — derives `min_load_factor`'s effect and `accept_closure_factor`
+  from the **no-action control** on the training split.
+* `evaluation/paired.py` — family-stratified, crossed-bootstrap paired differences shared
+  with the runtime appendix.
+* `evaluation/metrics.py` — `compute_metrics(ScheduleResult)` → waiting/turnaround/response
+  times, p95/max waiting, CPU utilization, throughput, context switches, switching overhead.
+
+## 2. Data flow of one trace
+
+1. `WorkloadGenerator` produces a `Workload` from `(split seed, family, repetition)`.
+2. `RuntimeSimulator.run(workload, controller)` starts an event loop. At every decision epoch
+   it builds a `RuntimeObservation` and calls `controller.select_action(...)`; it then runs
+   the chosen slice, charges switching cost if the running process changed, collects
+   completions, and calls `controller.observe_decision(record)` (when the controller defines
+   it) followed by `observe_transition(...)`.
+3. `SelfHealingController` maintains the monitor and detector. On a detected event it
+   diagnoses, builds the context, asks the policy (with a masked action set), applies the
+   action, and opens a verification window.
+4. When the window closes, the controller computes the closure statistic, decides
+   accepted/rolled_back, updates the learned policy from the reward, records the incident,
+   and schedules the rollback if needed.
+5. `end_episode()` closes the ledger, converting a still-open window into a `censored`
+   record rather than silently discarding it.
+6. `experiments/healing_experiment.py` aggregates the ledger, writes CSV/JSON artifacts,
+   audits interventions by counterfactual replay, and renders figures and the report.
+
+## 3. The causal boundary (why the claims are about scheduling, not about cheating)
+
+* The controller's only inputs are `RuntimeObservation` (the arrived, unfinished ready set at
+  the current epoch) and completion notices of processes that have already finished. The
+  workload object, its future arrivals, its fingerprints and the final schedule are never
+  passed to it; this is enforced by tests (`tests/test_runtime_scheduler.py` asserts that the
+  controller interfaces accept observations, not workloads).
+* Detection thresholds are computed from *observed* completions: to trigger, the trace must
+  first run badly, and the reference must have seen enough normal completions.
+* Verification compares quantities that are all observed before the verdict.
+* The reward the learner maximizes is the verified window statistic minus a declared
+  intervention cost, so "act and fail" is worse than "hold".
+
+## 4. Invariants the test suite pins
+
+* With a control policy that never intervenes, the healing loop's schedule equals the
+  corresponding standalone policy *exactly* (`detector_only == fixed_fcfs` in the study
+  tables; asserted in `tests/test_healing_controller.py`).
+* Masked-out actions are never requested, HOLD is always available, and an action that is
+  already in force is reported as `changed=False`, never as a recovery.
+* A rolled-back configuration is restored at the first epoch at or after the recorded end of
+  the verification window; after the safe fallback the trace uses exactly one pinned
+  configuration.
+* Identical seeds reproduce identical schedules, identical Q tables and identical artifacts.
+* Splits share no workload instance (fingerprints), and the derivation of the declared
+  thresholds rejects the final-test split by construction.

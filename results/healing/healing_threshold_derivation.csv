@@ -1,0 +1,15 @@
+quantity,value,source
+traces,6000.0,training
+control_incidents,3737.0,training
+control_incidents_per_trace,0.6228,training
+null_closure_p50,1.4059,training
+null_closure_p90,2.179,training
+null_closure_p95,2.3753,training
+derived_accept_closure_factor,2.4,training (95th percentile of the null closure)
+declared_accept_closure_factor,2.4,healing/config.py HealingConfig
+declared_false_accept_rate_on_control,0.0452,training (control)
+control_incidents_per_trace@min_load_factor=0.0,1.5167,training (stride 10)
+control_incidents_per_trace@min_load_factor=0.5,1.475,training (stride 10)
+control_incidents_per_trace@min_load_factor=0.8,1.0517,training (stride 10)
+control_incidents_per_trace@min_load_factor=1.0,0.8583,training (stride 10)
+control_incidents_per_trace@min_load_factor=1.25,0.0417,training (stride 10)

@@ -1,0 +1,614 @@
+{
+  "arm": {
+    "description": "tabular Q-learning recovery, independent seed 7103",
+    "initial_policy": "FCFS",
+    "name": "q_recovery",
+    "policy_kind": "q_learning",
+    "training_seed": 7103
+  },
+  "decisions": [
+    {
+      "completed_pids": [
+        7
+      ],
+      "completed_waiting_times": [
+        0
+      ],
+      "decision_index": 0,
+      "executed_from": 2,
+      "executed_to": 36,
+      "forced_hold_reason": "no_new_completions",
+      "policy": "FCFS",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 7,
+      "simulated_time": 2,
+      "switch_overhead": 0
+    },
+    {
+      "completed_pids": [
+        10
+      ],
+      "completed_waiting_times": [
+        34
+      ],
+      "decision_index": 1,
+      "executed_from": 37,
+      "executed_to": 47,
+      "forced_hold_reason": null,
+      "policy": "FCFS",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 10,
+      "simulated_time": 36,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        4
+      ],
+      "completed_waiting_times": [
+        42
+      ],
+      "decision_index": 2,
+      "executed_from": 48,
+      "executed_to": 95,
+      "forced_hold_reason": null,
+      "policy": "FCFS",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 4,
+      "simulated_time": 47,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        8
+      ],
+      "completed_waiting_times": [
+        90
+      ],
+      "decision_index": 3,
+      "executed_from": 96,
+      "executed_to": 99,
+      "forced_hold_reason": null,
+      "policy": "FCFS",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 8,
+      "simulated_time": 95,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        14
+      ],
+      "completed_waiting_times": [
+        93
+      ],
+      "decision_index": 4,
+      "executed_from": 100,
+      "executed_to": 140,
+      "forced_hold_reason": null,
+      "policy": "FCFS",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 14,
+      "simulated_time": 99,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        3
+      ],
+      "completed_waiting_times": [
+        132
+      ],
+      "decision_index": 5,
+      "executed_from": 141,
+      "executed_to": 162,
+      "forced_hold_reason": null,
+      "policy": "FCFS",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 3,
+      "simulated_time": 140,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        15
+      ],
+      "completed_waiting_times": [
+        145
+      ],
+      "decision_index": 6,
+      "executed_from": 163,
+      "executed_to": 168,
+      "forced_hold_reason": null,
+      "policy": "Priority",
+      "policy_changed": true,
+      "quantum": 4,
+      "selected_pid": 15,
+      "simulated_time": 162,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        6
+      ],
+      "completed_waiting_times": [
+        156
+      ],
+      "decision_index": 7,
+      "executed_from": 169,
+      "executed_to": 170,
+      "forced_hold_reason": "verification-window-open",
+      "policy": "Priority",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 6,
+      "simulated_time": 168,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        2
+      ],
+      "completed_waiting_times": [
+        160
+      ],
+      "decision_index": 8,
+      "executed_from": 171,
+      "executed_to": 173,
+      "forced_hold_reason": "verification-window-open",
+      "policy": "Priority",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 2,
+      "simulated_time": 170,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        9
+      ],
+      "completed_waiting_times": [
+        163
+      ],
+      "decision_index": 9,
+      "executed_from": 174,
+      "executed_to": 186,
+      "forced_hold_reason": "verification-window-open",
+      "policy": "Priority",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 9,
+      "simulated_time": 173,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        5
+      ],
+      "completed_waiting_times": [
+        178
+      ],
+      "decision_index": 10,
+      "executed_from": 187,
+      "executed_to": 235,
+      "forced_hold_reason": "verification-window-open",
+      "policy": "Priority",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 5,
+      "simulated_time": 186,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        11
+      ],
+      "completed_waiting_times": [
+        222
+      ],
+      "decision_index": 11,
+      "executed_from": 236,
+      "executed_to": 283,
+      "forced_hold_reason": null,
+      "policy": "Priority",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 11,
+      "simulated_time": 235,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        1
+      ],
+      "completed_waiting_times": [
+        267
+      ],
+      "decision_index": 12,
+      "executed_from": 284,
+      "executed_to": 302,
+      "forced_hold_reason": null,
+      "policy": "Priority",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 1,
+      "simulated_time": 283,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        13
+      ],
+      "completed_waiting_times": [
+        289
+      ],
+      "decision_index": 13,
+      "executed_from": 303,
+      "executed_to": 336,
+      "forced_hold_reason": null,
+      "policy": "Priority",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 13,
+      "simulated_time": 302,
+      "switch_overhead": 1
+    },
+    {
+      "completed_pids": [
+        12
+      ],
+      "completed_waiting_times": [
+        317
+      ],
+      "decision_index": 14,
+      "executed_from": 337,
+      "executed_to": 342,
+      "forced_hold_reason": null,
+      "policy": "Priority",
+      "policy_changed": false,
+      "quantum": 4,
+      "selected_pid": 12,
+      "simulated_time": 336,
+      "switch_overhead": 1
+    }
+  ],
+  "healing_config": {
+    "accept_closure_factor": 2.4,
+    "band_ewma": 0.25,
+    "congestion_ready_count": 5,
+    "cooldown_decisions": 3,
+    "fallback_policy": 0,
+    "head_block_factor": 4.0,
+    "head_block_min_ready": 3,
+    "hysteresis_evaluations": 2,
+    "intervention_cost": 0.01,
+    "load_window_intervals": 8,
+    "max_consecutive_failures": 2,
+    "max_interventions_per_trace": 6,
+    "max_quantum": 16,
+    "min_band_absolute": 1.0,
+    "min_band_fraction": 0.15,
+    "min_load_factor": 1.0,
+    "min_quantum": 1,
+    "min_ready_processes": 2,
+    "min_remaining_work_factor": 1.5,
+    "min_window_completions": 4,
+    "reference_ewma": 0.35,
+    "rollback_penalty": 0.02,
+    "starvation_age_factor": 3.0,
+    "tail_dispersion_factor": 5.0,
+    "threshold_band_multiplier": 1.25,
+    "verify_completions": 3,
+    "verify_decisions": 5,
+    "verify_max_decisions": 14,
+    "window_completions": 8
+  },
+  "incidents": [
+    {
+      "action": 4,
+      "action_changed": true,
+      "action_name": "set_priority",
+      "action_note": "policy changed",
+      "band_at_trigger": 6.225,
+      "closure_fraction": 2.6022239628060904,
+      "context_state_index": 97,
+      "cost_band_units": 0.06666666666666668,
+      "decision_index": 6,
+      "detector_reason": "degradation_detected",
+      "diagnosis": "head_of_line_blocking",
+      "diagnosis_index": 0,
+      "diagnosis_matched": "head_of_line_blocking,fairness_starvation,queue_congestion",
+      "diagnosis_statement": "head_of_line_blocking: ready head needs 48 vs median 12.0 with 9 ready (recent completed-work wait 65.2 vs reference 41.5 (band 6.2, window 6 completions); also matched: head_of_line_blocking, fairness_starvation, queue_congestion)",
+      "episode_index": 0,
+      "epsilon": 0.0,
+      "excess_band_units": 3.8018741633199475,
+      "explored": false,
+      "fallback_triggered": false,
+      "improvement": -2.8650602409638557,
+      "improvement_band_units": -19.100401606425706,
+      "incident_index": 0,
+      "load_band_at_trigger": 2.3806368558024653,
+      "load_improvement": 0.5654212230317135,
+      "load_improvement_band_units": 2.590381192027836,
+      "offered_actions": "hold,set_sjf,set_round_robin,set_priority",
+      "post_load_level": 4.739726027397261,
+      "post_window_mean": 160.4,
+      "pre_load_level": 10.90648296371625,
+      "ready_count_at_trigger": 9,
+      "reference_at_trigger": 41.5,
+      "request_note": "",
+      "required_closure_factor": 2.4,
+      "reward": 0.13555729613942377,
+      "rollback_target_policy": "",
+      "rollback_target_quantum": "",
+      "settings_after_policy": "Priority",
+      "settings_after_quantum": 4,
+      "settings_before_policy": "FCFS",
+      "settings_before_quantum": 4,
+      "simulated_time": 162,
+      "suspicion_evaluations": 2,
+      "switch_overhead_units": 5,
+      "trigger_load_level": 10.934676300305783,
+      "trigger_threshold": 49.28125,
+      "verdict": "accepted",
+      "verification_completions": 5,
+      "verification_decisions": 5,
+      "visible_remaining_work_at_trigger": 171,
+      "window_end_time": 235,
+      "window_max_at_trigger": 132.0,
+      "window_mean_at_trigger": 65.16666666666667,
+      "window_median_at_trigger": 66.0,
+      "window_size_at_trigger": 6
+    }
+  ],
+  "result": {
+    "context_switches": 14,
+    "mean_response_time": 152.53333333333333,
+    "mean_waiting_time": 152.53333333333333,
+    "outcomes": [
+      {
+        "arrival_time": 17,
+        "burst_time": 18,
+        "completion_time": 302,
+        "pid": 1,
+        "response_time": 267,
+        "start_time": 284,
+        "waiting_time": 267
+      },
+      {
+        "arrival_time": 11,
+        "burst_time": 2,
+        "completion_time": 173,
+        "pid": 2,
+        "response_time": 160,
+        "start_time": 171,
+        "waiting_time": 160
+      },
+      {
+        "arrival_time": 9,
+        "burst_time": 21,
+        "completion_time": 162,
+        "pid": 3,
+        "response_time": 132,
+        "start_time": 141,
+        "waiting_time": 132
+      },
+      {
+        "arrival_time": 6,
+        "burst_time": 47,
+        "completion_time": 95,
+        "pid": 4,
+        "response_time": 42,
+        "start_time": 48,
+        "waiting_time": 42
+      },
+      {
+        "arrival_time": 9,
+        "burst_time": 48,
+        "completion_time": 235,
+        "pid": 5,
+        "response_time": 178,
+        "start_time": 187,
+        "waiting_time": 178
+      },
+      {
+        "arrival_time": 13,
+        "burst_time": 1,
+        "completion_time": 170,
+        "pid": 6,
+        "response_time": 156,
+        "start_time": 169,
+        "waiting_time": 156
+      },
+      {
+        "arrival_time": 2,
+        "burst_time": 34,
+        "completion_time": 36,
+        "pid": 7,
+        "response_time": 0,
+        "start_time": 2,
+        "waiting_time": 0
+      },
+      {
+        "arrival_time": 6,
+        "burst_time": 3,
+        "completion_time": 99,
+        "pid": 8,
+        "response_time": 90,
+        "start_time": 96,
+        "waiting_time": 90
+      },
+      {
+        "arrival_time": 11,
+        "burst_time": 12,
+        "completion_time": 186,
+        "pid": 9,
+        "response_time": 163,
+        "start_time": 174,
+        "waiting_time": 163
+      },
+      {
+        "arrival_time": 3,
+        "burst_time": 10,
+        "completion_time": 47,
+        "pid": 10,
+        "response_time": 34,
+        "start_time": 37,
+        "waiting_time": 34
+      },
+      {
+        "arrival_time": 14,
+        "burst_time": 47,
+        "completion_time": 283,
+        "pid": 11,
+        "response_time": 222,
+        "start_time": 236,
+        "waiting_time": 222
+      },
+      {
+        "arrival_time": 20,
+        "burst_time": 5,
+        "completion_time": 342,
+        "pid": 12,
+        "response_time": 317,
+        "start_time": 337,
+        "waiting_time": 317
+      },
+      {
+        "arrival_time": 14,
+        "burst_time": 33,
+        "completion_time": 336,
+        "pid": 13,
+        "response_time": 289,
+        "start_time": 303,
+        "waiting_time": 289
+      },
+      {
+        "arrival_time": 7,
+        "burst_time": 40,
+        "completion_time": 140,
+        "pid": 14,
+        "response_time": 93,
+        "start_time": 100,
+        "waiting_time": 93
+      },
+      {
+        "arrival_time": 18,
+        "burst_time": 5,
+        "completion_time": 168,
+        "pid": 15,
+        "response_time": 145,
+        "start_time": 163,
+        "waiting_time": 145
+      }
+    ],
+    "policy_name": "q_recovery",
+    "total_elapsed_time": 342,
+    "total_waiting_time": 2288.0
+  },
+  "selection_rule": "validation split only, deterministic: prefer the learned arm, then an episode that shows both an accepted and a rolled-back verdict, then more accepted verdicts, then more interventions, then more incidents; ties break on family and repetition. The episode is identified by arm *and* training seed, so the trace below is the same trace the tables summarize.",
+  "workload": {
+    "family": "long_jobs",
+    "fingerprint": "fc6fffabea342dc0",
+    "processes": [
+      {
+        "arrival_time": 2,
+        "burst_time": 34,
+        "pid": 7,
+        "priority": 5
+      },
+      {
+        "arrival_time": 3,
+        "burst_time": 10,
+        "pid": 10,
+        "priority": 2
+      },
+      {
+        "arrival_time": 6,
+        "burst_time": 47,
+        "pid": 4,
+        "priority": 4
+      },
+      {
+        "arrival_time": 6,
+        "burst_time": 3,
+        "pid": 8,
+        "priority": 3
+      },
+      {
+        "arrival_time": 7,
+        "burst_time": 40,
+        "pid": 14,
+        "priority": 1
+      },
+      {
+        "arrival_time": 9,
+        "burst_time": 21,
+        "pid": 3,
+        "priority": 1
+      },
+      {
+        "arrival_time": 9,
+        "burst_time": 48,
+        "pid": 5,
+        "priority": 4
+      },
+      {
+        "arrival_time": 11,
+        "burst_time": 2,
+        "pid": 2,
+        "priority": 3
+      },
+      {
+        "arrival_time": 11,
+        "burst_time": 12,
+        "pid": 9,
+        "priority": 3
+      },
+      {
+        "arrival_time": 13,
+        "burst_time": 1,
+        "pid": 6,
+        "priority": 2
+      },
+      {
+        "arrival_time": 14,
+        "burst_time": 47,
+        "pid": 11,
+        "priority": 4
+      },
+      {
+        "arrival_time": 14,
+        "burst_time": 33,
+        "pid": 13,
+        "priority": 5
+      },
+      {
+        "arrival_time": 17,
+        "burst_time": 18,
+        "pid": 1,
+        "priority": 4
+      },
+      {
+        "arrival_time": 18,
+        "burst_time": 5,
+        "pid": 15,
+        "priority": 1
+      },
+      {
+        "arrival_time": 20,
+        "burst_time": 5,
+        "pid": 12,
+        "priority": 5
+      }
+    ],
+    "repetition": 4,
+    "seed": 1787915277983249275
+  }
+}

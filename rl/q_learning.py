@@ -200,25 +200,28 @@ class QLearningAgent:
         state: int,
         epsilon: float,
         greedy_actions: Optional[Sequence[int]] = None,
+        exploration_actions: Optional[Sequence[int]] = None,
     ) -> int:
         """Choose an action with epsilon-greedy exploration.
 
-        By default the greedy branch considers the full action space, preserving the
-        legacy selector's behavior. Runtime callers pass the actions already tried in
-        this state; random exploration still samples the full action space.
+        By default both branches consider the full action space, preserving the legacy
+        selector's behavior. Runtime callers pass the actions already tried in this state
+        so that unvisited values are not treated as evidence, and callers with a masked
+        action space (an action that cannot change anything is not a decision) restrict
+        the random draw as well.
 
         Args:
             state: The current state index.
             epsilon: Probability of choosing a uniformly random action instead of the
                 greedy one.
-            greedy_actions: Optional subset used only for the greedy branch. This lets a
-                runtime controller avoid treating unvisited action values as evidence.
+            greedy_actions: Optional subset used only for the greedy branch.
+            exploration_actions: Optional subset used only for the random branch.
 
         Returns:
             The chosen action index.
 
         Raises:
-            ValidationError: If the state or epsilon is invalid.
+            ValidationError: If the state, epsilon or any action subset is invalid.
         """
         self._check_state(state)
         if not 0.0 <= epsilon <= 1.0:
@@ -230,9 +233,17 @@ class QLearningAgent:
             raise ValidationError("greedy_actions must not be empty")
         for action in candidates:
             self._check_action(action)
+        if exploration_actions is None:
+            exploration_candidates = tuple(range(self._n_actions))
+        else:
+            exploration_candidates = tuple(int(action) for action in exploration_actions)
+            if not exploration_candidates:
+                raise ValidationError("exploration_actions must not be empty")
+            for action in exploration_candidates:
+                self._check_action(action)
         if epsilon > 0.0 and self._rng.random() < epsilon:
             self._last_action_was_random_exploration = True
-            return int(self._rng.integers(0, self._n_actions))
+            return int(exploration_candidates[self._rng.integers(0, len(exploration_candidates))])
         self._last_action_was_random_exploration = False
         return max(candidates, key=lambda action: (self._q_table[state, action], -action))
 

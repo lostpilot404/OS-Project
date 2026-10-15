@@ -93,7 +93,15 @@ class RuntimeObservation:
 
 @dataclass(frozen=True)
 class RuntimeActionDecision:
-    """Controller response plus auditable exploration/fallback metadata."""
+    """Controller response plus auditable exploration/fallback metadata.
+
+    ``quantum`` optionally overrides the configured Round-Robin quantum for this
+    decision onward. A controller that never sets it (all four fixed policies, the causal
+    heuristic and the runtime Q controller) keeps the configured quantum, so the field is
+    additive and the documented default semantics are unchanged. The reward normalisation
+    scale of a run stays the configured quantum even when a controller varies ``quantum``,
+    so the reward-accounting identity of :class:`RuntimeSimulator` is preserved.
+    """
 
     action: int
     state_index: Optional[int] = None
@@ -101,6 +109,7 @@ class RuntimeActionDecision:
     explored: bool = False
     fallback_reason: Optional[str] = None
     unvisited_action_count: int = 0
+    quantum: Optional[int] = None
 
     def __post_init__(self) -> None:
         if (
@@ -113,6 +122,12 @@ class RuntimeActionDecision:
             raise ValidationError(f"epsilon must be finite and in [0, 1], got {self.epsilon}")
         if isinstance(self.unvisited_action_count, bool) or self.unvisited_action_count < 0:
             raise ValidationError("unvisited_action_count must be >= 0")
+        if self.quantum is not None and (
+            isinstance(self.quantum, bool)
+            or not isinstance(self.quantum, int)
+            or self.quantum < 1
+        ):
+            raise ValidationError(f"quantum override must be an integer >= 1, got {self.quantum!r}")
 
 
 @dataclass(frozen=True)
@@ -131,6 +146,14 @@ class RuntimeDecisionRecord:
     next_state_index: Optional[int]
     terminal: bool
     policy_switch: bool
+    applied_quantum: Optional[int] = None
+    completed_pids: tuple[int, ...] = ()
+    completed_waiting_times: tuple[int, ...] = ()
+
+    @property
+    def completed_count(self) -> int:
+        """Number of processes that finished during this decision interval."""
+        return len(self.completed_pids)
 
     @property
     def policy_name(self) -> str:
@@ -203,6 +226,10 @@ class RuntimeSimulator:
 
     A context-switch cost is charged only when the running PID changes, matching the
     standalone schedulers and ``build_schedule_result``.
+
+    A controller may override the Round-Robin quantum through
+    :attr:`RuntimeActionDecision.quantum`; every other documented rule (queue order,
+    admission, tie-breaking, switch charging, reward accounting) is unchanged.
     """
 
     def __init__(self, config: SchedulerConfig) -> None:
@@ -251,6 +278,8 @@ class RuntimeSimulator:
         update_ns = 0
         total_reward = 0.0
         quantum = self.config.round_robin_quantum
+        # The reward normalisation scale is fixed for the whole run, even when a controller
+        # overrides the quantum, so the accounting identity below stays exact.
         reward_scale = float(max(1, quantum))
 
         def admit_until(time: int) -> None:
@@ -377,8 +406,9 @@ class RuntimeSimulator:
             admit_until(start_time)
             current_time = start_time
 
+            effective_quantum = decision.quantum if decision.quantum is not None else quantum
             service = (
-                min(quantum, remaining[chosen.pid])
+                min(effective_quantum, remaining[chosen.pid])
                 if decision.action == ACTION_ROUND_ROBIN
                 else remaining[chosen.pid]
             )
@@ -392,8 +422,13 @@ class RuntimeSimulator:
             # Arrivals at the quantum/completion endpoint enter the queue before a
             # preempted process is re-enqueued, preserving FIFO RR tie semantics.
             admit_until(current_time)
+            completions: list[tuple[int, int]] = []
             if remaining[chosen.pid] == 0:
                 completed.add(chosen.pid)
+                # Causal completion evidence: only a finished process reveals its wait.
+                completions.append(
+                    (chosen.pid, end_time - chosen.arrival_time - chosen.burst_time)
+                )
             elif decision.action == ACTION_ROUND_ROBIN:
                 ready.append(chosen)
             else:
@@ -435,8 +470,19 @@ class RuntimeSimulator:
                 next_state_index=next_state_index,
                 terminal=terminal,
                 policy_switch=policy_switch,
+                applied_quantum=effective_quantum if decision.action == ACTION_ROUND_ROBIN else None,
+                completed_pids=tuple(pid for pid, _ in completions),
+                completed_waiting_times=tuple(wait for _, wait in completions),
             )
             records.append(record)
+
+            decision_hook = getattr(controller, "observe_decision", None)
+            if callable(decision_hook):
+                # Environment-to-controller notification of realized, causal facts (the
+                # selected process, the completed processes and their waits, switch cost).
+                # It is called on training and evaluation runs alike and carries no
+                # learning semantics and no future information.
+                decision_hook(record)
 
             transition_hook = getattr(controller, "observe_transition", None)
             if training and callable(transition_hook):

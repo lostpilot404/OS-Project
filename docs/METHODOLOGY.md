@@ -1,208 +1,158 @@
 # Methodology
 
-Official project title (unchanged):
+Official title: **Adaptive CPU Scheduling Using Reinforcement Learning for Dynamic Workloads**
 
-> **Adaptive CPU Scheduling Using Reinforcement Learning for Dynamic Workloads**
+This document states exactly what is measured, on what data, with which statistics, and
+which parts of the pipeline are causal. Every number quoted here is reproduced in
+`docs/EVALUATION_RESULTS.md` and traceable to a file under `results/healing/`.
 
-## 0. What the system is
+## 1. Object of study
 
-An **offline, one-policy-per-workload policy selection and evaluation system**.  For a
-complete batch workload the system selects exactly one of the four conventional
-policies — **FCFS, SJF (non-preemptive), Round Robin, Priority (non-preemptive)** —
-using **tabular Q-learning** over interpretable workload characteristics.  The selected
-policy then runs the entire workload.  **This is not a runtime OS scheduler**: there is
-no within-schedule switching, no event loop, no kernel integration.  The preserved
-event-driven simulator in `docs/APPENDIX_RUNTIME_SIMULATOR.md` is not part of the
-system and contributes no reported result.
+The **self-healing CPU scheduler**: a scheduling loop that (i) monitors realized performance
+from completed work only, (ii) declares a degradation event against a declared reference with
+threshold, hysteresis and cooldown, (iii) diagnoses a cause from the visible ready set,
+(iv) selects one of eight recovery actions with a predeclared rule or a tabular Q-learning
+controller, (v) applies it, (vi) verifies the outcome over a declared window, and
+(vii) accepts it, rolls it back, or falls back to a pinned safe configuration — recording the
+decision, its evidence, its cost and its outcome.
 
-The system is *explainable* (every selection carries a structured, evidence-backed
-explanation) and *risk-aware* (the declared training/evaluation objective penalises
-tail waiting explicitly).  It is evaluated with post-decision counterfactuals,
-hindsight regret, controlled ablations, non-learning baselines and a preserved
-held-out test split.
+Two questions are being asked:
 
-## 1. Information boundary
+1. **Does the loop help relative to doing nothing?** (`rule_wait`/`q_recovery` vs
+   `detector_only`, which runs the full monitoring/detection/diagnosis machinery but never
+   intervenes.)
+2. **Does the loop beat a fixed scheduler?** (`rule_wait`/`q_recovery` vs `fixed_sjf`,
+   `fixed_fcfs`, `fixed_round_robin`, `fixed_priority`.)
 
-The selector's decision function may use **only the declared process table** of the
-batch workload: `(pid, arrival_time, burst_time, priority)` per process.  This is the
-complete information set of the offline batch setting: the whole job list is known
-before execution starts (the same assumption the textbook SJF/Priority policies make).
+Both are answered on a held-out seed, with paired statistics over identical workloads, and
+with a counterfactual audit of every intervention.
 
-Explicitly **forbidden** as selector inputs:
+## 2. Workloads and splits
 
-* schedule outcomes, execution traces, waiting/response/turnaround times;
-* metrics of any policy run, including the four fixed policies;
-* counterfactual results ("what would have happened under another policy");
-* rewards, objective values and regret of any kind;
-* anything derived from the above.
+Families (`config.py`, seven in total): `short_jobs`, `long_jobs`, `mixed`, `cpu_bursty`,
+`priority_skewed`, `staggered_interactive`, `poisson_arrivals`. Each family fixes the arrival
+pattern, the burst distribution (uniform, bimodal or staggered-interactive) and the priority
+pattern. A workload instance is `WorkloadGenerator.generate(family, seed)`; the resulting
+`Workload` carries a content fingerprint.
 
-The module `workload/fingerprint.py` implements the boundary: it imports nothing from
-the schedulers, metrics, RL stack or experiment layer, and every feature is a pure
-function of the process table.  Tests enforce both the import boundary and behavioural
-purity (`tests/test_fingerprint.py`).  The decision function `WorkloadPolicySelector.
-select` receives no policies and cannot execute any schedule
-(`tests/test_counterfactual.py::TestSelectionIsolation`).
+Splits (`experiments/healing_config.py`, `SPLIT_TAGS = {training: 51, validation: 67,
+final_test: 83}`):
 
-Counterfactual outcomes are computed **only after an action is fixed** — as the
-training reward, or as post-hoc evaluation evidence.  They never re-enter the decision
-function.  This asymmetry is the system's core causal structure.
+| Split | Master seed | Traces | Used for |
+|---|---:|---|---|
+| training | `7101…7105` | 1200 per seed, cycling the six non-`poisson_arrivals` families | training the learned controllers; deriving the declared thresholds from the no-action control |
+| validation | `8201` | 20 per family (140) | development decisions, the worked demonstration trace |
+| final test | `20719` | 30 per family (210) | the reported comparison; touched once, after the design was frozen |
 
-## 2. Workload fingerprinting
+Workload seeds come from `derive_seed(master_seed, SPLIT_TAGS[split], family_index,
+repetition)`, so the three splits are disjoint **by construction** (verified by a test that
+compares fingerprints) and every arm is evaluated on exactly the same instances.
 
-`workload/fingerprint.py` extracts eleven interpretable characteristics from the
-process table (exact definitions in the module docstring):
+`poisson_arrivals` is deliberately excluded from training: the learned controllers are
+evaluated on an arrival process they never saw, so the study measures distribution shift
+instead of fitting it.
 
-| Feature | Definition | Role |
-|---|---|---|
-| `process_count` | number of processes | workload size |
-| `arrival_span` | max − min arrival time | arrival spread |
-| `arrival_rate` | `n / max(1, span)` | arrival intensity |
-| `arrival_gap_cv` | pop-std/mean of successive sorted-arrival gaps | arrival-distribution shape |
-| `burst_mean` | mean burst | scale |
-| `burst_cv` | pop-std/mean of bursts | burst variability |
-| `burst_skew` | Bowley quantile skew of bursts | burst asymmetry |
-| `first_arrival_burst_ratio` | mean burst of earliest arrivals / median burst | head-of-line blocking risk |
-| `priority_std` | pop-std of priorities | priority spread |
-| `priority_unique_fraction` | distinct priorities / n | priority granularity |
-| `priority_burst_correlation` | Pearson(priority, burst) | whether priority order tracks short-job order |
+**Seed hygiene.** `20501` was used by an early end-to-end smoke run before the detector's
+congestion gate and the verification rule were finalised, and the `9401` stream was used
+while the harness was built; both are retired as evidence. The held-out seed `20719` was
+declared in `experiments/healing_config.py` before the frozen run and was not evaluated with
+the final system before it. The offline policy-selection study and the runtime appendix have
+their own, separate seed streams.
 
-All features are deterministic, order-invariant and reproducible; the workload digest
-(SHA-256 of the process table) proves pairing across policies and splits.
+## 3. Arms
 
-**Tabular state.** The risk-aware selector discretises a declared subset of four
-features × 3 bins = **81 states**: `burst_cv`, `first_arrival_burst_ratio`,
-`arrival_gap_cv`, `priority_burst_correlation`.  Each maps to one selection mechanism:
-short-job ordering (SJF), head-of-line blocking (Round Robin) and priority ordering
-(Priority).  The remaining features stay in the fingerprint for explanations.  Four
-features keep the tabular space small enough for the declared training budget to cover
-(a 243-state pilot was visibly under-trained; see `docs/LIMITATIONS.md`).
+| Arm | What it is |
+|---|---|
+| `fixed_fcfs`, `fixed_sjf`, `fixed_round_robin`, `fixed_priority` | the untouched standalone schedulers (`scheduler/*.py`), no adaptation |
+| `detector_only` | the full monitoring/detection/diagnosis loop with a policy that never intervenes — the control that separates *detecting* from *acting* |
+| `rule_fairness` | predeclared fairness-oriented diagnosis→action rule |
+| `rule_wait` | predeclared waiting-time-oriented diagnosis→action rule |
+| `q_recovery` | tabular Q-learning recovery, five independent training seeds (one arm each, reported together) |
+| `rule_wait_from_sjf`, `q_recovery_from_sjf` | the same two recovery methods started from SJF instead of FCFS, to test whether the loop damages an already good configuration |
 
-## 3. Objectives
+The rule arms and the learned arms all start from the same naive configuration (FCFS), except
+the `*_from_sjf` arms, so the comparison measures the *recovery* and not the starting point.
 
-Both objectives are implemented side by side (`rl/objective.py`) and every arm is
-scored under **both** in every artifact.  The new objective never silently replaces
-the original.
+## 4. Metrics
 
-### 3.1 Original objective (preserved)
+All metrics come from `evaluation/metrics.py::compute_metrics(ScheduleResult)` and are
+computed from the finished schedule only:
 
-The six-metric reward of `rl/reward.py`, unchanged: per metric, the chosen-policy value
-over the arithmetic mean of the four fixed policies on the same workload (clipped
-ratios), combined with weights 0.30 waiting / 0.25 turnaround / 0.20 response / 0.10
-switches-per-process / 0.075 utilisation / 0.075 throughput.  Higher reward is better;
-equivalent cost = −reward.  Tests pin byte-equality with `rl.reward.compute_reward`.
+* `avg_waiting_time`, `median_waiting_time`, `p95_waiting_time`, `max_waiting_time` — a
+  process's waiting time is `start_time − arrival_time` over the *whole* run, including every
+  slice it was preempted (Round Robin therefore shows low response time and high waiting
+  time);
+* `avg_turnaround_time` = `completion_time − arrival_time`;
+* `avg_response_time` = time to the first slice;
+* `cpu_utilization` (percent) and `throughput` (completions per time unit);
+* `context_switches` and `switching_overhead`;
+* healing-specific: `incidents`, `interventions`, `accepted`, `rolled_back`, `held`,
+  `censored`, `fallback_triggered`, `final_policy`, `final_quantum`, plus per-incident
+  evidence in the incident ledger.
 
-### 3.2 Risk-aware objective `risk_aware_v1`
+The reported headline metric is **mean waiting time**; p95 and the audit gains are reported
+alongside it because a mean alone hides exactly the starvation behaviour the loop claims to
+fix.
 
-Lower-is-better cost
+## 5. Statistics
 
-```
-J = 0.35·n(mean waiting) + 0.25·n(mean response)
-  + 0.15·n(context switches per process) + 0.25·n(p95 per-process waiting)
-```
+* **Paired comparisons.** Every arm is evaluated on the *same* workload instances, so
+  differences are computed per workload and resampled: `evaluation/paired.py` implements a
+  family-stratified, crossed bootstrap (model seeds × workloads) with 1000 replicates at seed
+  `104729`, producing a mean difference and a 95 % percentile interval. Intervals are
+  conditional on the declared design (five training seeds, seven families, fixed
+  repetitions); they are not a claim about all workloads.
+* **Ten predeclared comparisons** are computed (`healing_comparisons.csv`):
+  `rule_wait` vs `detector_only`/`fixed_fcfs`/`fixed_sjf`, `rule_fairness` vs `fixed_fcfs`,
+  `q_recovery` vs `detector_only`/`fixed_fcfs`/`fixed_sjf`/`rule_wait`,
+  `q_recovery_from_sjf` vs `fixed_sjf`, `rule_wait_from_sjf` vs `fixed_sjf`.
+* **Counterfactual audit** (the causal evidence). For every intervention the study replays
+  the same trace with the recorded decision prefix and then *holds* the pre-incident
+  configuration, so the state at the incident is identical and the only difference is the
+  adaptation. `intervention_gain = hold_total_waiting − actual_total_waiting`; a negative gain
+  means the intervention made the trace worse. An intervention is a **false recovery** if its
+  gain is ≤ 0. This is the only measurement in the repository that can attribute an effect to
+  a recovery action, and it is why the study can report that the in-run verdict and the truth
+  disagree.
+* **Detection statistics.** The control's incident ledger gives the detector's false-trigger
+  rate (events declared while nothing changed), reported per trace.
 
-with normalisation `n(x) = clip(x / reference, 0, 2)`, `reference` = the four-policy
-arithmetic mean on the same workload (zero reference ⇒ `n = 1`).  The Q-learning
-training signal is `−J`.
+## 6. Derived thresholds (not tuned by hand)
 
-* **Normalisation rationale.** Per-workload ratios make J scale-free across families
-  with different time scales; the clip bounds single-metric blow-ups; a policy that
-  matches the four-policy mean on every term scores exactly `J = 1`.
-* **Risk criterion.** The fourth term is an explicit **tail-risk penalty**: the
-  nearest-rank 95th percentile of per-process waiting times (effectively the maximum
-  at n≈15).  Weight `w_tail = 0.25` makes the objective mean–tail and risk-averse
-  toward waiting-time outliers; `w_switch = 0.15` prices context-switch overhead at a
-  declared unit cost per switch.
-* **Weights** are declared in `config.RiskObjectiveConfig`, sum to one, and are not
-  tuned on evaluation data.  `tests/test_objective.py` pins the arithmetic
-  hand-computed on synthetic outcomes, including a case where raising `w_tail` flips a
-  ranking.
+`experiments/healing_thresholds.py` runs the no-action control over the training split and
+derives:
 
-## 4. Selection, counterfactuals, regret, explanations
+* `min_load_factor`: the congestion gate. The sweep in
+  `healing_threshold_derivation.csv` shows control detections per trace falling from 1.52
+  (gate off) to 1.05 (`0.8`), 0.86 (`1.0`) and 0.04 (`1.25`); `1.0` is the strictest value
+  that still leaves the detector active, and it is the declared value.
+* `accept_closure_factor`: the verification threshold, declared at the 95th percentile of
+  the *no-action* closure statistic (measured 2.38 → declared 2.4). Its measured false-accept
+  rate on the control is 4.5 % (training) and 3.1 % (validation): the rule certifies
+  "success" on a window in which nothing changed at most 5 % of the time.
 
-* **Decision** (`rl/selector.py`): fingerprint → state → Q-values → one action.
-  Greedy evaluation compares only actions with training visits
-  (`QLearningAgent.greedy_visited_action`); zero-initialised unvisited entries are
-  never treated as estimates — necessary because the `−J` signal is non-positive and
-  would otherwise lose every comparison against the 0.0 initialisation.  Wholly unseen
-  states use a documented lowest-index fallback, labelled `unseen_state_fallback` so
-  explanations never present it as learned evidence.
-* **Counterfactual evaluation** (`evaluation/counterfactual.py`): strictly after the
-  decision, all four fixed policies run the identical workload (fingerprints checked),
-  both objectives are scored for each, and **hindsight selection regret** =
-  `cost(selected) − min_a cost(a)` is recorded under both objectives.
-* **Explanations** (`rl/explain.py`): one structured record per selection with the
-  workload characteristics (values + state bins), the selection basis (Q-values and
-  visits; or the baseline rule evidence), the objective values of all four policies,
-  regret, and a list of reasons whose `evidence` fields are the exact computed numbers.
-  Statements are deterministic templates over the evidence; a reason is emitted only
-  when its claim is true (e.g. "lowest normalised term" appears only for strictly
-  lowest terms).  `tests/test_explanations.py` re-derives the evidence independently
-  and checks the verdicts, including the case where the selector did *not* pick the
-  hindsight best.
+The verification rule is therefore a *conservative safety gate*, not a claim of benefit; the
+audit supplies the benefit measurement.
 
-## 5. Study design
+## 7. Protocol actually followed
 
-Frozen in `experiments/study_config.py`; the study name is
-`risk_aware_offline_policy_selection`.
+1. Build the healing package against the existing, tested event engine; pin its semantics
+   with tests (identical schedules under a no-op control, rollback timing, fallback,
+   counterfactual prefix equality).
+2. Develop thresholds, gates and the reward shape on the **training** and **validation**
+   splits only. Every rejected alternative is recorded in `docs/DESIGN_AND_CHOICES.md`
+   together with the measurement that rejected it.
+3. Freeze `experiments/healing_config.py`, declare a new held-out seed (`20719`), and run
+   `python main.py healing-study` once.
+4. Report every arm — including the arms that lose — and both the favourable and the
+   unfavourable audit outcomes.
 
-* **Training workloads**: on the fly from the six training families, seed stream
-  `derive_seed(seed, 0, episode)` (the preserved legacy stream).
-* **Q arms** (equal budget: 5 seeds × 3600 one-step episodes each):
+## 8. What is *not* claimed
 
-  | Arm | State | Objective | Selection rule |
-  |---|---|---|---|
-  | `ql_orig` | original 4-feature | original | preserved full-space argmax |
-  | `ql_risk` | fingerprint 4-feature | `risk_aware_v1` | visited-action masking |
-  | `ql_risk_origstate` | original 4-feature | `risk_aware_v1` | visited-action masking |
-  | `ql_orig_fingerprint` | fingerprint 4-feature | original | visited-action masking |
-
-  `ql_orig` reproduces the preserved legacy selector exactly (pinned by
-  `tests/test_study_design.py::TestLegacyPinning`).  The three new arms form the
-  controlled 2×2 ablation of (features × objective); they share the selection rule so
-  only the two factors vary.
-* **Training budget.** Episodes are one-step terminal updates (one sample per episode).
-  The legacy default of 1200 episodes leaves the 324 state-action cells with under four
-  samples each and the per-state greedy policy is then estimation noise; every Q arm
-  therefore receives the same 3600-episode budget (≈11 samples/cell).  The legacy
-  pipeline keeps its historical 1200-episode default.
-* **Non-learning baselines** (`experiments/baselines.py`, all predeclared):
-  `best_fixed` (lowest mean training cost — training data only),
-  `fingerprint_rule` (deterministic decision list over fingerprint features, fixed in
-  code), `random` (seeded uniform).  The hindsight oracle is used only for regret and
-  is never presented as a selector.
-* **Splits.** Validation (seed 5501) is for examples/reporting only.  The **held-out
-  test split** (seed 19501, 8 families × 30 workloads) is evaluated once, at the end.
-  Two families never appear in training: `poisson_arrivals` (preserved) and
-  `heavy_tail_stress` (25 processes, 90% short bursts, slow Poisson arrivals,
-  skewed priorities) — the distribution-shift conditions.  Train/validation/test
-  fingerprints are checked disjoint and duplicates are rejected.
-* **Design-freeze protocol.** Two implementation bugs (a zero-initialisation/reward-sign
-  artifact and a missing head-of-line state feature) and the underpowered legacy
-  training budget were identified and fixed on mechanism grounds while developing
-  against test-seed 9501.  At design freeze the test seed was rotated to **19501**,
-  which no development run had ever generated; every number in
-  `docs/EVALUATION_RESULTS.md` comes from that untouched split.  Development runs
-  under 9501 are not reported as results.
-
-## 6. Robustness and comparison protocol
-
-`results/study/robustness.csv` and `summary.json` report, per arm × split × family ×
-training seed: mean/sd declared-objective cost, mean/sd regret, poor-selection rate
-(regret > 0), severe rate (regret > 0.1), hindsight-best rate, mean original reward and
-all six standard scheduling metrics of the selected policies.  Distribution shift is
-reported as in-distribution vs out-of-distribution means and poor rates.  Paired
-arm-vs-arm comparisons use one difference per unique workload (model seeds averaged
-first) with a percentile bootstrap 95% CI (2000 resamples, fixed seed 424242).
-Performance variability across training seeds is reported as mean ± sd of per-seed
-mean cost.
-
-## 7. Reproducibility and verification
-
-Every random draw (workloads, agents, baselines, bootstrap) is seeded through
-`config.derive_seed`; gzip artifacts carry fixed headers.  Two runs with the same
-configuration are byte-identical (`tests/test_reproducibility.py`).  Output validation
-checks schemas, row accounting, regret consistency, recomputes the objective cost from
-the recorded terms, matches selected-policy metrics against the counterfactual table
-and verifies explanation coverage for every selection
-(`tests/test_output_validation.py`).  Information leakage, counterfactual isolation and
-explanation correctness have their own suites; the full suite is 386 tests.
+* No real-OS integration: the system drives a simulator.
+* No guarantee that recovery beats a fixed policy; the measured answer is that it does not, on
+  these families.
+* No claim that the in-run verdicts are causal evidence; they are a runtime decision rule,
+  and the audit shows they can be wrong in both directions.
+* Intervals are conditional on the declared design (five training seeds, seven families,
+  fixed repetitions); they are not a claim about all workloads.
