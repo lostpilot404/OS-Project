@@ -378,18 +378,28 @@ def _selection_basis_reason(selection: Mapping[str, object]) -> Reason:
             )
         else:
             best_q = q_values[policy_name]
-            runner = max(
-                (name for name in q_values if name != policy_name),
-                key=lambda name: (q_values[name], name),
-            )
-            evidence["runner_up_policy"] = runner
-            evidence["runner_up_q"] = q_values[runner]
-            evidence["q_margin"] = best_q - q_values[runner]
-            statement = (
-                f"Greedy selection: Q(state, {policy_name})={best_q:.6f} was the highest "
-                f"learned value (visits={visits[policy_name]}); margin over {runner} "
-                f"was {best_q - q_values[runner]:.6f}."
-            )
+            visited_others = [
+                name
+                for name in q_values
+                if name != policy_name and visits[name] > 0
+            ]
+            if visited_others:
+                runner = max(visited_others, key=lambda name: (q_values[name], name))
+                evidence["runner_up_policy"] = runner
+                evidence["runner_up_q"] = q_values[runner]
+                evidence["q_margin"] = best_q - q_values[runner]
+                statement = (
+                    f"Greedy selection among visited actions: Q(state, {policy_name})="
+                    f"{best_q:.6f} was the highest learned value (visits="
+                    f"{visits[policy_name]}); margin over {runner} was "
+                    f"{best_q - q_values[runner]:.6f}. Unvisited actions are not "
+                    f"treated as estimates."
+                )
+            else:
+                statement = (
+                    f"Greedy selection: {policy_name} was the only visited action in "
+                    f"this state (Q={best_q:.6f}, visits={visits[policy_name]})."
+                )
     else:
         evidence["selection_evidence"] = dict(selection.get("selection_evidence", {}))
         statement = (

@@ -75,7 +75,9 @@ class SelectionDecision:
         action_visits: Training visit count of every ``state, action`` pair.
         action: Selected action index.
         policy_name: Name of the selected policy.
-        greedy_action: Greedy action at decision time (ties to the lowest index).
+        greedy_action: Greedy action among visited actions at decision time (the
+            lowest-index fallback on wholly unseen states); unvisited zero-initialised
+            entries are never treated as estimates.
         explored: Whether epsilon-greedy took the random branch (training only).
         epsilon: Exploration rate used (0 during evaluation).
         objective: Declared objective the agent's values are trained/interpreted under.
@@ -187,6 +189,15 @@ class WorkloadPolicySelector:
     the workload description and the Q-table; policies are passed to
     :meth:`train_episode` / :meth:`evaluate` only so the counterfactual evidence can be
     produced **after** the action is fixed.
+
+    Unvisited actions are never treated as estimates: the greedy branch compares only
+    actions with training visits (see :meth:`QLearningAgent.greedy_visited_action`),
+    because the risk-aware terminal reward ``-J`` is non-positive and would otherwise
+    lose every comparison against the zero initialisation of unvisited entries.  A
+    state with no visits at all selects the documented lowest-index fallback
+    (``unseen_state_fallback``); a training episode's first visit forces uniform
+    exploration.  The preserved original selector (:mod:`rl.adaptive`) keeps its
+    original full-space argmax behaviour; see ``docs/LIMITATIONS.md``.
     """
 
     def __init__(
@@ -196,6 +207,7 @@ class WorkloadPolicySelector:
         objective: str = OBJECTIVE_RISK_AWARE,
         reward_config: RewardConfig | None = None,
         risk_config: RiskObjectiveConfig | None = None,
+        mask_unvisited: bool = True,
     ) -> None:
         """
         Args:
@@ -206,6 +218,11 @@ class WorkloadPolicySelector:
                 :data:`rl.objective.OBJECTIVE_NAMES`).
             reward_config: Weights of the original objective.
             risk_config: Weights of the risk-aware objective.
+            mask_unvisited: When true (default) the greedy branch compares only
+                actions with training visits.  ``False`` reproduces the preserved
+                original selector's full-space argmax, where zero-initialised
+                unvisited entries tie and fall to the lowest action index; the
+                study's ``ql_orig`` arm uses that setting to pin legacy behaviour.
 
         Raises:
             ValidationError: If the components are inconsistent.
@@ -221,6 +238,8 @@ class WorkloadPolicySelector:
             raise ValidationError(
                 f"objective must be one of {list(OBJECTIVE_NAMES)}, got {objective!r}"
             )
+        if not isinstance(mask_unvisited, bool):
+            raise ValidationError("mask_unvisited must be a bool")
         if agent.n_states != encoder.n_states or agent.n_actions != len(ACTION_NAMES):
             raise ValidationError("the agent table dimensions do not match the encoder")
         self._encoder = encoder
@@ -228,6 +247,7 @@ class WorkloadPolicySelector:
         self._objective = objective
         self._reward_config = reward_config or RewardConfig()
         self._risk_config = risk_config or RiskObjectiveConfig()
+        self._mask_unvisited = mask_unvisited
 
     # -- introspection ----------------------------------------------------------------
     @property
@@ -274,17 +294,51 @@ class WorkloadPolicySelector:
             int(self._agent.state_action_visit_counts[state, a]) for a in range(len(ACTION_NAMES))
         )
         state_seen = int(self._agent.visit_counts[state]) > 0
-        greedy_action = self._agent.greedy_action(state)
+        visited = self._agent.visited_actions(state)
+        # With masking, unvisited state-action values are never treated as estimates:
+        # the greedy branch considers only actions with training updates.  With the
+        # risk-aware objective the terminal reward is -J (non-positive), so the zero
+        # initialisation would otherwise make unvisited actions dominate every
+        # comparison.  Wholly unseen states use the documented lowest-index fallback.
+        masked_greedy = self._agent.greedy_visited_action(state)
 
         if episode is None:
             epsilon = 0.0
-            action = greedy_action
             explored = False
-            selection_rule = SELECTION_GREEDY if state_seen else SELECTION_UNSEEN_FALLBACK
+            if self._mask_unvisited:
+                if masked_greedy is None:
+                    action = 0
+                    greedy_action = 0
+                    selection_rule = SELECTION_UNSEEN_FALLBACK
+                else:
+                    action = masked_greedy
+                    greedy_action = masked_greedy
+                    selection_rule = SELECTION_GREEDY
+            else:
+                action = self._agent.greedy_action(state)
+                greedy_action = action
+                selection_rule = (
+                    SELECTION_GREEDY if state_seen else SELECTION_UNSEEN_FALLBACK
+                )
         else:
             epsilon = self._agent.epsilon_for_episode(episode)
-            action = self._agent.select_action(state, epsilon)
+            if self._mask_unvisited:
+                if not visited:
+                    # First visit: force uniform exploration of the full action space.
+                    action = self._agent.select_action(state, 1.0)
+                    epsilon = 1.0
+                else:
+                    action = self._agent.select_action(
+                        state, epsilon, greedy_actions=visited
+                    )
+            else:
+                action = self._agent.select_action(state, epsilon)
             explored = self._agent.last_action_was_random_exploration
+            greedy_action = (
+                masked_greedy
+                if self._mask_unvisited and masked_greedy is not None
+                else self._agent.greedy_action(state)
+            )
             if explored:
                 selection_rule = SELECTION_EPSILON
             elif state_seen:

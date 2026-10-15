@@ -178,7 +178,7 @@ class TestDeterminismAndPurity:
 class TestFingerprintStateEncoder:
     def test_default_state_space_size(self) -> None:
         encoder = FingerprintStateEncoder(FingerprintStateConfig())
-        assert encoder.n_states == 243
+        assert encoder.n_states == 81
         assert encoder.features == KNOWN_FINGERPRINT_STATE_FEATURES
 
     def test_encode_decode_roundtrip(self) -> None:
@@ -213,7 +213,7 @@ class TestFingerprintStateEncoder:
         bins = encoder.decode(encoder.encode(fingerprint))
         assert bins["burst_cv"] == encoder.n_bins - 1
         assert bins["arrival_gap_cv"] == encoder.n_bins - 1
-        assert bins["burst_skew"] == encoder.n_bins - 1
+        assert bins["first_arrival_burst_ratio"] == 0  # ratio 1.0 is below the 4.0 edge
         assert bins["priority_burst_correlation"] == 0
 
     def test_higher_feature_values_give_monotone_indices(self) -> None:

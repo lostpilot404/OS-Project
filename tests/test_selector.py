@@ -99,6 +99,38 @@ class TestDecisionPath:
         assert set(decision.state_bins) == set(StateConfig().state_variables)
 
 
+class TestVisitedActionMasking:
+    """Unvisited zero-initialised values must not beat negative learned values."""
+
+    def test_unvisited_actions_are_not_treated_as_estimates(self) -> None:
+        selector = make_selector(objective=OBJECTIVE_RISK_AWARE)
+        state = selector.select(workload_from_rows("m1", ROWS)).state_index
+        # Give SJF a negative learned value (typical for reward = -J) and leave
+        # FCFS/Priority/round-robin unvisited at 0.0.
+        for _ in range(5):
+            selector.agent.update(state, 1, reward=-0.8, next_state=None)
+        decision = selector.select(workload_from_rows("m1", ROWS), episode=None)
+        assert decision.action == 1
+        assert decision.policy_name == "SJF"
+        assert decision.selection_rule == SELECTION_GREEDY
+
+    def test_evaluation_among_visited_picks_the_least_bad(self) -> None:
+        selector = make_selector(objective=OBJECTIVE_RISK_AWARE)
+        state = selector.select(workload_from_rows("m2", ROWS)).state_index
+        selector.agent.update(state, 0, reward=-1.5, next_state=None)
+        selector.agent.update(state, 3, reward=-0.4, next_state=None)
+        decision = selector.select(workload_from_rows("m2", ROWS), episode=None)
+        assert decision.action == 3  # Priority beats FCFS among visited
+        assert decision.action_visits[1] == 0  # SJF unvisited at 0.0 is ignored
+
+    def test_first_training_visit_forces_exploration(self) -> None:
+        selector = make_selector(epsilon_start=0.0, seed=2)
+        decision = selector.select(workload_from_rows("m3", ROWS), episode=0)
+        assert decision.explored is True
+        assert decision.selection_rule == SELECTION_EPSILON
+        assert decision.epsilon == 1.0
+
+
 class TestTrainingEpisodes:
     def test_q_update_uses_negative_risk_cost(self) -> None:
         selector = make_selector(objective=OBJECTIVE_RISK_AWARE)

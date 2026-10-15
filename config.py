@@ -100,15 +100,17 @@ KNOWN_STATE_VARIABLES: Tuple[str, ...] = (
 #: risk-aware selector (see :mod:`workload.fingerprint` for the feature definitions and
 #: ``docs/METHODOLOGY.md`` for why this subset keeps the tabular space usable).
 #:
-#: ``process_count`` and the arrival/burst scale features remain in the fingerprint for
-#: explanations but are not discretised into the state: the configured families share a
-#: process count and scale features are covered by the original state's profile/load
-#: variables in the ablation arm.
+#: Each feature maps to one selection mechanism: ``burst_cv`` distinguishes the
+#: short-job-ordering (SJF) regime, ``first_arrival_burst_ratio`` and
+#: ``arrival_gap_cv`` the head-of-line-blocking (Round Robin) regime, and
+#: ``priority_burst_correlation`` the priority-ordering (Priority) regime.  The
+#: remaining fingerprint features stay available for explanations but are not
+#: discretised: four features x three bins keep the tabular space at 81 states, which
+#: the configured training budget can actually cover.
 KNOWN_FINGERPRINT_STATE_FEATURES: Tuple[str, ...] = (
     "burst_cv",
-    "burst_skew",
+    "first_arrival_burst_ratio",
     "arrival_gap_cv",
-    "priority_unique_fraction",
     "priority_burst_correlation",
 )
 
@@ -356,18 +358,17 @@ class FingerprintStateConfig:
         state_features: Ordered tuple of fingerprint features that form the state.
         bins_per_variable: Number of bins per feature (3 -> low / medium / high).
         burst_cv_range: Value range of the burst coefficient of variation.
-        burst_skew_range: Value range of the Bowley burst skew.
+        first_arrival_burst_ratio_range: Value range of the head-of-line burst ratio;
+            the middle bin starts at 4.0, the predeclared rule's head-of-line threshold.
         arrival_gap_cv_range: Value range of the arrival-gap coefficient of variation.
-        priority_unique_fraction_range: Value range of the distinct-priority fraction.
         priority_burst_correlation_range: Value range of the priority/burst correlation.
     """
 
     state_features: Tuple[str, ...] = KNOWN_FINGERPRINT_STATE_FEATURES
     bins_per_variable: int = 3
     burst_cv_range: Tuple[float, float] = (0.0, 1.5)
-    burst_skew_range: Tuple[float, float] = (-1.0, 1.0)
+    first_arrival_burst_ratio_range: Tuple[float, float] = (0.0, 12.0)
     arrival_gap_cv_range: Tuple[float, float] = (0.0, 2.0)
-    priority_unique_fraction_range: Tuple[float, float] = (0.0, 1.0)
     priority_burst_correlation_range: Tuple[float, float] = (-1.0, 1.0)
 
     def __post_init__(self) -> None:
@@ -398,9 +399,8 @@ class FingerprintStateConfig:
         """Return the configured value range of every implemented state feature."""
         return {
             "burst_cv": self.burst_cv_range,
-            "burst_skew": self.burst_skew_range,
+            "first_arrival_burst_ratio": self.first_arrival_burst_ratio_range,
             "arrival_gap_cv": self.arrival_gap_cv_range,
-            "priority_unique_fraction": self.priority_unique_fraction_range,
             "priority_burst_correlation": self.priority_burst_correlation_range,
         }
 

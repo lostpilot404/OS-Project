@@ -68,8 +68,16 @@ __all__ = [
 #: Name of the study in generated artifacts.
 STUDY_NAME = "risk_aware_offline_policy_selection"
 
-#: Training episodes per arm and seed (matches the legacy default).
-TRAINING_EPISODES = 1200
+#: Training episodes per arm and seed.
+#:
+#: Episodes are one-step terminal updates: each episode contributes one sample to one
+#: state-action cell.  The tabular state has 81 states x 4 actions = 324 cells, so the
+#: legacy default of 1200 episodes leaves every cell with under four samples on
+#: average and the per-state greedy policy is then dominated by estimation noise.  The
+#: study therefore trains every Q arm (including ``ql_orig``) with the same 3600-episode
+#: budget, about eleven samples per cell.  The preserved legacy pipeline keeps its
+#: historical 1200-episode default in ``python main.py experiment``.
+TRAINING_EPISODES = 3600
 
 #: Independent training seeds (identical stream derivation to the legacy pipeline).
 TRAINING_SEEDS: Tuple[int, ...] = (42, 43, 44, 45, 46)
@@ -81,7 +89,13 @@ VALIDATION_SEED = 5501
 VALIDATION_REPETITIONS = 16
 
 #: Master seed of the preserved held-out test split (evaluated once, at the end).
-TEST_SEED = 9501
+#:
+#: Design-freeze protocol: development runs used seed 9501 while the training budget
+#: and state layout were being fixed on mechanism grounds (see
+#: ``docs/METHODOLOGY.md``, "Design-freeze protocol").  At freeze time the test seed
+#: was rotated to 19501, which no development run ever touched; the final reported
+#: numbers come only from that split.
+TEST_SEED = 19501
 
 #: Workloads per family in the held-out test split.
 TEST_REPETITIONS = 30

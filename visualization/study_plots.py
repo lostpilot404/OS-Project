@@ -77,7 +77,8 @@ def create_study_figures(
     # 2. Regret by arm (mean with per-workload spread).
     fig, ax = plt.subplots(figsize=(9, 4.5))
     data = [test[test["arm"] == arm]["regret"].tolist() for arm in arms]
-    ax.boxplot(data, labels=arms, showfliers=False)
+    ax.boxplot(data, showfliers=False)
+    ax.set_xticklabels(arms)
     ax.set_ylabel("Hindsight regret under the declared objective")
     ax.set_title("Held-out test split: selection regret by arm")
     ax.tick_params(axis="x", rotation=30)

@@ -178,6 +178,10 @@ def _make_selector(arm: str, config: ExperimentConfig, seed: int) -> WorkloadPol
         objective=objective,
         reward_config=RewardConfig(),
         risk_config=RiskObjectiveConfig(),
+        # The preserved original selector uses full-space argmax (zero-initialised
+        # ties fall to the lowest action index); the new arms treat unvisited values
+        # as non-evidence.  The legacy-equivalence test pins the ql_orig setting.
+        mask_unvisited=(arm != "ql_orig"),
     )
 
 
@@ -425,6 +429,8 @@ def _decision_row(
         "repetition": item.repetition,
     }
     row.update(decision.as_row())
+    outcome = report.outcomes[decision.action]
+    row.update({f"selected_{key}": value for key, value in outcome.as_dict().items()})
     row.update(_objective_columns(report, decision.action))
     return row
 
@@ -944,7 +950,7 @@ def render_report(summary: Mapping[str, object]) -> str:
         f"{config['poor_regret_threshold']}.",
         "",
         "| Arm | Mean cost | Mean regret | Hindsight-best % | Poor % | Severe % | "
-        "Mean wait | Mean response | Switches/proc |",
+        "Mean wait | Mean response | Ctx switches |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for arm, values in test["arms"].items():
@@ -1034,7 +1040,8 @@ def render_report(summary: Mapping[str, object]) -> str:
         "documented fixed rule.",
         "",
         "All numbers in this report are regenerated from the recorded seeds; "
-        "explanation logs are reproducible and intentionally not tracked in git.",
+        "explanation logs and the per-episode training table are reproducible and "
+        "intentionally not tracked in git.",
         "",
     ]
     return "\n".join(lines)

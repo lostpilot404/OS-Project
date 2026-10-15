@@ -18,3 +18,10 @@ venv/
 # Compact metrics, manifests, Q tables, summaries, reports and demo remain tracked.
 results/runtime/runtime_validation_decisions.csv
 results/runtime/runtime_final_test_decisions.csv
+
+# Per-selection explanation logs (JSONL, gzip) and per-episode training rows are
+# large and reproducible from the declared seeds and CLI; the compact decision,
+# counterfactual and robustness tables, summaries, reports and worked examples remain
+# tracked.
+results/study/explanations/
+results/study/training_history.csv

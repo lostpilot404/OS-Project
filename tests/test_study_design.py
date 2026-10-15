@@ -220,7 +220,10 @@ class TestLegacyPinning:
             seed=42,
         )
         study_selector = WorkloadPolicySelector(
-            StateEncoder(config.state), study_agent, objective=OBJECTIVE_ORIGINAL
+            StateEncoder(config.state),
+            study_agent,
+            objective=OBJECTIVE_ORIGINAL,
+            mask_unvisited=False,
         )
 
         for episode in range(40):

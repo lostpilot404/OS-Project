@@ -141,6 +141,8 @@ class TestDecisionsSchema:
         )
         assert len(merged) == len(decisions)
         for metric in ("avg_waiting_time", "avg_response_time", "p95_waiting_time"):
+            # Every arm must record the selected policy's metrics, not just baselines.
+            assert merged[f"selected_{metric}"].notna().all(), metric
             assert (
                 merged[f"selected_{metric}"] - merged[f"{metric}"]
             ).abs().max() < 1e-9
