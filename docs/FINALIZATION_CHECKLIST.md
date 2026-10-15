@@ -172,8 +172,9 @@ Targeted evidence quoted in this round (frozen run, held-out seed `23819`):
 | Checklist record commit | `f19dab3640d8f11bd253392217077cc853b92472` — this file only, pushed as `6403634..f19dab3` (fast-forward, exit 0) |
 | Documentation corrections after that record | `de1085a` — "Correct four doc claims that disagreed with the regenerated artifacts": the fallback episode, the demonstration trace's repetition, the judgeable out-of-sample denominator and two stale numbers in `LIMITATIONS.md`, plus the paired-uncertainty paragraph in `METHODOLOGY.md`; pushed as `f19dab3..de1085a` (fast-forward, exit 0) |
 | Final verification | after those pushes `git ls-remote` reports the branch head equal to the local tip and `git ls-remote origin refs/heads/main` still reports `c26e2a47b637128400f90fe10dec1ce9cf473270`; the commit that contains this row is the branch tip and its SHA is quoted in the session report |
-| `main` | untouched at `c26e2a47b637128400f90fe10dec1ce9cf473270` |
-| Merge / PR actions | none (pull request #5 remains open and untouched; no merge or close in this round) |
+| `main` before the merge | untouched at `c26e2a47b637128400f90fe10dec1ce9cf473270`; it is an ancestor of this branch, so the merge below is a clean fast-forwardable merge |
+| Merge into `main` | authorised by the project owner in this session and performed through a pull request from this branch with `gh pr merge --merge` (no force, no history rewrite). The merge commit and the resulting `main` head are quoted in the session report (`git log --merges -1 origin/main`). |
+| Other pull requests | pull request #5 belongs to another session's branch (`arena/5e0b2eac-os-project`) and is left open and untouched; nothing was closed in this round |
 
 `results/healing/` (21 files) and `figures/healing/` (3 files) in the commit above are the
 artifacts of the frozen run on the declared held-out seed `23819`, regenerated after the last
