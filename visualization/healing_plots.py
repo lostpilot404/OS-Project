@@ -148,10 +148,34 @@ def plot_healing_figures(
 
     # 3. Action-effect probe: measured reward against true effect.
     if not probe.empty:
-        fig, axes = plt.subplots(1, 2, figsize=FIGSIZE_WIDE)
-        # The authoritative reward column is ``controller_reward``; older artifacts
-        # carry it as ``reward_band_units`` for backward compatibility.
-        reward_col = "controller_reward" if "controller_reward" in probe.columns else "reward_band_units"
+        # Strict schema enforcement: the canonical probe must carry the actual
+        # controller reward. The legacy file `healing_action_probe.legacy_raw_proxy.csv`
+        # contains the former raw proxy in `reward_band_units`; it must not be
+        # plotted as “Controller reward”.
+        if "controller_reward" not in probe.columns:
+            from errors import ValidationError
+
+            raise ValidationError(
+                "Probe CSV is legacy schema: missing 'controller_reward' column. "
+                "The legacy reward_band_units column was the raw load proxy, not the "
+                "phase-adjusted controller reward. Use the canonical "
+                "results/healing/healing_action_probe.csv (31+ columns, includes "
+                "controller_reward, raw_load_improvement_band_units, closure_residual, "
+                "verdict) or regenerate it via experiments.healing_experiment.action_effect_probe(). "
+                "Legacy file is preserved as results/healing/healing_action_probe.legacy_raw_proxy.csv "
+                "for traceability only; it can be plotted with plot_healing_figures_legacy() which "
+                "labels the axis as 'Legacy raw proxy'."
+            )
+        # Canonical schema present — use it and optionally validate raw-proxy presence
+        if "raw_load_improvement_band_units" not in probe.columns:
+            from errors import ValidationError
+
+            raise ValidationError(
+                "Probe CSV missing 'raw_load_improvement_band_units': expected canonical schema "
+                "with both controller_reward (authoritative) and raw_load_improvement_band_units "
+                "(exploratory proxy). Regenerate via action_effect_probe()."
+            )
+        reward_col = "controller_reward"
         by_action = probe.groupby("action_name")[
             [reward_col, "true_effect_per_process"]
         ].mean()
@@ -198,3 +222,60 @@ def plot_healing_figures(
 
     del comparisons
     return paths
+
+
+def plot_healing_figures_legacy(
+    figures_dir: Path,
+    probe: pd.DataFrame,
+) -> Dict[str, Path]:
+    """Explicit legacy-probe plot — labelled as raw proxy, never as controller reward.
+
+    This is the traceability path for the preserved historical file
+    ``healing_action_probe.legacy_raw_proxy.csv``. It plots the legacy
+    ``reward_band_units`` column (which was the raw load-improvement proxy) with
+    an unambiguous title and axis label so a reader cannot mistake it for the
+    authoritative ``controller_reward``.
+
+    Args:
+        figures_dir: Directory for the PNG.
+        probe: Legacy probe DataFrame (must contain ``reward_band_units``
+            and must *not* be treated as controller reward).
+
+    Returns:
+        Mapping of artifact name to written path.
+    """
+    import matplotlib.pyplot as plt
+
+    from visualization.style import apply_style
+
+    apply_style()
+
+    if "reward_band_units" not in probe.columns:
+        from errors import ValidationError
+
+        raise ValidationError("Legacy probe expected to contain 'reward_band_units'")
+    if "controller_reward" in probe.columns:
+        from errors import ValidationError
+
+        raise ValidationError(
+            "Legacy plot called on canonical probe: use plot_healing_figures() instead"
+        )
+
+    figures_dir = Path(figures_dir)
+    figures_dir.mkdir(parents=True, exist_ok=True)
+
+    fig, ax = plt.subplots(figsize=FIGSIZE_WIDE)
+    by_action = probe.groupby("action_name")[["reward_band_units", "true_effect_per_process"]].mean()
+    ax.scatter(by_action["reward_band_units"], by_action["true_effect_per_process"], color=color_for("primary"))
+    for name, row in by_action.iterrows():
+        ax.annotate(name, (row["reward_band_units"], row["true_effect_per_process"]), fontsize=8)
+    ax.axvline(float(probe["reward_band_units"].mean()), color="#222222", linewidth=0.8, linestyle="--")
+    ax.set_xlabel("Legacy raw proxy reward_band_units (not controller reward) — hold level dashed")
+    ax.set_ylabel("True effect (per-process waiting-time reduction)")
+    ax.set_title("Legacy probe: raw load proxy vs ground truth (historical schema)")
+    caption = fig.text(0.5, 0.01, "Historical artifact: results/healing/healing_action_probe.legacy_raw_proxy.csv — raw proxy, not phase-adjusted residual", ha="center", fontsize=7, style="italic")
+    fig.tight_layout(rect=[0, 0.03, 1, 1])
+    path = figures_dir / "healing_action_effects_legacy.png"
+    fig.savefig(path, dpi=DPI)
+    plt.close(fig)
+    return {"figure_action_effects_legacy": path}

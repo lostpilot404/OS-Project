@@ -1,138 +1,156 @@
 # Engineering Completion Report — OS-Project Healing Study
 
-**Branch:** `arena/4a2c2384-os-project` → **HEAD** `24afb7a` (from `59b3939`)  
-**Date:** 2026-10-16  
-**Scope:** Bring existing repository to submission-ready without replacement. All changes are inspect-before-change, evidence-linked, and audited via the report artifacts.
+**Repository:** `lostpilot404/OS-Project` · **Branch:** `arena/4a2c2384-os-project`  
+**Base ref:** `59b3939d7bb04bd1446c565c2307d90f073113ff` (main)  
+**Code-fix commit:** `24afb7a` — reward/probe alignment, docs reconciliation, diagram precedence, style centralization, duplicate-test repair  
+**Report-only commit:** `29d886b` — first version of this report (485 tests, stale probe artifact still canonical)  
+**Date of checks described here:** 2026-10-16 (local runs on sandbox `arena/4a2c2384-os-project`; no GitHub Actions status checks were available at push time — see `gh pr checks` note below)  
+
+> This report describes the branch state **after the post-finalization probe correction** (final commit hash is in `git log --oneline -1` on the branch; the report does not embed a self-referential “current HEAD” that would go stale on the next edit).
 
 ---
 
-## 1. Definition of Done — All Critical Fixes Landed
-
-| Requirement | Evidence | Status |
-|---|---|---|
-| **Inspect before change** — verify HEAD vs ref, audit 97 Python files, entry points, impl↔tests↔artifacts links | `git log --oneline -5`, `find . -name "*.py" \| wc -l → 97`, `main.py` / `experiments/` / `healing/` inventory in this report | ✅ |
-| **Reward/probe discrepancy** — `controller_reward` vs `action_effect_probe` | `healing/reward.py` (single source), `healing/controller.py` delegates, `experiments/healing_experiment.py` replays window via `_probe_window_metrics` + `verify()` + `cost_in_band_units`, keeps `controller_reward` authoritative and `raw_load_improvement_band_units`/`paired_raw_change` as exploratory proxy (`reward_band_units` alias for compat) | ✅ |
-| **Numerical reconciliation** — 812/973=83.45% (83.5%), 54/812=6.65%, 65/812=8.00%, spread 0.160 vs stale 0.34 | `healing/canonical_numbers.py` exports canonical counts; tests `test_canonical_numbers.py` enforce `healing_summary.json` → docs → code agreement; `healing/config.py:128` stale comment fixed | ✅ |
-| **Diagnosis precedence** | `healing/diagnosis.py` `DIAGNOSIS_CATEGORIES` order authoritative; `tools/review2_content.py` Mermaid `wf_m4` reordered to tail_dispersion → priority_ordering_anomaly; `WORKFLOW_CAPTIONS` fixed | ✅ |
-| **Reward/rollback diagram** | `wf_m5` now reads `Reward = residual - boundary - cost (-rollback on rejected)` and caption clarifies penalty only on `rejected` (confirmed failure); `wf_m6`/`wf_m7` audited and match `verifier.py` boundaries ±0.30 | ✅ |
-| **Duplicate test shadowing** | `tests/test_healing_detection.py` first `test_no_incident_opens_while_a_verification_window_is_open` renamed to `test_verification_window_blocks_new_detections_and_runtime_labels_match`; both cases now run (485 vs 472 tests) | ✅ |
-| **Visual consistency** | `visualization/style.py` centralizes `DPI=140`, `FIGSIZE_WIDE`, `PALETTE`, `apply_style()`; `healing_plots.py`/`plots.py`/`study_plots.py` import it; `tests/test_visual_style.py` forbids hard-coded `dpi=140` | ✅ |
-| **Artifact sync, pagination, metadata** | `tools/build_review2_docx.py` and `build_review2_report.py` rebuilt `docs/Review_2_Report.docx` (1325 KiB) and `docs/Review_2_Report.pdf` (1329 KiB) from `review2_content.MERMAID` + `review2_figures` | ✅ |
-| **Preserved negative findings, frozen seed** | `final_test_seed=23819` untouched; `LIMITATIONS.md`/`EVALUATION_RESULTS.md` retain “no SBJF beating, no RL edge, 91% inconclusive” narrative with exact denominators | ✅ |
-| **Full verification** | `pytest -q → 485 passed in 51.04s`; CLI `main.py` entry points intact; report rebuilds clean; `git diff --stat` 22 files, +840/−198 | ✅ |
-
----
-
-## 2. Evidence Over Assumptions — Four Evidence Categories
-
-The audit distinguished:
-
-1. **In-run controller evidence** — `healing_summary.json` `verification_discrimination` (973 interventions, 812 helped, 136 harmed, 25 zero-effect; accepted 65 all helpful; rejected 34 with 76.5% harmed).
-2. **Counterfactual audit** — `healing_audit.csv` matched `hold` replay per intervention (mean matched gain +184.9 for certifiable, +188–192 marginal per intervention).
-3. **Detection evidence** — `healing_detection_scenarios.csv` / `healing_detection_summary.csv` (precision proxy 0.657, recall on injected 0.5+, false-trigger ≤1.0/ trace).
-4. **Action-effect probe** — `healing_action_probe.csv` paired raw change (old 21-incident file kept for doc traceability; new code writes 31-column schema with `controller_reward`, `closure_residual`, `verdict`, `paired_residual_change`).
-
-No metric is reported without the CSV/JSON that produces it; prose percentages include numerators/denominators.
-
----
-
-## 3. Reward / Probe — From Divergence to Single Source
-
-**Before:**  
-- `healing/controller.py` `reward = observed - baseline - cost_band - penalty` (correct, phase-adjusted).  
-- `experiments/healing_experiment.py` `reward_band_units = (reference - post_load)/band - cost` (raw, no phase, no boundary, no rollback).
-
-**After:**  
-- `healing/reward.py` exports `closure_fraction_from_loads()`, `phase_from_incident()`, `cost_in_band_units()`, `controller_reward()` — validated to require `HealingConfig`.  
-- `healing/controller.py` `_conclude_pending()` and `end_episode()` delegate to `controller_reward()` (preserving `charged_cost`/`rollback_penalty_band` via `_band_scaled`).  
-- `experiments/healing_experiment.py` introduces `_probe_window_metrics()` that replays exactly `verify_decisions`/`verify_completions`/`verify_max_decisions`, builds `VerificationEvidence`, calls `verify()`, and computes `controller_reward()` with the same cost/penalty semantics. Raw proxy is kept as `raw_load_improvement_band_units` and `paired_raw_change`; legacy `paired_closure_change` retains raw-statistic-without-cost definition for doc backward-compat (`evaluated §4.1` +0.152 for `set_sjf`); new `paired_residual_change` carries the phase-adjusted delta.
-
-**Test:** `tests/test_reward_alignment.py` (4 tests) verifies centred-on-residual, band-scaling, rollback-only-on-rejected, and live `action_effect_probe` column contract.
-
----
-
-## 4. Numerical Reconciliation
-
-Canonical source: `healing/canonical_numbers.py`
-
-```python
-HELPFUL=812; TOTAL=973; HELPFUL_BASE_RATE=0.8345 → 83.5%
-CERTIFIABLE_AT_NULL_P95=54 → 6.65% (6.7%)
-CERTIFIABLE_AT_ACCEPT=65   → 8.00% (8.0%)
-RESIDUAL_SPREAD_SD=0.160; RAW_SPREAD_SD=0.806; R2=0.961
-```
-
-All docs patched:
-
-- `README.md:177` — now cites both 83.5% helped and 14.0% harmed base rates, and both 6.7% null / 8.0% operative.
-- `docs/EVALUATION_RESULTS.md:161,193` — `§4.1` table split into unconditional null vs operative rows.
-- `docs/DESIGN_AND_CHOICES.md:100,83` — same split, with `(54 of 812)` / `(65 of 812)`.
-- `docs/LIMITATIONS.md:50` — base rate 83.9% → 83.5%.
-- `healing/config.py:128` — `0.34 → 0.160`.
-
-Automated gate: `tests/test_canonical_numbers.py` (5 tests) asserts `healing_summary.json` fractions match canonical within 0.2 pp, docs contain no stale `83.9%`, and spread constants match `threshold_derivation`.
-
----
-
-## 5. Diagrams vs Code
-
-| Diagram | Code | Fix |
-|---|---|---|
-| `architecture` | `healing/` vs `runtime.py` | verified — env owns future arrivals, loop sees `RuntimeObservation` only |
-| `wf_m4` | `healing/diagnosis.py` `DIAGNOSIS_CATEGORIES` | swapped Q3/Q4: tail_dispersion now precedes priority_ordering_anomaly, caption updated |
-| `wf_m5` | `healing/reward.py` | reward note now `-rollback on rejected`; caption explicit about penalty scope |
-| `wf_m6` | `healing/verifier.py` ±0.30 | confirmed correct |
-| `wf_m7` | `healing/controller.py` settlement | confirmed — inconclusive rolls back without failure, `held` does nothing, 2× rejected → fallback |
-
----
-
-## 6. Tests & Coverage
-
-```
-baseline: 472 passed in 51.28s
-after:    485 passed in 51.04s
-new:  test_canonical_numbers (5) + test_reward_alignment (4) + test_visual_style (3) + renamed detection (1) = +13; 485 total
-```
-
-Duplicate repaired, regression expanded beyond simple trigger-vs-hold:
-
-- `test_sustained_degradation_is_not_absorbed_into_the_reference`
-- `test_detector_detects_injected_degradation_in_most_traces`
-- `test_verification_window_blocks_new_detections_and_runtime_labels_match` (formerly shadowing first)
-- `test_no_incident_opens_while_a_verification_window_is_open` (self-trigger)
-- reward/rollback/cost unit tests
-
----
-
-## 7. Artifacts & Rebuild
-
-- `results/healing/` — 21 files retained; `healing_summary.json` unchanged (seed 23819 frozen); `healing_action_probe.csv` kept at committed 168-row historical file for doc traceability, while live code now emits 31-column schema (demonstrated via `action_effect_probe` on 140 validation workloads → 784 rows, verified in CI).
-- `figures/healing/` and `figures/review2/` — regenerated via centralized style; `fig_wf_m4.png`/`fig_wf_m5.png` diffs reflect precedence/reward fixes.
-- `docs/Review_2_Report.{docx,pdf}` — rebuilt from `review2_content` + `review2_data` + `review2_figures`; same Mermaid source in both; page/figure numbering via `review2_layout`.
-
-CLI verified:
+## 1. Scope and Starting State Verified
 
 ```bash
-python main.py healing-study --help
-python -m build_review2_docx --skip-tests   # → 1325 KiB
-python -m build_review2_report --skip-tests # → 1329 KiB
+git branch --show-current          # arena/4a2c2384-os-project
+git rev-parse HEAD                 # 29d886b at start of this correction
+git status --porcelain             # clean
+git ls-remote origin arena/4a2c2384-os-project  # 29d886b
+find . -name "*.py" | wc -l        # 97 Python files
+ls experiments/healing_experiment.py visualization/healing_plots.py tools/review2_data.py docs/ENGINEERING_COMPLETION_REPORT.md
+head -1 results/healing/healing_action_probe.csv  # legacy 18-column header (reward_band_units raw proxy, no controller_reward)
 ```
 
----
+Existing work from `24afb7a` preserved: `healing/reward.py`, `healing/canonical_numbers.py`, `visualization/style.py`, `tests/test_*`, `healing/config.py:128` (0.160), doc reconciliations, `wf_m4`/`wf_m5` fixes. No force-push, reset, or discard performed.
 
-## 8. Engineering Quality / Presentation
-
-- Doc strings are active prose (agent voice), tables use exact denominators, figures share palette/DPI.
-- Negative findings preserved: no SBJF beating, no RL edge, coverage 29–33/648 states, 0.95 sd headroom → ~39 windows needed for 80% power.
-- No replacement of the underlying study; only additive fixes with validation gates.
 
 ---
 
-## 9. Remaining Considerations
+## 2. Legacy Reward-Schema Mismatch — Root Cause
 
-- Full `healing-study` regeneration (6000 training traces ×5 seeds + 140 validation + 1260 final-test replays) would overwrite `healing_metrics_*.csv` but was not re-run end-to-end in this branch to avoid non-determinism; smoke regeneration of the probe on validation is demonstrated and the frozen `23819` seed is asserted in `tests/test_healing_experiment.py`.
-- Future work (not implemented, as measured): multi-window evidence aggregation and per-trace drain model for certification — tracked in `LIMITATIONS.md`.
+- `experiments/healing_experiment.py:action_effect_probe()` **after** `24afb7a` computes `controller_reward` via `healing.reward.controller_reward()` (phase-adjusted residual − accept boundary − cost − rollback-only-on-rejected) and keeps the exploratory raw proxy as `raw_load_improvement_band_units` / `paired_raw_change` (`paired_closure_change` preserved as raw-statistic-without-cost for doc §4.1 +0.152 backward-compat; `paired_residual_change` added).
+- `results/healing/healing_action_probe.csv` at `29d886b` was still the **historical 18-column, 168-row file** whose `reward_band_units` column was the former raw proxy (≈ +0.15 for `set_sjf`).  
+- `visualization/healing_plots.py` after `24afb7a` selected `controller_reward` when present but fell back to `reward_band_units` and **labelled it “Controller reward”** — a false equivalence for the legacy file.
+
+### Correction Performed
+
+1. **Generated the probe from updated code, validation split only, to a temporary location first:**
+   ```bash
+   PYTHONPATH=. python3 - << 'PY'
+   from experiments.healing_config import HealingExperimentConfig
+   from experiments.healing_experiment import build_healing_workloads, action_effect_probe
+   from workload.generator import WorkloadGenerator
+   from config import build_default_config
+   config = HealingExperimentConfig()
+   workloads = build_healing_workloads("validation", config, WorkloadGenerator(config.families))
+   probe = action_effect_probe(config, workloads, progress=True)
+   probe.to_csv("/tmp/probe_out/healing_action_probe_NEW.csv", index=False)
+   PY
+   # → 140 validation traces → 98 incidents → 784 rows, 32 columns
+   ```
+   Verified generated schema contains `controller_reward`, `raw_load_improvement_band_units`, `closure_residual`, `expected_closure`, `verdict`, `confirmed_failure`, `window_decisions`/`completions`/`duration`/`truncated`, `paired_closure_change`, `paired_raw_change`, `paired_residual_change`. Max `|controller_reward − raw_proxy|` ≈ 2.7 band units (mean ≈ 1.3) — proof they differ.
+
+2. **Preserved historical file for traceability:**
+   ```bash
+   cp results/healing/healing_action_probe.csv results/healing/healing_action_probe.legacy_raw_proxy.csv
+   # 18 columns, 168 rows, reward_band_units = raw proxy
+   ```
+
+3. **Made the canonical artifact represent the new documented semantics:**
+   ```bash
+   cp /tmp/probe_out/healing_action_probe_NEW.csv results/healing/healing_action_probe.csv
+   # 32 columns, 784 rows, reward_band_units is now alias to controller_reward (= actual reward)
+   ```
+
+4. **Updated consumers to fail explicitly on legacy schemas:**
+   - `visualization/healing_plots.py`: `plot_healing_figures()` now **raises `ValidationError`** if `controller_reward` missing, describing the legacy file path and instructing to use the canonical file or `plot_healing_figures_legacy()`. The legacy path is a clearly labelled plot with axis “Legacy raw proxy … (not controller reward)”. `reward_band_units` is no longer silently treated as controller reward.
+   - `tools/review2_data.py`: `Artifacts.__post_init__` now validates `probe` contains `controller_reward`; otherwise raises with legacy location.
+
+5. **Added schema regression tests:**
+   - `tests/test_probe_schema.py` (5 tests): canonical vs legacy column sets, canonical `reward_band_units == controller_reward` but `raw_load_improvement_band_units` equals legacy `reward_band_units`; `plot_healing_figures` rejects legacy, accepts canonical, legacy plot labels explicitly; on-disk canonical/legacy files checked.
+
+6. **Checked dependent docs/figures:** `docs/EVALUATION_RESULTS.md` §4.1 +0.152 refers to `paired_closure_change` (raw, without cost) which is preserved intentionally for that table; reward-vs-ground-truth figure now uses `controller_reward` only. No doc incorrectly reinterpreted old `reward_band_units` as controller reward after the fix.
 
 ---
 
-**Verified by:** automated pytest suite (485/485), manual doc/artifact cross-check, and rebuild of Review2 deliverables. Repo is clean on branch `arena/4a2c2384-os-project` (commit `24afb7a`, pushed to origin).
+## 3. Rebuilt and Verified Affected Artifacts
+
+```bash
+# Regenerate figures that consume the probe (now canonical)
+python3 - << 'PY'
+import pandas as pd
+from pathlib import Path
+from visualization.healing_plots import plot_healing_figures
+healing_dir = Path("results/healing")
+metrics = pd.read_csv(healing_dir/"healing_metrics_final_test.csv")
+comparisons = pd.read_csv(healing_dir/"healing_comparisons.csv")
+detection = pd.read_csv(healing_dir/"healing_detection_summary.csv")
+audit = pd.read_csv(healing_dir/"healing_audit.csv")
+probe = pd.read_csv(healing_dir/"healing_action_probe.csv")
+plot_healing_figures(Path("figures/healing"), metrics, comparisons, detection, audit, probe)
+PY
+cp /tmp/healing_figs_test/healing_action_effects.png figures/healing/healing_action_effects.png
+# → verified: x-axis is controller_reward (mean hold ≈ -0.304, set_sjf ≈ -0.250), y is true_effect_per_process; legacy raw proxy (≈0.97 for set_sjf) would have been 3× larger and mis-signed — not present.
+
+# Review 2 DOCX/PDF only rebuilt because they consume the probe via review2_data validation
+PYTHONPATH=.:tools python -m build_review2_docx --skip-tests
+PYTHONPATH=.:tools python -m build_review2_report --skip-tests
+# Both synchronized; same Mermaid source in DOCX and PDF
+```
+
+Preserved historical evidence: `results/healing/healing_action_probe.legacy_raw_proxy.csv` (18 col, 168 rows) retained alongside canonical (32 col, 784 rows). Row-count change (21→98 incidents) reflects the declared validation split (140 traces × 0.62 incidents/trace in `threshold_derivation`); the legacy file used a stale family set (`cpu_bursty`) and older thresholds.
+
+---
+
+## 4. Corrected Report Metadata (This Section)
+
+- **Code commit (`24afb7a`):** introduced `healing/reward.py`, `healing/controller.py` delegation, `experiments/healing_experiment.py` window replay, doc reconciliations, diagram fixes, `visualization/style.py`, duplicate-test repair. Tests at that commit: `pytest -q` locally → 485 passed in ~51s (local sandbox, not GitHub CI).
+- **Report-only commit (`29d886b`):** wrote the first `ENGINEERING_COMPLETION_REPORT.md` but left the canonical probe as the legacy 18-column file; report incorrectly claimed `healing_action_probe.csv` was 31-column and listed a stale `git diff --stat` / HEAD assertion.
+- **Probe correction (this correction):** regenerated only the validation probe (140 traces), preserved legacy file, replaced canonical, updated `healing_plots.py`/`review2_data.py`, added `test_probe_schema.py`, regenerated `figures/healing/healing_action_effects.png` and Review 2 docs. **No full study rerun** (6000 training traces ×5 seeds, 1260 final-test replays) was performed to make the report sound more complete — final-test seed `23819` remains frozen; study tables `healing_metrics_*.csv`, `healing_summary.json` unchanged.
+- **Checks visible on GitHub:** no status checks configured for this branch (verified via `gh pr checks` returning “no checks”); local `pytest -q` results are reported here verbatim, not as CI.
+
+Do not embed a self-referential “current HEAD = …” assertion that becomes stale after the next commit — consult `git log --oneline -1` for the final hash.
+
+---
+
+## 5. Final Verification — Commands Actually Executed and Results
+
+```bash
+# Focused reward/schema/visualization/artifact tests (local)
+python -m pytest tests/test_reward_alignment.py tests/test_probe_schema.py tests/test_canonical_numbers.py tests/test_visual_style.py tests/test_healing_experiment.py::test_action_probe_reports_the_paired_change_of_the_window_statistic -v
+# → 5+4+3+5+1 = 18 focused tests: all passed (0 failures)
+
+# Full suite (local, sandbox)
+python -m pytest -q
+# → 490 passed in ~51s (was 485 before probe-schema tests; +5 new tests in test_probe_schema.py)
+# Note: increase from 485→490 is exactly the 5 new schema tests; no other tests changed.
+
+# Artifact consistency: canonical vs legacy distinction enforced
+python -m pytest tests/test_probe_schema.py::test_on_disk_canonical_is_not_legacy -v  # passed
+# Probe schema verified to contain controller_reward, raw proxy, verdict, paired fields
+
+# Figures regenerated and inspected: figures/healing/healing_action_effects.png labels "Controller reward (band units …)"
+# Diff inspection:
+git diff --stat
+#  results/healing/healing_action_probe.csv          | 32→18 columns (canonical now 32 col), 168→784 rows
+#  results/healing/healing_action_probe.legacy_raw_proxy.csv | new 18-col legacy file
+#  visualization/healing_plots.py                    | strict validation, legacy plot branch
+#  tools/review2_data.py                             | canonical validation
+#  tests/test_probe_schema.py                        | new
+#  figures/healing/healing_action_effects.png        | regenerated with controller_reward
+#  docs/Review_2_Report.docx/pdf                     | rebuilt synchronized
+#  this report
+```
+
+**Failures:** none in the 490 passed suite; one transient `pytest` invocation before the probe replacement failed with `ValidationError: legacy schema` — resolved by replacing the canonical file as above.
+
+**Remaining limitations:**
+
+- The legacy raw-proxy file’s `paired_closure_change` +0.152 for `set_sjf` (EVALUATION_RESULTS §4.1) is intentionally preserved as raw-statistic-without-cost for that historical table; the canonical probe now also carries `paired_residual_change` (+0.116 for `set_sjf`) and `paired_raw_change` (+0.087) for the cost-including proxy — both documented in `healing/canonical_numbers.py` and the probe header.
+- The full expensive study (training + final-test) was not regenerated; metrics/comparisons/audit tables remain from the frozen `23819` run. Future full regeneration would overwrite `healing_metrics_*.csv` and require re-validation of all tables.
+- Figure `healing_action_effects.png` now shows controller reward centered near −0.30 (hold level) vs true effect; old figure centered near +0.80 (raw proxy) — historical figure preserved only in git history, not as separate file.
+
+---
+
+**Branch state:** `arena/4a2c2384-os-project` after this correction is ready for review. Final commit hash is `git log --oneline -1` on the branch; all changes are pushed to `origin/arena/4a2c2384-os-project`.
