@@ -99,7 +99,7 @@ PYTHONPATH=.:tools python -m build_review2_report --skip-tests
 # Both synchronized; same Mermaid source in DOCX and PDF
 ```
 
-Preserved historical evidence: `results/healing/healing_action_probe.legacy_raw_proxy.csv` (18 col, 168 rows) retained alongside canonical (32 col, 784 rows). Row-count change (21→98 incidents) reflects the declared validation split (140 traces × 0.62 incidents/trace in `threshold_derivation`); the legacy file used a stale family set (`cpu_bursty`) and older thresholds.
+Preserved historical evidence: `results/healing/healing_action_probe.legacy_raw_proxy.csv` (18 col, 168 rows, 21 incidents, `reward_band_units` was the raw load-improvement proxy) retained alongside canonical `results/healing/healing_action_probe.csv` (32 col, 784 rows, 98 incidents, `controller_reward` is the phase-adjusted residual minus accept boundary minus cost and, on `rejected`, the rollback penalty). The observed validation incidence rate is **98/140 = 0.70 incidents/trace**; `threshold_derivation`'s training-control rate `control_incidents_per_trace = 0.623` is a separate statistic from 3737 training incidents on 6000 traces and must not be conflated with the validation observed ratio. The legacy file's 21-incident count used a stale family set (`cpu_bursty`) and older thresholds.
 
 ---
 

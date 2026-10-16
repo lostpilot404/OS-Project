@@ -1410,9 +1410,9 @@ def _section_challenges(data: Artifacts) -> List[Tuple]:
             "phase.",
             "<b>A more informative reward (W3).</b> The reward currently uses the same "
             "statistic as the verdict, which keeps learning honest but inherits its noise. "
-            "The action probe shows that the reward already ranks actions correctly "
-            "<i>within</i> an incident (mean rank correlation 0.62, median 0.88, and its "
-            "argmax is the best action in 15 of 21 probed incidents); the remaining gain is "
+            "The action probe shows that the canonical `controller_reward` already ranks actions correctly "
+            "<i>within</i> an incident (mean Spearman rank correlation 0.449, median 0.531, and its "
+            "argmax is the best action in 64 of 98 canonical probed incidents — 65.3 %; legacy raw proxy on 21 incidents gave 0.622 mean, 0.875 median, 15 of 21); the remaining gain is "
             "in reducing between-incident variance rather than in re-shaping the sign.",
             "<b>More useful incidents, or a smaller state space (W4).</b> Coverage is "
             "event-limited. Options with evidence behind them are to train on a larger "
