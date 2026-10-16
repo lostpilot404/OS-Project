@@ -828,13 +828,65 @@ def _comparison_table(metrics: pd.DataFrame, config: HealingExperimentConfig) ->
     return pd.DataFrame(rows)
 
 
+def _probe_window_metrics(
+    probe_run,
+    incident,
+    config: HealingExperimentConfig,
+) -> tuple:
+    """Replay the verification window of one probe action exactly as the controller would.
+
+    Returns ``(post_load, closure_fraction, residual, decisions, completions, duration, truncated)``.
+    """
+    from healing.reward import closure_fraction_from_loads, phase_from_incident
+    from healing.verifier import expected_closure
+
+    phase = phase_from_incident(incident)
+    decisions = probe_run.decisions
+    start = int(incident.decision_index)
+    accrued = 0
+    duration = 0
+    completions = 0
+    window_decisions = 0
+    for offset in range(config.healing.verify_max_decisions):
+        idx = start + offset
+        if idx >= len(decisions):
+            break
+        record = decisions[idx]
+        accrued += int(record.waiting_cost_increment)
+        duration += int(record.end_time - record.observation.current_time)
+        completions += len(record.completed_waiting_times)
+        window_decisions += 1
+        if window_decisions >= config.healing.verify_decisions and completions >= config.healing.verify_completions:
+            break
+        if window_decisions >= config.healing.verify_max_decisions:
+            break
+    if duration <= 0:
+        post_load = None
+        closure = None
+    else:
+        post_load = accrued / duration
+        closure = closure_fraction_from_loads(
+            float(incident.trigger_load_level),
+            float(incident.pre_load_level),
+            float(post_load),
+            float(incident.load_band_at_trigger),
+        )
+    if closure is None:
+        residual = None
+    else:
+        exp = expected_closure(phase, config.healing)
+        residual = float(closure) - float(exp)
+    truncated = (start + window_decisions) >= len(decisions) and window_decisions < config.healing.verify_decisions
+    return post_load, closure, residual, window_decisions, completions, duration, bool(truncated)
+
+
 def action_effect_probe(
     config: HealingExperimentConfig,
     workloads: Sequence[HealingWorkload],
     *,
     progress: bool = False,
 ) -> pd.DataFrame:
-    """Measure the true effect and the received reward of every action at every incident.
+    """Measure the true effect and the actual controller reward of every action at every incident.
 
     The probe runs a detection-powered but never-intervening controller over the supplied
     traces, then replays each incident once per candidate action: the recorded
@@ -843,15 +895,24 @@ def action_effect_probe(
     controller's own verification window would have produced are recorded, which is what
     makes it possible to check whether the reward ranks actions the way the workload does.
 
+    The reward is computed from an equivalent replayed verification window, including
+    the same phase-adjusted residual, acceptance boundary, intervention cost and rollback
+    penalty that the live controller uses. The raw load-change proxy is preserved under
+    an explicit column name for exploratory analysis.
+
     Args:
         config: Study design (thresholds, scheduler, seeds).
         workloads: Traces to probe (validation split in the declared study).
         progress: Print a progress line every ten traces.
 
     Returns:
-        One row per ``(incident, action)`` with ``reward_band_units``,
-        ``true_effect_per_process`` and the component evidence.
+        One row per ``(incident, action)`` with ``controller_reward`` (the actual
+        reward), ``raw_load_improvement_band_units`` (the exploratory proxy),
+        ``true_effect_per_process`` and the full verification evidence.
     """
+    from healing.reward import controller_reward, cost_in_band_units, phase_from_incident
+    from healing.verifier import VerificationEvidence, verify
+
     simulator = RuntimeSimulator(config.scheduler)
     generator = WorkloadGenerator(config.families)
     episodes_by_key = {}
@@ -869,8 +930,10 @@ def action_effect_probe(
         actual_total = float(sum(outcome.waiting_time for outcome in run.result.outcomes))
         process_count = max(1, len(run.result.outcomes))
         for incident in episode.incidents:
-            band = max(incident.load_band_at_trigger, 1e-9)
-            reference = max(incident.pre_load_level, 1e-9)
+            wait_band = max(float(incident.band_at_trigger), 1e-9)
+            wait_ref = max(float(incident.reference_at_trigger), 1e-9)
+            load_band = max(float(incident.load_band_at_trigger), 1e-9)
+            load_ref = max(float(incident.pre_load_level), 1e-9)
             allowed = available_actions(
                 incident.settings_before,
                 incident.settings_before,
@@ -884,17 +947,35 @@ def action_effect_probe(
                 probe_total = float(
                     sum(outcome.waiting_time for outcome in probe_run.result.outcomes)
                 )
-                window = probe_run.decisions[
-                    incident.decision_index : incident.decision_index
-                    + config.healing.verify_decisions
-                ]
-                accrued = sum(record.waiting_cost_increment for record in window)
-                duration = sum(
-                    record.end_time - record.observation.current_time for record in window
+                post_load, closure, residual, window_decisions, window_completions, window_duration, truncated = _probe_window_metrics(
+                    probe_run, incident, config
                 )
-                post_load = accrued / duration if duration else reference
                 changed = action in allowed and action != 0
-                cost = config.healing.intervention_cost * reference / band if changed else 0.0
+                cost_band = cost_in_band_units(wait_ref, wait_band, config.healing.intervention_cost) if changed else 0.0
+                rollback_band = cost_in_band_units(wait_ref, wait_band, config.healing.rollback_penalty)
+                phase = phase_from_incident(incident)
+                evidence = VerificationEvidence(
+                    changed=changed,
+                    closure_fraction=closure,
+                    phase=phase,
+                    window_decisions=int(window_decisions),
+                    window_completions=int(window_completions),
+                    window_duration=int(window_duration),
+                    truncated=bool(truncated and changed),
+                )
+                outcome = verify(evidence, config.healing)
+                reward = controller_reward(
+                    residual=residual,
+                    config=config.healing,
+                    cost_band_units=cost_band,
+                    rollback_penalty_band=rollback_band,
+                    changed=changed,
+                    confirmed_failure=outcome.confirmed_failure,
+                    held=(outcome.verdict == "held"),
+                )
+                raw_proxy = None
+                if post_load is not None:
+                    raw_proxy = (load_ref - float(post_load)) / load_band - (config.healing.intervention_cost * load_ref / load_band if changed else 0.0)
                 per_action_rows.append(
                     {
                         "family": item.family,
@@ -906,38 +987,58 @@ def action_effect_probe(
                         "action": action,
                         "action_name": HEALING_ACTION_NAMES[action],
                         "offered": action in allowed,
-                        "reference_wait": incident.reference_at_trigger,
-                        "load_band_at_trigger": band,
-                        "pre_load_level": reference,
+                        "reference_wait": wait_ref,
+                        "load_band_at_trigger": load_band,
+                        "pre_load_level": load_ref,
                         "post_load_level": post_load,
-                        "reward_band_units": (reference - post_load) / band - cost,
+                        "closure_fraction": closure,
+                        "closure_residual": residual,
+                        "expected_closure": outcome.expected,
+                        "verdict": outcome.verdict,
+                        "confirmed_failure": outcome.confirmed_failure,
+                        "window_decisions": window_decisions,
+                        "window_completions": window_completions,
+                        "window_duration": window_duration,
+                        "window_truncated": truncated,
+                        "controller_reward": reward,
+                        "raw_load_improvement_band_units": raw_proxy,
+                        "reward_band_units": reward,
                         "true_total_waiting": probe_total,
                         "hold_total_waiting": actual_total,
                         "true_effect_per_process": (actual_total - probe_total) / process_count,
+                        "cost_band_units": cost_band,
                     }
                 )
-            # Paired change of the window statistic caused by the action itself: the
-            # incident's own hold row is the reference, so the column is comparable across
-            # incidents with different loads and bands. This is the quantity that decides
-            # whether a single verification window can ever certify the action (see
-            # ``verification_discrimination`` in the summary and the documentation).
             hold_row = next(
                 (row for row in per_action_rows if row["action_name"] == "hold"), None
             )
-            hold_statistic = (
-                (hold_row["pre_load_level"] - hold_row["post_load_level"]) / hold_row["load_band_at_trigger"]
-                if hold_row is not None
-                else 0.0
-            )
+            hold_residual = hold_row["closure_residual"] if hold_row is not None else 0.0
+            hold_raw = hold_row["raw_load_improvement_band_units"] if hold_row is not None else 0.0
             for row in per_action_rows:
-                statistic = (
-                    (row["pre_load_level"] - row["post_load_level"]) / row["load_band_at_trigger"]
-                )
-                row["paired_closure_change"] = statistic - hold_statistic
+                # Legacy ``paired_closure_change`` preserves the raw window-statistic diff used in
+                # the published tables (see EVALUATION_RESULTS §4.1, +0.152 for set_sjf).
+                # It is computed without the intervention cost so the test
+                # ``test_action_probe_reports_the_paired_change_of_the_window_statistic`` keeps
+                # its historical definition. The cost-including proxy is carried as
+                # ``paired_raw_change`` and the phase-adjusted residual diff as
+                # ``paired_residual_change``.
+                if row["pre_load_level"] is None or row["post_load_level"] is None or row["load_band_at_trigger"] in (None, 0):
+                    row["paired_closure_change"] = 0.0
+                else:
+                    raw_stat = (float(row["pre_load_level"]) - float(row["post_load_level"])) / max(float(row["load_band_at_trigger"]), 1e-9)
+                    hold_stat = (float(hold_row["pre_load_level"]) - float(hold_row["post_load_level"])) / max(float(hold_row["load_band_at_trigger"]), 1e-9) if hold_row is not None and hold_row["post_load_level"] is not None else 0.0
+                    row["paired_closure_change"] = float(raw_stat - hold_stat)
+                if row["raw_load_improvement_band_units"] is None or hold_raw is None:
+                    row["paired_raw_change"] = 0.0
+                else:
+                    row["paired_raw_change"] = float(row["raw_load_improvement_band_units"]) - float(hold_raw)
+                if row["closure_residual"] is None or hold_residual is None:
+                    row["paired_residual_change"] = 0.0
+                else:
+                    row["paired_residual_change"] = float(row["closure_residual"]) - float(hold_residual)
             rows.extend(per_action_rows)
     del generator
     return pd.DataFrame(rows)
-
 
 def _coverage_rows(
     models: Sequence[TrainedHealingModel],

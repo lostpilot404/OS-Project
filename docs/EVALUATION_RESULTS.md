@@ -158,7 +158,7 @@ Against the matched counterfactual:
 **This is the honest core of the study, and it is a two-sided result.**
 
 * The verifier *accepts* a population that is purely beneficial on this split: **65 of 65
-  accepted interventions were helpful** (mean matched gain +184.9), where only 83.9 % of all
+  accepted interventions were helpful** (mean matched gain +184.9), where only 83.5 % of all
   audited interventions helped and 14.0 % harmed. No harmful change was ever certified.
 * The verifier *rejects* a population that is strongly enriched in harm: of the 34 rejected
   interventions, 26 were harmful (76.5 %) against a base rate of 14.0 %, i.e. **5.5×
@@ -190,7 +190,8 @@ could do here:
 | paired spread of the same statistic against its own no-action replay | 0.103 (sd) | `paired_closure_change`, validation probe |
 | effect of the best action in units of the *online* residual | **0.95 sd** | derived from the two rows above |
 | windows of the same action needed for 80 % power at α = 0.05 (two-sided, paired against a known baseline) | **≈ 39** | derived |
-| genuinely helpful interventions that clear the declared null boundary | **6.7 %** (54 of 812, mean gain +184.9) | `verification_discrimination` |
+| genuinely helpful interventions that clear the unconditional null 95th percentile | **6.7 %** (54 of 812, mean gain +184.9) | `verification_discrimination` |
+| genuinely helpful interventions that clear the operative acceptance boundary | **8.0 %** (65 of 812) | `verification_discrimination`, `healing_audit.csv` |
 
 So the recovery actions are *not* invisible to the monitored statistic — they are simply
 smaller than the noise a single window carries online. The declared phase model removes 80.2 %

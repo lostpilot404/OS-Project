@@ -64,6 +64,11 @@ from healing.policies import (
     HealingPolicy,
     PolicyChoice,
 )
+from healing.reward import (
+    closure_fraction_from_loads,
+    controller_reward,
+    cost_in_band_units,
+)
 from healing.verifier import (
     ALL_VERDICTS,
     VERDICT_ACCEPTED,
@@ -922,33 +927,34 @@ class SelfHealingController:
         outcome = verify(evidence, config)
         verdict = outcome.verdict
         # The learning reward is the verifier's own phase-aware score minus its declared
-        # accept boundary: the same causal statistic the verdict is taken on, so learning
-        # cannot be rewarded for something the verifier could not see.
-        observed = 0.0 if outcome.residual is None else outcome.residual
-        baseline = config.accept_residual_factor
+        # accept boundary, using the shared reward helper so the probe and the controller
+        # cannot drift apart.
         rollback_target: Optional[SchedulerSettings] = None
         charged_cost = cost_band if pending.changed else 0.0
         rollback_penalty_band = self._band_scaled(
             config.rollback_penalty * reference, snapshot
         )
+        reward = controller_reward(
+            residual=outcome.residual,
+            config=config,
+            cost_band_units=charged_cost,
+            rollback_penalty_band=rollback_penalty_band,
+            changed=pending.changed,
+            confirmed_failure=outcome.confirmed_failure,
+            held=(outcome.verdict == VERDICT_HELD),
+        )
         if outcome.verdict == VERDICT_HELD:
-            # Doing nothing carries no cost and keeps its own evidence, but it is scored on
-            # exactly the same scale as a change, so holding is preferred only when the
-            # statistic *and* the saved cost justify it.
-            reward = observed - baseline
+            pass
         elif outcome.accepted:
-            reward = observed - baseline - charged_cost
             self._last_accepted = pending.settings_after
             self._consecutive_failures = 0
         elif outcome.confirmed_failure:
-            reward = observed - baseline - charged_cost - rollback_penalty_band
             rollback_target = self._last_accepted
             self._consecutive_failures += 1
         else:
             # Inconclusive: the change is still undone (the loop never keeps a configuration
             # it could not verify) but no failure is charged, so ambiguity cannot drive the
             # safe fallback and cannot teach the controller that the action was harmful.
-            reward = observed - baseline - charged_cost
             if outcome.rollback_required:
                 rollback_target = self._last_accepted
 
@@ -1066,10 +1072,13 @@ class SelfHealingController:
                 truncated=bool(pending.changed),
             )
             outcome = verify(evidence, self._config)
-            reward = (
-                (0.0 if outcome.residual is None else outcome.residual)
-                - self._config.accept_residual_factor
-                - charged_cost
+            reward = controller_reward(
+                residual=outcome.residual,
+                config=self._config,
+                cost_band_units=charged_cost,
+                changed=pending.changed,
+                confirmed_failure=False,
+                held=(outcome.verdict == VERDICT_HELD),
             )
             if not pending.forced_hold:
                 next_context = self._context_for_learning(pending)

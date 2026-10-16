@@ -103,8 +103,8 @@ MERMAID: Dict[str, str] = {
     "wf_m4": """flowchart LR
     A["Ready-set evidence:<br/>ages, bursts, priorities"] --> Q1{"1. Head-of-line<br/>blocking?"}
     Q1 -- "no" --> Q2{"2. Fairness<br/>starvation?"}
-    Q2 -- "no" --> Q3{"3. Priority<br/>ordering anomaly?"}
-    Q3 -- "no" --> Q4{"4. Tail<br/>dispersion?"}
+    Q2 -- "no" --> Q3{"3. Tail<br/>dispersion?"}
+    Q3 -- "no" --> Q4{"4. Priority<br/>ordering anomaly?"}
     Q4 -- "no" --> Q5{"5. Queue<br/>congestion?"}
     Q5 -- "no" --> T(["6. unexplained"])""",
     "wf_m5": """flowchart LR
@@ -117,7 +117,7 @@ MERMAID: Dict[str, str] = {
     D --> H["Apply the action"]
     F --> H
     G --> H
-    H --> I["Reward = residual - boundary - cost"]""",
+    H --> I["Reward = residual - boundary - cost (-rollback on rejected)"]""",
     "wf_m6": """flowchart LR
     A["Window closes: 5 decisions and 3 completions, or 14 decisions"] --> B["Closure = (trigger - post) / max(trigger - reference, band)"]
     B --> C["Expected closure from the trigger observables"]
@@ -163,10 +163,11 @@ WORKFLOW_CAPTIONS: Tuple[Tuple[str, str], ...] = (
               "suspect streak, an elapsed cooldown and the work and congestion gates."),
     ("wf_m4", "M4 diagnosis: the tests are applied in this fixed precedence order and the "
               "first one that matches names the primary cause — head-of-line blocking, "
-              "fairness starvation, priority ordering anomaly, tail dispersion, queue "
+              "fairness starvation, tail dispersion, priority ordering anomaly, queue "
               "congestion, or `unexplained` when none matches."),
     ("wf_m5", "M5 recovery policy: actions that cannot change the live configuration are masked "
-              "before the rule or the learned controller is asked."),
+              "before the rule or the learned controller is asked; the reward is "
+              "residual minus boundary minus cost, with a rollback penalty only on a confirmed failure."),
     ("wf_m6", "M6 verifier: the window's phase-adjusted residual decides accepted, rejected or "
               "inconclusive, and never judges a truncated or thin window."),
     ("wf_m7", "M7 controller settlement: what happens to the configuration, the failure counter "

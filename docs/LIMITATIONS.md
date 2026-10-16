@@ -47,7 +47,7 @@ about a real operating system.
   (0.160) the phase model leaves, so a single 5-decision window cannot certify an ordinary
   improvement — the same *≈ 39 windows* per action would be needed for 80 % power at α = 0.05.
   What one window *can* do is filter the tails: **65 of 65 accepted interventions helped** the
-  trace (base rate 83.9 %) and 76.5 % of the rejected ones were harmful (base rate 14.0 %, a
+  trace (base rate 83.5 %) and 76.5 % of the rejected ones were harmful (base rate 14.0 %, a
   5.5× enrichment). Rank AUC of the residual for "this intervention helped" is 0.951; the raw
   closure statistic reaches 0.613.
 * **`inconclusive` swallows most of the helpful interventions** (91.0 % for `rule_wait`, 92.1 %

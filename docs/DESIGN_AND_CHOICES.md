@@ -80,7 +80,8 @@ statistic is *+0.152* on average (*0.95 residual sd*, `healing_action_probe.csv`
 
 **Why three verdicts instead of two.** With one window's evidence the honest answer is often
 "cannot tell": at a 5 % false-accept budget, only *6.7 %* of the genuinely helpful
-interventions clear the declared null boundary at all (`verification_discrimination` in
+interventions clear the unconditional null 95th percentile (54 of 812) and *8.0 %* clear
+the operative acceptance boundary (65 of 812) (`verification_discrimination` in
 `healing_summary.json`), and certifying an action whose effect is 0.95 of the residual spread
 would still need about *39 windows* of the same action. Collapsing that case into `rejected` would be a
 false statement about the action *and* would drive the safety fallback on ambiguity, so
@@ -97,7 +98,7 @@ harmful (`rule_fairness` 133.40 vs 144.77), while halving the number of configur
 
 **Also measured, and worth stating plainly.** The revised rule accepts a population that is
 enriched in benefit (*65 of 65 accepted interventions helped* on the reported split, against a
-base rate of 83.9 %, and no harmful intervention was accepted) and rejects a population that is
+base rate of 83.5 %, and no harmful intervention was accepted) and rejects a population that is
 enriched in harm (*76.5 % of rejected interventions were harmful* against a base rate of
 14.0 %, a 5.5× enrichment). Its ranking is strong (rank AUC of the residual for predicting
 "this intervention helped" is *0.951*, against *0.613* for the raw closure) but its

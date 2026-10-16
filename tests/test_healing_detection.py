@@ -166,7 +166,7 @@ def test_sustained_degradation_is_not_absorbed_into_the_reference() -> None:
     assert episode.interventions == 0
 
 
-def test_no_incident_opens_while_a_verification_window_is_open() -> None:
+def test_verification_window_blocks_new_detections_and_runtime_labels_match() -> None:
     """The loop cannot stack incidents: while one recovery window is running every decision
     is labelled ``verification-window-open`` and no second detection is evaluated."""
     config = HealingExperimentConfig()

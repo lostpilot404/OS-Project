@@ -125,7 +125,7 @@ class HealingConfig:
             intervention moves the raw closure by only about +0.14 units against a control
             spread of 0.80 (paired measurement on the validation split), so no single-window
             rule can certify more than a small share of beneficial interventions; conditioning
-            on the trigger phase shrinks the null spread to 0.34 and more than doubles the
+            on the trigger phase shrinks the null spread to 0.160 and more than doubles the
             measured accept rate of real interventions (2.9 % -> 7.8 % on validation) at an
             unchanged false-accept budget. Both facts are reported in the artifacts rather
             than hidden: the verifier is a *safety* filter, not a benefit estimator.
