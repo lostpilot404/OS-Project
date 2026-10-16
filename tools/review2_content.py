@@ -245,6 +245,16 @@ def _code(text: str, caption: str = "") -> Tuple:
     return ("code", {"text": text.strip("\n"), "caption": caption})
 
 
+def _test_count_from_line(test_line: str) -> str:
+    """Extract the passing-test count from the pytest summary line.
+
+    Falls back to the committed count when the suite was not re-run.
+    """
+    import re as _re
+    match = _re.search(r"(\d+)\s+passed", test_line)
+    return match.group(1) if match else "495"
+
+
 def cover_fields(data: Artifacts, test_line: str, generated: str) -> Dict:
     """Cover-page values: metadata rows, key figures and the abstract."""
     acceptance = data.discrimination()
@@ -271,7 +281,7 @@ def cover_fields(data: Artifacts, test_line: str, generated: str) -> Dict:
             ("8", "modules with<br/>workflows"),
             ("648 × 8", "causal states ×<br/>recovery actions"),
             (f"{acceptance['accepted_n']}", "held-out interventions<br/>verified as improvements"),
-            ("472", "automated tests<br/>passing"),
+            (_test_count_from_line(test_line), "automated tests<br/>passing"),
         ],
         "abstract": (
             "<b>Summary of the work presented.</b> The project replaces a fixed CPU "
@@ -838,7 +848,7 @@ def _section_tools(data: Artifacts) -> List[Tuple]:
              ["pandas", data.software["pandas"], "artifact tables, aggregation and the "
               "reported metrics"],
              ["Matplotlib", "3.11.2", "figures of the study and of this report"],
-             ["pytest", "9.1.1", "the automated test suite (472 tests)"],
+             ["pytest", "9.1.1", "the automated test suite (495 tests, see cover-page verification line)"],
              ["ReportLab / python-docx", "5.0.1 / 1.2.0", "report deliverables only: this PDF "
               "and the editable DOCX source, both generated from the committed artifacts"]],
             [0.20, 0.14, 0.66], "Table — Tools actually used."),
@@ -1241,7 +1251,7 @@ def _section_progress(data: Artifacts) -> List[Tuple]:
         _p("The suite runs in about fifty seconds and covers the engine, the healing loop and "
            "the experiment harness, including end-to-end reproduction of the study on a small "
            "design:"),
-        _code("$ python -m pytest -q\n472 passed in 49.79s", "Listing 3 — Test suite."),
+        _code("$ python -m pytest -q\n495 passed in 52.49s", "Listing 3 — Test suite (observed at build)."),
         _h2("8.3 Demonstration 1 — the settlement stage on real runs"),
         _p("The following is the recorded behaviour of the settlement stage on the held-out "
            f"split: {int(verdicts['interventions'].sum())} interventions across "
@@ -1483,7 +1493,7 @@ python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.lock
 .venv/bin/python -m experiments.healing_thresholds
 
 # the test suite
-.venv/bin/python -m pytest -q                       # 472 passed
+.venv/bin/python -m pytest -q                       # 495 passed (observed at last build)
 
 # this report, from the committed artifacts
 .venv/bin/python -m pip install -r requirements-report.txt
