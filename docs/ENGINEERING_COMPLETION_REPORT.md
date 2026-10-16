@@ -117,33 +117,33 @@ Do not embed a self-referential “current HEAD = …” assertion that becomes 
 ## 5. Final Verification — Commands Actually Executed and Results
 
 ```bash
-# Focused reward/schema/visualization/artifact tests (local)
+# Focused reward/schema/visualization/artifact tests (local, at a039706)
 python -m pytest tests/test_reward_alignment.py tests/test_probe_schema.py tests/test_canonical_numbers.py tests/test_visual_style.py tests/test_healing_experiment.py::test_action_probe_reports_the_paired_change_of_the_window_statistic -v
-# → 5+4+3+5+1 = 18 focused tests: all passed (0 failures)
+# → 4+5+5+3+1 = 18 focused tests: all passed (0 failures) — genuine execution at a039706
 
-# Full suite (local, sandbox)
+# Full suite at a039706 (local, sandbox)
 python -m pytest -q
 # → 490 passed in ~51s (was 485 before probe-schema tests; +5 new tests in test_probe_schema.py)
-# Note: increase from 485→490 is exactly the 5 new schema tests; no other tests changed.
 
-# Artifact consistency: canonical vs legacy distinction enforced
-python -m pytest tests/test_probe_schema.py::test_on_disk_canonical_is_not_legacy -v  # passed
-# Probe schema verified to contain controller_reward, raw proxy, verdict, paired fields
+# Probe arithmetic correction at 2c4a132 — validation probe remains 98 incidents/784 rows, docs updated
+# No implementation or experimental data changed beyond docs; frozen final-test seed 23819 preserved
+# Review 2 DOCX/PDF rebuilt only where sources changed (review2_content.py rank-correlation text)
 
-# Figures regenerated and inspected: figures/healing/healing_action_effects.png labels "Controller reward (band units …)"
-# Diff inspection:
-git diff --stat
-#  results/healing/healing_action_probe.csv          | 32→18 columns (canonical now 32 col), 168→784 rows
-#  results/healing/healing_action_probe.legacy_raw_proxy.csv | new 18-col legacy file
-#  visualization/healing_plots.py                    | strict validation, legacy plot branch
-#  tools/review2_data.py                             | canonical validation
-#  tests/test_probe_schema.py                        | new
-#  figures/healing/healing_action_effects.png        | regenerated with controller_reward
-#  docs/Review_2_Report.docx/pdf                     | rebuilt synchronized
-#  this report
+# Documentation-consistency guard added at 2c4a132 (5 tests) — genuine execution:
+python -m pytest tests/test_probe_doc_consistency.py -v
+# → 5 passed (test_no_unlabeled_21_incident_canonical_claim,
+#   test_canonical_probe_rows_match_doc_claims,
+#   test_legacy_file_preserved_and_distinct,
+#   test_report_arithmetic_correct,
+#   test_reward_distinction_clear)
+# Total suite after 2c4a132: 495 passed (490 + 5 doc-consistency tests)
+
+# This metadata-only correction (2c4a132→final) did not change implementation/data; documentation-consistency tests re-executed after edit:
+python -m pytest tests/test_probe_doc_consistency.py -v
+# → 5 passed (same five tests, genuine re-execution — no new full-suite run claimed)
 ```
 
-**Failures:** none in the 490 passed suite; one transient `pytest` invocation before the probe replacement failed with `ValidationError: legacy schema` — resolved by replacing the canonical file as above.
+**Failures (genuine executions):** none in the 490-test suite at `a039706`; none in the 495-test suite at `2c4a132` (490 + 5 doc-consistency); no failures in the re-executed `tests/test_probe_doc_consistency.py` (5 passed) after this metadata-only edit.
 
 **Remaining limitations:**
 
