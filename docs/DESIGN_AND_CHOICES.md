@@ -76,13 +76,14 @@ available **at the trigger** (the trigger's own queue level, its ready-set
 size and the visible remaining work) — the declared phase model removes *80.2 %* of that
 statistic's no-action variance and cuts its
 residual spread from *0.806 to 0.160*; (ii) the effect of the best action on the same
-statistic is *+0.152* on average (*0.95 residual sd*, `healing_action_probe.csv`).
+statistic is *+0.116* on average in the canonical probe (98 incidents, `healing_action_probe.csv`; *0.73 residual sd*) — legacy `healing_action_probe.legacy_raw_proxy.csv` (21 incidents) gave *+0.152* (*0.95 residual sd*).
 
 **Why three verdicts instead of two.** With one window's evidence the honest answer is often
 "cannot tell": at a 5 % false-accept budget, only *6.7 %* of the genuinely helpful
-interventions clear the declared null boundary at all (`verification_discrimination` in
+interventions clear the unconditional null 95th percentile (54 of 812) and *8.0 %* clear
+the operative acceptance boundary (65 of 812) (`verification_discrimination` in
 `healing_summary.json`), and certifying an action whose effect is 0.95 of the residual spread
-would still need about *39 windows* of the same action. Collapsing that case into `rejected` would be a
+would still need about *15 windows* of the same action in the canonical data (legacy ≈39 for 0.95 sd). Collapsing that case into `rejected` would be a
 false statement about the action *and* would drive the safety fallback on ambiguity, so
 `inconclusive` is kept semantically distinct: it rolls the change back (the loop never keeps a
 configuration it could not verify) but is not a failure, carries no rollback penalty and
@@ -97,7 +98,7 @@ harmful (`rule_fairness` 133.40 vs 144.77), while halving the number of configur
 
 **Also measured, and worth stating plainly.** The revised rule accepts a population that is
 enriched in benefit (*65 of 65 accepted interventions helped* on the reported split, against a
-base rate of 83.9 %, and no harmful intervention was accepted) and rejects a population that is
+base rate of 83.5 %, and no harmful intervention was accepted) and rejects a population that is
 enriched in harm (*76.5 % of rejected interventions were harmful* against a base rate of
 14.0 %, a 5.5× enrichment). Its ranking is strong (rank AUC of the residual for predicting
 "this intervention helped" is *0.951*, against *0.613* for the raw closure) but its
@@ -155,15 +156,13 @@ achievable improvement of *any* action on these families (~3 % of the reference 
 for `set_sjf`, measured by the action-effect probe), and made every action worse than holding.
 The declared 1 % is below that measured ceiling on purpose.
 
-**Honest limitation.** The reward is a weak proxy for the *size* of the effect: across all
-probed rows its pooled Pearson correlation with the measured effect is *0.10*, and the pooled
-number understates it because different traces have different scales. What matters for
-learning is the ranking *within* an incident: mean within-incident rank correlation *0.622*
-(median *0.875*), and `argmax(reward)` is the truly best action in *15 of 21* incidents
-(`healing_action_probe.csv`). Five of the eight actions (`hold`, `set_fcfs`, `shrink_quantum`,
+**Honest limitation.** The reward the learner maximizes is `controller_reward` (phase-adjusted residual minus the accept boundary minus band-scaled cost and, on `rejected`, the rollback penalty — distinct from the raw closure statistic `(trigger−post)/band`, the cost-including raw proxy `raw_load_improvement_band_units`, and the phase-adjusted residual `closure_residual`). Across all 784 canonical probed rows its pooled Pearson correlation with the measured per-process effect is *0.197* (pooled Spearman *0.223*; legacy raw proxy on 21 incidents gave *0.104*).
+The pooled number understates the signal because different traces have different scales. What matters for
+learning is the ranking *within* an incident: on the canonical probe (98 incidents) mean within-incident Spearman rank correlation of `controller_reward` is *0.449*
+(median *0.531*), and `argmax(controller_reward)` is the truly best action in *64 of 98* incidents (65.3 %; legacy raw proxy: *0.622* mean, *0.875* median, *15 of 21*).
+Five of the eight actions (`hold`, `set_fcfs`, `shrink_quantum`,
 `grow_quantum`, `revert_to_last_accepted`) have exactly zero effect from the declared FCFS
-start, so the real choice is among three actions, and `set_sjf` is the best of them in 15 of
-21 probed incidents.
+start, so the real choice is among three actions — canonical: `set_sjf` best in 69 of 98, `set_round_robin` in 12, `set_priority` in 6, `hold` in 11 (legacy 21-incident: `set_sjf` 15 of 21).
 
 ## 5. What the recovery actions may touch
 

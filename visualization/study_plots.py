@@ -12,6 +12,8 @@ from typing import List
 
 import pandas as pd
 
+from visualization.style import DPI, FIGSIZE_WIDE, PALETTE, apply_style, color_for
+
 __all__ = ["create_study_figures"]
 
 _ARM_COLORS = {
@@ -38,6 +40,7 @@ def create_study_figures(
     import matplotlib.pyplot as plt
 
     figures_dir = Path(figures_dir)
+    apply_style()
     figures_dir.mkdir(parents=True, exist_ok=True)
     paths: List[Path] = []
     test = decisions[decisions["split"] == "test"]

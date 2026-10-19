@@ -69,11 +69,13 @@ def build_styles() -> Dict[str, ParagraphStyle]:
         ),
         "H1": ParagraphStyle(
             "H1", parent=base["Heading1"], fontName="Helvetica-Bold", fontSize=12.8,
-            leading=15.5, textColor=NAVY, spaceBefore=9, spaceAfter=4,
+            leading=15.5, textColor=NAVY, spaceBefore=11, spaceAfter=5,
+            keepWithNext=True,
         ),
         "H2": ParagraphStyle(
             "H2", parent=base["Heading2"], fontName="Helvetica-Bold", fontSize=10.5,
-            leading=13, textColor=STEEL, spaceBefore=7, spaceAfter=3,
+            leading=13, textColor=STEEL, spaceBefore=8, spaceAfter=3.5,
+            keepWithNext=True,
         ),
         "Body": ParagraphStyle(
             "Body", parent=base["BodyText"], fontName="Helvetica", fontSize=9.2,

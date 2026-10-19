@@ -43,11 +43,11 @@ about a real operating system.
   At the declared 5 % false-accept budget on the control, *6.7 %* of the helpful interventions
   clear the declared null boundary at all (54 of 812 on the held-out split; their mean gain is
   +184.9 wait units), and 8.0 % clear the declared accept boundary. The measured reason: the
-  best action moves the window statistic by +0.152, which is 0.95 of the residual spread
-  (0.160) the phase model leaves, so a single 5-decision window cannot certify an ordinary
-  improvement — the same *≈ 39 windows* per action would be needed for 80 % power at α = 0.05.
+  best action moves the window statistic by **+0.116** in the canonical 98-incident probe (legacy 21-incident probe **+0.152**), which is **0.73** of the residual spread
+  (0.160) the phase model leaves (legacy 0.95), so a single 5-decision window cannot certify an ordinary
+  improvement — the same *≈ 15 windows* per action would be needed for 80 % power at α = 0.05 (legacy ≈ 39 for 0.95 sd).
   What one window *can* do is filter the tails: **65 of 65 accepted interventions helped** the
-  trace (base rate 83.9 %) and 76.5 % of the rejected ones were harmful (base rate 14.0 %, a
+  trace (base rate 83.5 %) and 76.5 % of the rejected ones were harmful (base rate 14.0 %, a
   5.5× enrichment). Rank AUC of the residual for "this intervention helped" is 0.951; the raw
   closure statistic reaches 0.613.
 * **`inconclusive` swallows most of the helpful interventions** (91.0 % for `rule_wait`, 92.1 %
@@ -87,11 +87,9 @@ about a real operating system.
   state space is larger than the event supply of this study; that is a limitation of the
   design, and it is reported rather than papered over with a more complex algorithm.
 * **The reward is a weak proxy for the size of an effect, and a decent one for its sign.**
-  Pooled Pearson correlation with the counterfactually measured per-process effect is 0.10
-  (different traces have different scales); within an incident, the mean rank correlation is
-  0.622 (median 0.875) and the reward's argmax is the truly best action in 15 of 21 probed
-  incidents. Five of the eight actions have exactly zero effect from the declared start, so the
-  learning problem is a three-way choice.
+  Pooled Pearson correlation of the canonical `controller_reward` with the counterfactually measured per-process effect is **0.197** (pooled Spearman **0.223**; legacy raw proxy 0.104).
+  Different traces have different scales. Within an incident, mean Spearman rank correlation of `controller_reward` is **0.449** (median **0.531**) and its argmax is the truly best action in **64 of 98** probed incidents (65.3 %; legacy raw proxy: 0.622 mean, 0.875 median, 15 of 21). Five of the eight actions have exactly zero effect from the declared start, so the
+  learning problem is a three-way choice — canonical `set_sjf` best in 69, `set_round_robin` in 12, `set_priority` in 6, `hold` in 11 of 98 (legacy 15 of 21 for `set_sjf`).
 * **The fairness-oriented rule is empirically wrong** on these families: mapping fairness
   starvation to Round Robin costs a mean 130.8 wait units per intervention on the held-out
   split (76.7 % false recoveries; 129.1 and 83.0 % on validation). It is kept in the study as a
@@ -119,8 +117,7 @@ about a real operating system.
 * The bootstrap resamples model seeds and workloads in a family-stratified way
   (`evaluation/paired.py`); comparisons between arms that share training seeds are therefore
   paired, but the learned arms' five seeds are only five independent draws.
-* The action-effect probe is a diagnostic on the validation split with 21 probed incidents; its
-  correlations are reported as observations, not as estimates of a population quantity.
+* The action-effect probe is a diagnostic on the validation split — canonical **98** probed incidents (784 rows); the legacy preserved file has 21 incidents (168 rows) — its correlations are reported as observations, not as estimates of a population quantity.
 * `results/study/`, `results/runtime/` and `figures/study/` contain the preserved
   offline-study and runtime-appendix artifacts. They use their own seed streams and their own
   protocols; their numbers must not be mixed with the healing numbers. The legacy pipeline

@@ -174,9 +174,10 @@ themselves are useful even where the arms only modestly beat FCFS: mean marginal
 Verification is the main limitation. The verdict is taken on a phase-adjusted residual whose
 two boundaries are percentiles of the no-action control, and one window carries only about one
 standard deviation of evidence for the effect of a single action: **every accepted intervention
-was genuinely helpful** (65 of 65, mean gain +184.9) and 76.5 % of rejected ones were harmful
-(base rate 14.0 %), but only **6.7 % of the genuinely helpful interventions clear the accept
-boundary at all**, so 91.0–92.1 % of them end `inconclusive` and are rolled back after the
+was genuinely helpful** (65 of 65, mean gain +184.9; base rate 83.5 %) and 76.5 % of rejected ones were harmful
+(base rate 14.0 %), but only **6.7 % of the genuinely helpful interventions clear the unconditional
+null 95th percentile (54 of 812)** and **8.0 % clear the operative acceptance boundary (65 of 812)**,
+so 91.0–92.1 % of them end `inconclusive` and are rolled back after the
 window. The learned controller is also sparsely trained: 1200 traces per seed visit 29–33 of
 648 states (3.8–7.2 % of the state-action pairs reachable from the observed contexts), and the
 coverage curve is flat after ~900 episodes.

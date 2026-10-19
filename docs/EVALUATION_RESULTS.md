@@ -158,7 +158,7 @@ Against the matched counterfactual:
 **This is the honest core of the study, and it is a two-sided result.**
 
 * The verifier *accepts* a population that is purely beneficial on this split: **65 of 65
-  accepted interventions were helpful** (mean matched gain +184.9), where only 83.9 % of all
+  accepted interventions were helpful** (mean matched gain +184.9), where only 83.5 % of all
   audited interventions helped and 14.0 % harmed. No harmful change was ever certified.
 * The verifier *rejects* a population that is strongly enriched in harm: of the 34 rejected
   interventions, 26 were harmful (76.5 %) against a base rate of 14.0 %, i.e. **5.5×
@@ -182,23 +182,22 @@ could do here:
 
 | Quantity | Value | Source |
 |---|---:|---|
-| paired change of the closure statistic caused by `set_sjf` (the best action) | **+0.152** units | `healing_action_probe.csv`, `paired_closure_change`, 21 incidents |
-| paired change caused by `set_round_robin` (the worst offered action) | −0.159 units | same |
-| paired change caused by `set_priority` and by the five inert actions | +0.018 / 0.000 | same |
+| paired change of the closure statistic caused by `set_sjf` (best action, canonical) | **+0.116** units | `healing_action_probe.csv`, `paired_closure_change`, **98** incidents (784 rows, canonical `controller_reward` probe) |
+| paired change caused by `set_round_robin` (worst offered action, canonical) | **−0.137** units | same (canonical) |
+| paired change caused by `set_priority` / five inert actions (canonical) | **−0.007** / 0.000 | same (canonical) — legacy `healing_action_probe.legacy_raw_proxy.csv` (21 incidents) gave **+0.152 / −0.159 / +0.018** respectively |
 | spread of the statistic across control windows | 0.806 (sd) | training control, 3737 windows |
 | spread after subtracting the declared phase model | **0.160 (sd)** | training control, R² = 0.961 (80.2 % of the variance removed) |
-| paired spread of the same statistic against its own no-action replay | 0.103 (sd) | `paired_closure_change`, validation probe |
-| effect of the best action in units of the *online* residual | **0.95 sd** | derived from the two rows above |
-| windows of the same action needed for 80 % power at α = 0.05 (two-sided, paired against a known baseline) | **≈ 39** | derived |
-| genuinely helpful interventions that clear the declared null boundary | **6.7 %** (54 of 812, mean gain +184.9) | `verification_discrimination` |
+| paired spread of the same statistic against its own no-action replay | **0.090** (sd) | `paired_closure_change`, canonical validation probe (legacy 0.101 sd on 21 incidents) |
+| effect of the best action in units of the *online* residual | **0.73 sd** | derived (0.116/0.160); legacy 0.95 sd (0.152/0.160) |
+| windows of the same action needed for 80 % power at α = 0.05 (two-sided, paired against a known baseline) | **≈ 15** | derived (canonical); legacy ≈ 39 for 0.95 sd |
+| genuinely helpful interventions that clear the unconditional null 95th percentile | **6.7 %** (54 of 812, mean gain +184.9) | `verification_discrimination` |
+| genuinely helpful interventions that clear the operative acceptance boundary | **8.0 %** (65 of 812) | `verification_discrimination`, `healing_audit.csv` |
 
 So the recovery actions are *not* invisible to the monitored statistic — they are simply
 smaller than the noise a single window carries online. The declared phase model removes 80.2 %
 of the statistic's no-action variance, which is what lifts the rank AUC to 0.951 and makes
 every accepted intervention on this split genuinely helpful; what it cannot do is shrink the
-*residual* to the size of a 0.15-unit action effect, because the residual sd is 0.160 and the
-best action's paired change is 0.152. With the model as declared, one window cannot turn a
-0.95-sd signal into a reliable certificate at a fixed 5 % false-accept budget, and the honest
+*residual* to the size of a 0.12-unit canonical action effect (legacy **0.15** on 21 incidents), because the residual sd is 0.160 and the best action's paired change is **0.116** in the canonical validation probe (98 incidents; legacy 0.152). With the model as declared, one window cannot turn a **0.73-sd** (legacy 0.95-sd) signal into a reliable certificate at a fixed 5 % false-accept budget, and the honest
 engineering answer is the three-outcome rule: accept the extreme tail, reject the clearly bad
 tail, and call everything else what it is — inconclusive. §10 records the model comparison that
 chose the declared specification, including the two candidates that were measured and set
@@ -292,29 +291,23 @@ appear (84 / 5 / 4 / 5), so the diagnosis mix is stable across splits.
 
 ## 7. Reward versus measured truth
 
-`healing_action_probe.csv` replays, on the validation split, **every** action at **every**
-detected incident and compares what the controller would have recorded as reward with the
-measured effect on total waiting time (per process): 21 incidents × 8 actions = 168 rows.
+`healing_action_probe.csv` (canonical, **98** validation incidents × 8 actions = **784** rows) replays **every** action at **every** detected incident and compares the **actual controller reward** — phase-adjusted residual minus the declared accept boundary minus the band-scaled intervention cost and, on `rejected`, the rollback penalty (`healing/reward.py:controller_reward`) — with the measured effect on total waiting time (per process). The raw closure statistic (`(trigger−post)/max(trigger−reference,band)`), the cost-including raw proxy (`raw_load_improvement_band_units`), the phase-adjusted residual (`closure_residual = closure−expected_closure`), and the final controller reward are distinct columns in the canonical file; the legacy `healing_action_probe.legacy_raw_proxy.csv` (21 incidents × 8 = 168 rows) recorded only the raw proxy as `reward_band_units`.
 
-| Action | Recorded reward (band units) | Measured true effect (wait units / process) |
-|---|---:|---:|
-| `set_sjf` | 0.978 | **+3.625** |
-| `set_priority` | 0.844 | +0.483 |
-| `set_round_robin` | 0.666 | **−2.476** |
-| `hold`, `set_fcfs`, `shrink_quantum`, `grow_quantum`, `revert` | 0.853 | 0.000 |
+| Action | Controller reward (band units, canonical) | Raw proxy `raw_load_improvement_band_units` (canonical) | Measured true effect (wait units / process, canonical) | Recorded raw-proxy reward (band units, legacy 21-incident) | Legacy true effect |
+|---|---:|---:|---:|---:|---:|
+| `set_sjf` | **−0.250** | 1.036 | **+3.478** | 0.978 | **+3.625** |
+| `set_priority` | −0.375 | 0.914 | +0.061 | 0.844 | +0.483 |
+| `set_round_robin` | **−0.518** | 0.784 | **−1.168** | 0.666 | **−2.476** |
+| five inert (`hold`, `set_fcfs`, `shrink_quantum`, `grow_quantum`, `revert`) | −0.304 | 0.949 | 0.000 | 0.853 | 0.000 |
 
 Two findings matter more than the pooled correlation:
 
 * **the reward ranks actions correctly inside an incident**, which is the quantity learning
-  actually needs: mean within-incident rank correlation between the recorded reward and the
-  measured effect is 0.622 (median 0.875), and `argmax(reward)` is the truly best action in
-  15 of 21 incidents. The pooled Pearson correlation is only 0.104 because different traces
-  have wildly different scales; quoting it alone would understate the signal.
+  actually needs — measured on the canonical probe (`controller_reward` vs `true_effect_per_process`): mean within-incident **Spearman** rank correlation **0.449** (median **0.531**), `argmax(controller_reward)` is the truly best action in **64 of 98** incidents (65.3 %), pooled Pearson **0.197** (pooled Spearman **0.223**). The historical 21-incident legacy raw-proxy file (`reward_band_units` as raw proxy) gave mean 0.622 (median 0.875), 15 of 21 (71.4 %), pooled Pearson 0.104 — quoted here only as a labeled legacy comparison. Different traces have different scales; the pooled number alone understates the within-incident signal.
 * **five of the eight actions are provably inert from the declared starting policy**: on an
   FCFS start `hold`, `set_fcfs`, `shrink_quantum`, `grow_quantum` and
   `revert_to_last_accepted` all have exactly zero effect. Only `set_sjf`, `set_priority` and
-  `set_round_robin` can change anything, and `set_sjf` is the best action in 15 of the 21
-  probed incidents. The learning problem is therefore much smaller than "8 actions" suggests.
+  `set_round_robin` can change anything — in the canonical 98-incident probe `set_sjf` is the truly best action in **69 of 98** incidents, `set_round_robin` in **12**, `set_priority` in **6** (legacy 21-incident probe: `set_sjf` 15 of 21). The learning problem is therefore much smaller than "8 actions" suggests.
 
 ## 8. What the learned controller saw (coverage)
 
