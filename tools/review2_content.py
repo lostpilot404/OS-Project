@@ -103,8 +103,8 @@ MERMAID: Dict[str, str] = {
     "wf_m4": """flowchart LR
     A["Ready-set evidence:<br/>ages, bursts, priorities"] --> Q1{"1. Head-of-line<br/>blocking?"}
     Q1 -- "no" --> Q2{"2. Fairness<br/>starvation?"}
-    Q2 -- "no" --> Q3{"3. Priority<br/>ordering anomaly?"}
-    Q3 -- "no" --> Q4{"4. Tail<br/>dispersion?"}
+    Q2 -- "no" --> Q3{"3. Tail<br/>dispersion?"}
+    Q3 -- "no" --> Q4{"4. Priority<br/>ordering anomaly?"}
     Q4 -- "no" --> Q5{"5. Queue<br/>congestion?"}
     Q5 -- "no" --> T(["6. unexplained"])""",
     "wf_m5": """flowchart LR
@@ -117,7 +117,7 @@ MERMAID: Dict[str, str] = {
     D --> H["Apply the action"]
     F --> H
     G --> H
-    H --> I["Reward = residual - boundary - cost"]""",
+    H --> I["Reward = residual - boundary - cost (-rollback on rejected)"]""",
     "wf_m6": """flowchart LR
     A["Window closes: 5 decisions and 3 completions, or 14 decisions"] --> B["Closure = (trigger - post) / max(trigger - reference, band)"]
     B --> C["Expected closure from the trigger observables"]
@@ -163,10 +163,11 @@ WORKFLOW_CAPTIONS: Tuple[Tuple[str, str], ...] = (
               "suspect streak, an elapsed cooldown and the work and congestion gates."),
     ("wf_m4", "M4 diagnosis: the tests are applied in this fixed precedence order and the "
               "first one that matches names the primary cause — head-of-line blocking, "
-              "fairness starvation, priority ordering anomaly, tail dispersion, queue "
+              "fairness starvation, tail dispersion, priority ordering anomaly, queue "
               "congestion, or `unexplained` when none matches."),
     ("wf_m5", "M5 recovery policy: actions that cannot change the live configuration are masked "
-              "before the rule or the learned controller is asked."),
+              "before the rule or the learned controller is asked; the reward is "
+              "residual minus boundary minus cost, with a rollback penalty only on a confirmed failure."),
     ("wf_m6", "M6 verifier: the window's phase-adjusted residual decides accepted, rejected or "
               "inconclusive, and never judges a truncated or thin window."),
     ("wf_m7", "M7 controller settlement: what happens to the configuration, the failure counter "
@@ -244,6 +245,16 @@ def _code(text: str, caption: str = "") -> Tuple:
     return ("code", {"text": text.strip("\n"), "caption": caption})
 
 
+def _test_count_from_line(test_line: str) -> str:
+    """Extract the passing-test count from the pytest summary line.
+
+    Falls back to the committed count when the suite was not re-run.
+    """
+    import re as _re
+    match = _re.search(r"(\d+)\s+passed", test_line)
+    return match.group(1) if match else "495"
+
+
 def cover_fields(data: Artifacts, test_line: str, generated: str) -> Dict:
     """Cover-page values: metadata rows, key figures and the abstract."""
     acceptance = data.discrimination()
@@ -270,7 +281,7 @@ def cover_fields(data: Artifacts, test_line: str, generated: str) -> Dict:
             ("8", "modules with<br/>workflows"),
             ("648 × 8", "causal states ×<br/>recovery actions"),
             (f"{acceptance['accepted_n']}", "held-out interventions<br/>verified as improvements"),
-            ("472", "automated tests<br/>passing"),
+            (_test_count_from_line(test_line), "automated tests<br/>passing"),
         ],
         "abstract": (
             "<b>Summary of the work presented.</b> The project replaces a fixed CPU "
@@ -837,7 +848,7 @@ def _section_tools(data: Artifacts) -> List[Tuple]:
              ["pandas", data.software["pandas"], "artifact tables, aggregation and the "
               "reported metrics"],
              ["Matplotlib", "3.11.2", "figures of the study and of this report"],
-             ["pytest", "9.1.1", "the automated test suite (472 tests)"],
+             ["pytest", "9.1.1", "the automated test suite (495 tests, see cover-page verification line)"],
              ["ReportLab / python-docx", "5.0.1 / 1.2.0", "report deliverables only: this PDF "
               "and the editable DOCX source, both generated from the committed artifacts"]],
             [0.20, 0.14, 0.66], "Table — Tools actually used."),
@@ -1240,7 +1251,7 @@ def _section_progress(data: Artifacts) -> List[Tuple]:
         _p("The suite runs in about fifty seconds and covers the engine, the healing loop and "
            "the experiment harness, including end-to-end reproduction of the study on a small "
            "design:"),
-        _code("$ python -m pytest -q\n472 passed in 49.79s", "Listing 3 — Test suite."),
+        _code("$ python -m pytest -q\n495 passed in 52.49s", "Listing 3 — Test suite (observed at build)."),
         _h2("8.3 Demonstration 1 — the settlement stage on real runs"),
         _p("The following is the recorded behaviour of the settlement stage on the held-out "
            f"split: {int(verdicts['interventions'].sum())} interventions across "
@@ -1409,9 +1420,9 @@ def _section_challenges(data: Artifacts) -> List[Tuple]:
             "phase.",
             "<b>A more informative reward (W3).</b> The reward currently uses the same "
             "statistic as the verdict, which keeps learning honest but inherits its noise. "
-            "The action probe shows that the reward already ranks actions correctly "
-            "<i>within</i> an incident (mean rank correlation 0.62, median 0.88, and its "
-            "argmax is the best action in 15 of 21 probed incidents); the remaining gain is "
+            "The action probe shows that the canonical `controller_reward` already ranks actions correctly "
+            "<i>within</i> an incident (mean Spearman rank correlation 0.449, median 0.531, and its "
+            "argmax is the best action in 64 of 98 canonical probed incidents — 65.3 %; legacy raw proxy on 21 incidents gave 0.622 mean, 0.875 median, 15 of 21); the remaining gain is "
             "in reducing between-incident variance rather than in re-shaping the sign.",
             "<b>More useful incidents, or a smaller state space (W4).</b> Coverage is "
             "event-limited. Options with evidence behind them are to train on a larger "
@@ -1482,7 +1493,7 @@ python3 -m venv .venv && .venv/bin/python -m pip install -r requirements.lock
 .venv/bin/python -m experiments.healing_thresholds
 
 # the test suite
-.venv/bin/python -m pytest -q                       # 472 passed
+.venv/bin/python -m pytest -q                       # 495 passed (observed at last build)
 
 # this report, from the committed artifacts
 .venv/bin/python -m pip install -r requirements-report.txt

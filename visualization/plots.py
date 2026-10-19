@@ -18,6 +18,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+from visualization.style import DPI, FIGSIZE_WIDE, PALETTE, apply_style, color_for
+
 from config import ACTION_NAMES, SELECTOR_LABEL
 from errors import ValidationError
 from evaluation.comparison import ALL_METRICS, METRIC_LABELS, policy_selection_table
