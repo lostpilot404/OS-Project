@@ -20,7 +20,7 @@ This is a **synthetic discrete-event simulation study**, not a kernel modificati
 **Objectives (from METHODOLOGY §1):**
 1. Detect degradation from completed-work telemetry + arrived ready-set, without future exposure.
 2. Beat doing nothing (detector_only) via recovery.
-3. Approach fixed SJF (optimal on these workloads).
+3. Approach fixed SJF (best fixed-policy mean wait on these workloads, exact-burst oracle — see §9 qualification).
 4. Test if tabular Q-learning beats a predeclared diagnosis→action rule.
 5. Verify changes with a bounded window that distinguishes helpful/harmful/insufficient evidence.
 
@@ -28,7 +28,7 @@ This is a **synthetic discrete-event simulation study**, not a kernel modificati
 - **Causal burst estimation:** `healing/burst_estimator.py` EWMA per-bucket + log-normal noise, remaining=`max(1, predicted−service_done)` from dispatched service ledger; true bursts evaluation-only, with leakage regression tests.
 - **Mid-trace drift:** `workload/drift.py` injects `burst_shock` (×4), `arrival_storm` (×0.35), `phase_transition`, `priority_inversion` at 0.35 of arrival span, preserving pre-injection prefix so stable/drifted traces are causally comparable.
 - **Safety-aware recovery:** Tri-state verifier (accept/reject/inconclusive) on phase-adjusted residual, rollback on reject/inconclusive, fallback after 2 consecutive confirmed failures, incident ledger.
-- **Reliability beyond mean:** `evaluation/reliability.py` computes P95/max, starvation (>3×median), Jain fairness, throughput, CPU util, switches, interventions, rollback, fallback, recovery delay, plus regression/false-intervention where audited.
+- **Reliability beyond mean:** `evaluation/reliability.py` computes per-trace P95(=max at n=15, see §9 pooled P95 for interpretable tail)/max, starvation (>3×median), Jain fairness, throughput, CPU util, switches, interventions, rollback, fallback, recovery delay, plus regression/false-intervention where audited.
 - **Reproducible experiment harness:** Seeds declared before runs, splits disjoint by fingerprint, paired workloads, family-stratified bootstrap CIs.
 
 Primary system vs preserved workflows: see README table (healing-study primary; `main.py study` offline selector; `main.py runtime-experiment` appendix; `main.py experiment/train` legacy).
@@ -76,7 +76,7 @@ results/drift/    3× conditions, each summary+per_trace+comparisons+report (com
 | Policy | Selection | Preemptive | Trade-off on these workloads |
 |---|---|---|---|
 | FCFS | head | no | Fair arrival order, suffers head-of-line blocking (130.84 mean wait) |
-| SJF | min(remaining) | no | Optimal mean wait (94.66) but unfair (starvation 2.43 under drift), needs burst knowledge |
+| SJF | min(remaining, exact burst_time) | no | Best fixed-policy mean wait (94.66) but unfair (starvation 2.43 under drift), needs exact burst knowledge — oracle baseline |
 | RR (q=4) | head | quantum | Low response (26.5 under no-drift, 92.3% util) but high wait (217.05, 75 switches) |
 | Priority | min/max(priority) | no | Priority order, priority_inversion drift tests contention (128.32) |
 | Healing rule_wait | diagnosis→SJF mostly | via action | Beats FCFS (−8.45) but not SJF (+27.7); needs no learning |
@@ -137,7 +137,7 @@ All arms use same engine; switching cost charged on pid change only; quantum ove
 - Statistics: Paired per-workload differences, family-stratified crossed bootstrap over seeds×workloads (1000 replicates, seed 104729), 95% CI, conditional on declared design; 10 predeclared comparisons; counterfactual audit two counterfactuals (matched replay per intervention + hold-forever per episode, different denominators, prefix identity via divergence_decision_index).
 - Thresholds derived from training control only (healing_thresholds.py): min_load_factor 1.0 (sweep 0→1.52 to 0.042 events/trace), closure p50/p90/p95 1.401/2.183/2.379 → declared 2.4, phase baseline (−2.4225,−0.0081,0.9987,−0.0823), boundaries ±0.30, congestion gate sweep documented.
 
-**Baselines:** Fixed policies are the only “good” baselines on these workloads (SJF optimal 94.66 mean wait); rule vs Q tests learning value; detector_only isolates detection cost.
+**Baselines:** Fixed policies are the only "good" baselines on these workloads (SJF 94.66 mean wait with exact bursts, oracle not equal-information); rule vs Q tests learning value; detector_only isolates detection cost.
 
 **Seeds & reproducibility:** Every `(family, seed)` and `(drift kind, workload seed)` deterministic via `derive_seed`/`np.random.default_rng`; same workload instance presented to every arm (paired by fingerprint); drift injected deterministically at `min+0.35×span`; Q tables deterministic per seed. Pipeline deterministic: `main.py healing-study --results-dir /tmp --no-figures` reproduces `healing_metrics_final_test.csv` and `healing_comparisons.csv` byte-identical, `healing_summary.json` gains 6 additive config fields (expected), probe 784-row canonical vs 168-row legacy proxy (documented).
 
@@ -182,27 +182,30 @@ PYTHONPATH=. .venv/bin/python experiments/drift_uncertainty_experiment.py --reps
 
 | Arm | Mean wait | P95 | Starved | Fairness | Switches | Incid | Interv | Rollback | Recovery | Fallback | Regression |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| fixed_fcfs | 286.36 | 725.26 | 1.51 | 0.622 | 14.0 | 0.00 | 0.00 | n/a | n/a | 0.000 | n/a |
-| fixed_sjf | 208.80 | 660.06 | 2.63 | 0.533 | 14.0 | 0.00 | 0.00 | n/a | n/a | 0.000 | 0.00 |
-| detector_only | 286.36 | 725.26 | 1.51 | 0.622 | 14.0 | 0.74 | 0.00 | n/a | 4.9 | 0.000 | 0.00 |
-| rule_wait | 252.75 | 694.16 | 1.51 | 0.611 | 14.0 | 0.74 | 0.74 | 0.69 | 4.9 | 0.000 | 0.01 |
-| q_recovery | 253.01 | 694.37 | 1.52 | 0.612 | 14.2 | 0.74 | 0.65 | 0.80 | 5.0 | 0.000 | 0.03 |
-| rule_fairness | 290.72 | 725.36 | 1.14 | 0.626 | 23.2 | 0.86 | 0.86 | 0.98 | 12.0 | 0.000 | 0.41 |
+| fixed_fcfs | 286.36 | 725.26 (=max) | 1.51 | 0.622 | 14.0 | 0.00 | 0.00 | n/a | n/a | 0.000 | n/a |
+| fixed_sjf | 208.80 | 660.06 (=max) | 2.63 | 0.533 | 14.0 | 0.00 | 0.00 | n/a | n/a | 0.000 | 0.00 |
+| detector_only | 286.36 | 725.26 (=max) | 1.51 | 0.622 | 14.0 | 0.74 | 0.00 | n/a | 4.9 | 0.000 | 0.00 |
+| rule_wait | 252.75 | 694.16 (=max) | 1.51 | 0.611 | 14.0 | 0.74 | 0.74 | 0.69 | 4.9 | 0.000 | 0.01 |
+| q_recovery | 253.01 | 694.37 (=max) | 1.52 | 0.612 | 14.2 | 0.74 | 0.65 | 0.80 | 5.0 | 0.000 | 0.03 |
+| rule_fairness | 290.72 | 725.36 (=max) | 1.14 | 0.626 | 23.2 | 0.86 | 0.86 | 0.98 | 12.0 | 0.000 | 0.41 |
 
-**Bootstrap (same method):** rule_wait−FCFS −33.61 [−40.78,−25.75]; q_recovery−FCFS −33.34 [−40.95,−25.68]; q_recovery−rule_wait +0.26 [0.06,0.59] (statistically distinguishable but 0.1% of mean, not practically meaningful); q_recovery−SJF +44.22 [36.70,51.48].
+*Note: P95 column is per-trace mean of max (n=15, ceil(0.95*15)=15 → max). Interpretable tail is pooled P95 over all process waits (N=1050 per single-seed arm, 5250 for Q) in `results/drift/drift_burst_shock_estTrue_cv0.3_summary.csv`: pooled_p95 FCFS 1026, SJF 871, rule_wait 972, Q 972; pooled_max 1589/1506. Arrival_storm pooled_p95 FCFS 396, SJF 358, rule_wait 388, Q 388; pooled_max 563/543.*
 
-**Exact burst baseline (same drift, estimator off):** rule_wait 252.91 vs 252.75 (Δ 0.16, <0.1%), q_recovery 254.15 vs 253.01 (Δ 1.14, <0.5%), CIs overlapping — cv0.30 noise does not dominate thresholded decisions.
+**Bootstrap (family-stratified crossed over seeds×workloads; Q's 350 records = 5 seeds×70 shared workload instances, not 350 independent workloads):** rule_wait−FCFS −33.61 [−40.78,−25.75]; q_recovery−FCFS −33.34 [−40.95,−25.68]; q_recovery−rule_wait burst_shock +0.26 [0.06,0.59] (statistically distinguishable, CI excludes 0, but 0.1% of ~253 mean — not practically meaningful); q_recovery−SJF +44.22 [36.70,51.48]. Crossed bootstrap in `evaluation/paired.py::paired_bootstrap_difference` resamples seeds and workloads independently retaining pairing and stratification.
 
-**Arrival_storm + estimator cv0.30:** FCFS 137.60, SJF 99.49, rule_wait 130.32, q_recovery 130.52 (Δ +0.19 [0.00,0.56] includes 0), rule_wait−FCFS −7.27 [−9.18,−5.32]; lower waits, higher throughput 0.0803, incident 0.57, same ordering.
+**Exact burst baseline (same drift, estimator off; estimator-sensitivity):** rule_wait 252.91→252.75 (−0.06%) vs Q 254.15→253.01 (−0.45%) — small per-arm sensitivities, not "<0.2% every arm"; CIs overlapping — cv0.30 noise does not dominate thresholded decisions.
+
+**Arrival_storm + estimator cv0.30:** FCFS 137.60, SJF 99.49, rule_wait 130.32, q_recovery 130.52 (Δ +0.19 [0.00,0.56] includes 0 — not statistically distinguishable), rule_wait−FCFS −7.27 [−9.18,−5.32]; lower waits, higher throughput 0.0803, incident 0.57, same ordering.
 
 **Critical interpretation (no overclaim):**
-- Healing improves ~12% over FCFS/detector_only under burst_shock (286→253) with no throughput/CPU loss; P95 tracks mean; max==P95 because per-trace waits light-tailed (n=15). **Does not reach SJF** (gap 44 units under drift, 28 under no-drift) — adaptive loop cannot compensate for optimal offline ordering.
-- **Q does not beat rule:** Δ 0.26 (0.1%) on drift, 0.18 on frozen; CIs narrow but effect size negligible; Q undertrained (1.1-1.3% of 5184 table, 3.8-7.2% of reachable, flat after 900 episodes, 0.62 incidents/trace → ~750 decisions vs 648 states) — event supply binds, not budget.
-- Estimator <1% effect at cv0.30 because recovery decisions threshold on queue aging/ready count, not precise remaining; no claim EWMA is realistic or unbiased — it is the *declared error model* for sensitivity.
+- Healing improves ~12% over FCFS/detector_only under burst_shock (286→253) with no throughput/CPU loss; per-trace P95 equals max by definition (n=15, ceil(0.95*15)=15 → max, not evidence of light-tailed distribution); interpretable tail is pooled P95 over all process waits (N≈1050 per single-seed arm, 5250 for Q). **Does not reach SJF oracle** (gap 44 units under drift, 28 under no-drift; SJF uses exact `burst_time` while adaptive arms used noisy EWMA via `healing/burst_estimator.py` when estimator enabled, so SJF is an exact-burst oracle, not an equal-information comparator) — adaptive loop cannot compensate for oracle ordering.
+- **Q does not beat rule:** drift burst_shock Δ +0.26 [0.06,0.59] (excludes 0 but 0.1% mean), arrival_storm Δ +0.19 [0.00,0.56] (includes 0); frozen Δ 0.18; CIs narrow but effect size negligible; Q undertrained (1.1-1.3% of 5184 table, 3.8-7.2% of reachable, flat after 900 episodes, 0.62 incidents/trace → ~750 decisions vs 648 states) — event supply binds, not budget.
+- Estimator sensitivities rule −0.06%, Q −0.45% at cv0.30 because recovery decisions threshold on queue aging/ready count, not precise remaining; no claim EWMA is realistic or unbiased — it is the *declared error model* for sensitivity.
 - Recovery delay ~5 decisions, rollback 69-80%, fallback 0 — conservative verifier certifies only tail (7-8% of interventions), 91% of helpful inconclusive but still kept for window (benefit visible in means is residual after rollback).
 - Regression: rule_wait 1-2% worse than FCFS per trace, q_recovery 3-9%, fairness 36-41% worse — healing rarely harms, fairness rule often does.
 - Arrival_storm shows same pattern with smaller effect (burst matters more for waiting than arrivals).
 - **All conclusions are simulator-conditional** (declared 5 seeds, 7 families, fixed reps, single-CPU, switch cost 1); intervals are not universal workload claims.
+- **350 ≠ independent workloads:** Q's 350 trace records are 5 training seeds ×70 shared drifted workload instances (paired by family/repetition/fingerprint). Crossed family-stratified bootstrap accounts for this structure; CIs would be wider if seeds treated as independent workloads.
 
 ## 10. Installation, Dependencies, Usage, Troubleshooting
 
@@ -303,7 +306,7 @@ PYTHONPATH=. .venv/bin/python experiments/drift_uncertainty_experiment.py --reps
 - No real kernel validation — simulator scope acknowledged.
 - No mypy/ruff enforced — only pytest; code style not linted.
 
-**Final Git:** Branch `arena/1ffa6b9e-os-project`, commit to be created below, working tree clean after commit, remote `origin` available for push.
+**Final Git (verified 2026-10-20):** Branch `arena/1ffa6b9e-os-project`, HEAD `17cea9f537d8669ef5a24f3866fc24eb3237407c` (commit “Complete submission: enhanced drift CIs, final report, audit”), working tree clean (`git status` → `nothing to commit`), remote `origin https://github.com/lostpilot404/OS-Project.git` pushed `17cea9f` (verified `git push` output `e85034c..17cea9f`). No CI check results reported (no CI configured).
 
 ---
 

@@ -42,6 +42,14 @@ def jains_fairness_index(waiting_times: Sequence[float]) -> float:
 
 
 def _p95(values: Sequence[float]) -> float:
+    """Nearest-rank P95: ceil(0.95*n)-th ordered value (1-indexed).
+
+    Note: with n=15 processes per trace, ceil(0.95*15)=15 → index 14 → the
+    maximum. Equality of per-trace P95 and max at n=15 is therefore a
+    definition artifact, not evidence of light-tailed distribution. For an
+    interpretable tail metric over an arm, use the pooled P95 over all
+    process waits (see experiments/drift_uncertainty_experiment.py).
+    """
     if not values:
         return 0.0
     ordered = sorted(values)

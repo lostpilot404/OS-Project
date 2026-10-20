@@ -99,7 +99,7 @@ Source: `results/drift/drift_burst_shock_estTrue_cv0.3_summary.csv` + `_per_trac
 | rule_wait | 252.91 | 695.04 | 0.01 |
 | q_recovery | 254.15 | 696.27 | 0.03 |
 
-Diff to A <0.2% on every arm (rule_wait 252.91 vs 252.75; q_recovery 254.15 vs 253.01), confirming cv0.30 noise does not dominate decisions under burst_shock; healing improves over FCFS by ~33.5 units (~12%) while only `rule_fairness` adds switches (+9). Full: `drift_burst_shock_estFalse_cv0.3_summary.csv`.
+Diff to A: rule_wait 252.91→252.75 (−0.06%) vs q_recovery 254.15→253.01 (−0.45%) — small sensitivities, not "<0.2% every arm", confirming cv0.30 noise does not dominate decisions under burst_shock; healing improves over FCFS by ~33.5 units (~12%) while only `rule_fairness` adds switches (+9). Full: `drift_burst_shock_estFalse_cv0.3_summary.csv` (and estTrue counterpart).
 
 **Paired for exact baseline:** rule_wait vs FCFS -33.44 [-40.56, -25.58]; q_recovery vs rule_wait +1.24 [0.18, 3.31] (still <0.5% of mean).
 
@@ -116,7 +116,7 @@ Diff to A <0.2% on every arm (rule_wait 252.91 vs 252.75; q_recovery 254.15 vs 2
 
 ### 4.5 Interpretation (honest, no overclaim, negative results explicit)
 
-- Under `burst_shock` (heavier tails after 35%), both healing policies cut mean wait ~12% vs `fixed_fcfs` (286→253) with no throughput/CPU loss; P95 tracks mean; max==P95 because per-trace waits light-tailed (15 procs, n=15 avg). **Fixed SJF still beats healing by ~44 units** (209 vs 253, +44.22 [36.70, 51.48]), showing gap to optimal — healing does not reach SJF.
+- Under `burst_shock` (heavier tails after 35%), both healing policies cut mean wait ~12% vs `fixed_fcfs` (286→253) with no throughput/CPU loss; per-trace P95 equals max by definition (n=15, ceil(0.95*15)=15 → max, not evidence of tail shape); interpretable tail is pooled P95 over all process waits (see `results/drift/*_summary.csv` pooled_p95_waiting). **Fixed SJF oracle still beats healing by ~44 units** (209 vs 253, +44.22 [36.70, 51.48]), showing gap to oracle — healing does not reach SJF (oracle uses exact burst_time while adaptive arms use noisy EWMA when estimator enabled).
 - **Q does not beat rule:** q_recovery 253.01 vs rule_wait 252.75 (Δ +0.26 [0.06, 0.59] includes small positive; arrival_storm Δ +0.19 [0.00, 0.56] includes 0). Effect size 0.1-0.5% of mean — practically negligible though technically distinguishable on burst_shock due to large paired N (350 vs 70). This reproduces frozen study: **self-healing helps over static FCFS/detector_only (Δ -33.61), but Q ≠ rule** — Q coverage 1.1-1.3% of 5184 table (3.8-7.2% of 864-1728 reachable), flat after ~900 episodes, so extra training doesn't buy new states.
 - Estimator error cv0.30 is **modelled log-normal**, not realism/unbiased; exact vs noisy differ <1% because decisions threshold on queue aging, not precise remainders. No claim EWMA predicts real OS bursts.
 - Recovery delay ~5 decisions (~165 time units), rollback ~70-80% (most interventions rolled back), fallback 0 — conservative verifier (accept 7.5-8.5%, reject 0.3%, inconclusive 91-92%). False-intervention requires audit (frozen study: 5.7% rule_wait, 5.0% q_recovery).
