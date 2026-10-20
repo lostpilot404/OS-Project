@@ -144,7 +144,7 @@ cfg = HealingConfig(drift_enabled=True, drift_kind="phase_transition",
 # passed to SelfHealingController — healing-study accepts a custom config
 ```
 
-Tests (510 tests, ~53 s):
+Tests (518 tests, ~53 s):
 
 ```bash
 .venv/bin/python -m pytest -q
@@ -221,6 +221,11 @@ incident forced to hold, every later decision taken as usual) confirms that the 
 themselves are useful even where the arms only modestly beat FCFS: mean marginal gain
 **+188.79** wait units per intervention for `rule_wait` (94.3 % of interventions helped) and
 **+192.07** for `q_recovery` (95.0 %), against **−130.84** and 23.3 % for the fairness rule.
+
+See `docs/LEAKAGE_FIX_AND_DRIFT_REPORT.md` for the causal burst estimator and mid-trace drift
+evaluation (burst_shock/arrival_storm, 70 traces/condition, paired CIs: healing −33.6
+[−40.8, −25.7] vs FCFS under burst_shock, Q vs rule +0.26 [0.06, 0.59] practically negligible;
+all metrics traceable to per-trace CSVs with explicit denominators).
 
 Verification is the main limitation. The verdict is taken on a phase-adjusted residual whose
 two boundaries are percentiles of the no-action control, and one window carries only about one

@@ -1,0 +1,6 @@
+target,reference,metric,mean_difference,ci95_low,ci95_high
+rule_wait,fixed_fcfs,mean_waiting,-33.442857142857136,-40.561,-25.582523809523806
+q_recovery,fixed_fcfs,mean_waiting,-32.20190476190475,-39.78074285714285,-24.547733333333333
+q_recovery,rule_wait,mean_waiting,1.2409523809523932,0.1790095238095237,3.313133333333331
+rule_wait,detector_only,mean_waiting,-33.442857142857136,-40.561,-25.582523809523806
+q_recovery,fixed_sjf,mean_waiting,45.35714285714287,37.969390476190476,52.86525238095238
