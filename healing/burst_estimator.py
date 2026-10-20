@@ -1,34 +1,43 @@
-"""Online burst-time estimator with prediction error.
+"""Online burst-time estimator with a strict observable/evaluation boundary.
 
-This module addresses limitation #2 from Review 2: the real OS does not know
-exact burst lengths.  It provides:
+This module models the realism gap of burst knowledge.  In a real OS the
+scheduler never sees true burst lengths; it sees predictions.
 
-* ``BurstEstimator`` — an exponential-smoothing predictor that sees only
-  completed burst times and predicts the next burst of the same workload class.
-  History is per-family or per-priority bucket; the estimator is causal
-  (no future information) and deterministic given a seed.
+Information boundary (enforced by this module)
+----------------------------------------------
+Observable by controller (causal, may be used for decisions):
+  * Arrival time, pid, priority of each ready process.
+  * Cumulative CPU service already received by each pid, derived from
+    the execution history the scheduler itself observed (start_time,
+    end_time of every dispatched slice, including pre-empted Round-Robin
+    quanta).  The scheduler tracks ``service_done[pid]`` as a sum of its own
+    dispatched service durations — no simulator-internal ``remaining_burst``
+    or ``burst_time`` is used.
+  * Predicted total burst per process, produced by ``BurstEstimator``
+    from *only* the service totals of already-completed processes
+    (EWMA over completed-job totals, one EWMA per bucket plus a global
+    fallback).  No future arrivals, no unfinished-job true bursts.
 
-* ``NoisyBurstObservation`` / ``perturb_observation`` — a thin wrapper that
-  replaces the simulator's exact ``remaining_burst`` with a noisy estimate.
-  Error is modelled as multiplicative log-normal noise with configurable
-  bias and coefficient of variation, matching empirical observations that burst
-  prediction error scales with job size.
+Evaluation-only (ground truth, never observable by controller):
+  * True ``burst_time`` / ``remaining_burst`` stored in ``Workload`` and
+    simulator state, exposed only via schedule results, audit, or the
+    ``true_burst`` fields of ``EstimationError`` for post-hoc analysis.
+    Keeping this separation is why ``perturb_observation`` takes no hidden
+    burst values to compute remaining work.
 
-* ``EstimationError`` — a dataclass capturing the error of one prediction,
-  used for evaluation and for the controller's uncertainty-aware logic.
+The estimator is causal: predictions at time *t* use only completions
+strictly before *t*.  When ``error_cv == 0`` the noisy prediction equals
+the EWMA mean (still not ground truth unless the EWMA happens to match it;
+documented as "zero added noise", not "unbiased or accurate").
 
-The controller's observation boundary stays causal: the estimator only sees
-workloads of already-completed processes, exactly what a kernel's burst
-predictor would see.  When ``error_cv == 0`` the estimator degenerates to
-the exact simulator (backwards compatible).
-
-Usage::
-
+Usage
+-----
     estimator = BurstEstimator(alpha=0.5, error_cv=0.3, seed=42)
-    # In controller.select_action, before diagnosis:
+    # Per episode: estimator.reset()
+    # On each dispatch: estimator.record_service(pid, service_duration)
+    # On completion:    estimator.record_completion(pid)  # uses tracked total
+    # At decision epoch:
     noisy_obs = perturb_observation(observation, estimator)
-    # After each completion, feed ground truth back:
-    estimator.observe_completed(burst_time=completed_burst, family="mixed")
 """
 
 from __future__ import annotations
@@ -53,7 +62,12 @@ __all__ = [
 
 @dataclass(frozen=True)
 class EstimationError:
-    """Prediction error for one process burst."""
+    """Prediction error for one process burst — evaluation-only ground truth.
+
+    ``true_burst`` is never observable by the controller; it is kept only so
+    post-hoc analysis can quantify estimator quality.  Controller decisions
+    must not read this object.
+    """
 
     pid: int
     true_burst: int
@@ -70,7 +84,12 @@ class EstimationError:
 
 @dataclass(frozen=True)
 class NoisyBurstObservation:
-    """Perturbed observation plus its error metadata."""
+    """Perturbed observation plus evaluation-only error metadata.
+
+    ``observation`` is what the controller sees (predicted bursts, remaining
+    estimated from *observable* service only).  ``errors`` contains ground
+    truth for evaluation-only analysis and must not be used for decisions.
+    """
 
     observation: RuntimeObservation
     errors: Tuple[EstimationError, ...]
@@ -79,23 +98,38 @@ class NoisyBurstObservation:
 
 
 class BurstEstimator:
-    """Online causal burst predictor with configurable noise.
+    """Online causal burst predictor with observable service tracking.
 
-    The predictor maintains one EWMA per bucket (family name by default, or
-    a fallback global bucket).  Predicted burst for an unseen bucket is the
-    global mean of all completed bursts so far, or a prior ``initial_guess``
-    when nothing has been observed yet.
+    The predictor maintains:
+      * One EWMA per bucket (EWMA over *completed* total-burst samples,
+        each sample = sum of observable service durations for that pid).
+      * Per-pid cumulative service done so far (sum of observable dispatch
+        durations for pids still in the system).  This is the *only* source
+        for estimating remaining work: ``remaining = max(1, predicted_total -
+        service_done[pid])``.  No hidden ``remaining_burst`` or true total
+        is ever read to compute remaining.
 
-    Noise is injected at prediction time to model real-world estimator error:
-    ``predicted = max(1, round(true * exp(N(bias, cv^2))))`` where N is
-    normal in log space.  ``error_cv == 0`` disables noise (exact predictions).
+    Noise is injected at prediction time to model estimator error:
+    ``predicted_total = max(1, round(EWMA_mean * exp(N(bias, cv^2))))``
+    where N is normal in log space.  ``error_cv == 0`` means "no added
+    log-normal noise" (prediction equals EWMA mean); it does not imply
+    predictions equal ground truth or are unbiased, which depends on workload
+    history.
 
     Attributes:
         alpha: EWMA smoothing factor in (0, 1].
-        error_cv: Coefficient of variation of multiplicative log-normal error.
+        error_cv: Coefficient of variation of multiplicative log-normal noise.
         error_bias: Mean log-error (negative = systematic underestimation).
         initial_guess: Prior prediction before any observation.
         seed: Base seed for reproducible noise draws.
+
+    Observable vs evaluation-only:
+        * Observable: ``predict()``, ``predict_total_noisy()``,
+          ``record_service()``, ``service_done()``, ``reset()``.
+        * Evaluation-only: ``observe_completed()`` with ground truth (used
+          only by experiment harnesses that have post-hoc access to totals;
+          the controller path uses ``record_completion()`` which derives the
+          total from observable service history).
     """
 
     def __init__(
@@ -125,16 +159,86 @@ class BurstEstimator:
         self._global_mean: Optional[float] = None
         self._count: int = 0
         self._draw_counter: int = 0
+        # Observable service tracking: pid -> cumulative CPU time dispatched.
+        self._service_done: Dict[int, int] = {}
 
     def reset(self) -> None:
-        """Clear all learned estimates (call at episode start)."""
+        """Clear all learned estimates and per-pid service totals (per-episode)."""
         self._estimates.clear()
         self._global_mean = None
         self._count = 0
         self._draw_counter = 0
+        self._service_done.clear()
+
+    # -- observable service tracking -----------------------------------------
+
+    def record_service(self, pid: int, service: int) -> None:
+        """Record observable CPU service dispatched to ``pid``.
+
+        This is the *only* legitimate source for computing remaining work.
+        Called by the controller's ``observe_decision`` hook which sees
+        ``end_time - start_time - switch_overhead`` for each slice.
+
+        Args:
+            pid: Process id.
+            service: Dispatched CPU time in this slice (>=1).
+
+        Raises:
+            ValidationError: If pid/service invalid.
+        """
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid < 0:
+            raise ValidationError(f"pid must be non-negative int, got {pid!r}")
+        if isinstance(service, bool) or not isinstance(service, int) or service < 1:
+            raise ValidationError(f"service must be int >=1, got {service!r}")
+        self._service_done[pid] = self._service_done.get(pid, 0) + service
+
+    def service_done(self, pid: int) -> int:
+        """Return observable cumulative service done for ``pid`` (0 if never dispatched)."""
+        if isinstance(pid, bool) or not isinstance(pid, int) or pid < 0:
+            raise ValidationError(f"pid must be non-negative int, got {pid!r}")
+        return self._service_done.get(pid, 0)
+
+    def record_completion(self, pid: int, bucket: str = "global") -> None:
+        """Mark ``pid`` completed: use its observable total as EWMA sample.
+
+        The total sample is the sum of all observable service slices for that
+        pid (tracked via ``record_service``).  This is what a real system
+        observes: it knows how long the job ran, not a hidden ``burst_time``.
+        After updating the EWMA, the per-pid tracker is cleared.
+
+        Args:
+            pid: Completed process id.
+            bucket: EWMA bucket name.
+
+        Raises:
+            ValidationError: If pid not tracked or bucket invalid.
+        """
+        if not isinstance(bucket, str) or not bucket:
+            raise ValidationError(f"bucket must be non-empty str, got {bucket!r}")
+        if pid not in self._service_done:
+            raise ValidationError(f"completion for untracked pid {pid}; record_service must be called first")
+        total = self._service_done.pop(pid)
+        # total is int >=1, reuse existing EWMA update path.
+        self.observe_completed(total, bucket=bucket)
+
+    # -- EWMA over completed totals (observable only via record_completion) --
 
     def observe_completed(self, burst_time: int, bucket: str = "global") -> None:
-        """Feed back ground truth after a process completes."""
+        """Feed back a completed-job total (observable sum of service slices).
+
+        Prefer ``record_completion`` in controller code; this method exists for
+        evaluation harnesses and tests that have post-hoc ground truth and want
+        to seed the EWMA without per-pid tracking.  The controller's causal
+        path does not use ground-truth ``burst_time`` directly to compute
+        remaining work.
+
+        Args:
+            burst_time: Total CPU time observed for the completed job (>=1).
+            bucket: EWMA bucket name.
+
+        Raises:
+            ValidationError: If burst_time/bucket invalid.
+        """
         if not isinstance(burst_time, int) or burst_time < 1:
             raise ValidationError(f"burst_time must be int >= 1, got {burst_time!r}")
         if not isinstance(bucket, str) or not bucket:
@@ -144,7 +248,6 @@ class BurstEstimator:
             self._estimates[bucket] = self.alpha * value + (1 - self.alpha) * self._estimates[bucket]
         else:
             self._estimates[bucket] = value
-        # Update global mean incrementally.
         if self._global_mean is None:
             self._global_mean = value
         else:
@@ -152,48 +255,58 @@ class BurstEstimator:
         self._count += 1
 
     def predict(self, bucket: str = "global") -> int:
-        """Predict burst for next process in bucket (before seeing it)."""
+        """Predict total burst for next job in ``bucket`` (no noise, no ground truth)."""
         if bucket in self._estimates:
             return max(1, int(round(self._estimates[bucket])))
         if self._global_mean is not None:
             return max(1, int(round(self._global_mean)))
         return self.initial_guess
 
-    def predict_with_noise(self, true_burst: int, bucket: str = "global") -> Tuple[int, EstimationError]:
-        """Predict burst for a process whose true burst is ``true_burst``, with noise.
+    def predict_with_noise(
+        self, true_burst: Optional[int] = None, bucket: str = "global"
+    ) -> Tuple[int, Optional[EstimationError]]:
+        """Predict total burst for a job in ``bucket``, optionally with error metadata.
 
-        In simulation we know the true burst; this method shows what the
-        estimator *would* have predicted given its history, then perturbs that
-        prediction with calibrated noise to simulate real-world error.
+        The prediction itself uses *only* EWMA history and log-normal noise;
+        ``true_burst`` is *never* used to compute the predicted value and may
+        be None.  When ``true_burst`` is provided, an ``EstimationError`` with
+        ground truth is returned for evaluation-only analysis; controller code
+        must not read it for decisions.
+
+        Args:
+            true_burst: Optional ground truth for evaluation-only error calc.
+                When None, error is None; prediction is still returned.
+            bucket: EWMA bucket.
 
         Returns:
-            (predicted_burst, error_metadata) where predicted_burst >= 1.
+            (predicted_total, error_or_None) where predicted_total >=1.
+
+        Raises:
+            ValidationError: If true_burst is not None and invalid.
         """
-        # Base prediction from history (what a real predictor would output).
+        if true_burst is not None:
+            if isinstance(true_burst, bool) or not isinstance(true_burst, int) or true_burst < 1:
+                raise ValidationError(f"true_burst must be int >=1, got {true_burst!r}")
         base = self.predict(bucket)
-        # Blend base prediction with true value via exponential history:
-        # New predictor trusts its estimate, not the true value; true_burst only
-        # matters for noise calibration (error scales with size).
         if self.error_cv == 0.0:
             predicted = base
         else:
-            # Log-normal multiplicative noise: log(predicted) ~ N(log(base)+bias, cv^2)
-            # This preserves the mean when bias=0 and cv small.
             rng = np.random.default_rng(derive_seed(self.seed, self._draw_counter))
             self._draw_counter += 1
             log_pred = math.log(max(1, base)) + self.error_bias + rng.normal(0, self.error_cv)
             predicted = max(1, int(round(math.exp(log_pred))))
-        # Also compute what error relative to true would look like.
-        abs_err = abs(predicted - true_burst)
-        rel_err = (predicted - true_burst) / true_burst if true_burst else 0.0
-        error = EstimationError(
-            pid=-1,  # caller fills real pid
-            true_burst=true_burst,
-            predicted_burst=predicted,
-            absolute_error=abs_err,
-            relative_error=rel_err,
-            overestimated=predicted > true_burst,
-        )
+        error: Optional[EstimationError] = None
+        if true_burst is not None:
+            abs_err = abs(predicted - true_burst)
+            rel_err = (predicted - true_burst) / true_burst if true_burst else 0.0
+            error = EstimationError(
+                pid=-1,
+                true_burst=true_burst,
+                predicted_burst=predicted,
+                absolute_error=abs_err,
+                relative_error=rel_err,
+                overestimated=predicted > true_burst,
+            )
         return predicted, error
 
     @property
@@ -214,6 +327,7 @@ class BurstEstimator:
             "global_mean": self._global_mean,
             "buckets": dict(self._estimates),
             "completed_count": self._count,
+            "tracked_pids": len(self._service_done),
         }
 
 
@@ -223,20 +337,42 @@ def perturb_observation(
     *,
     bucket: str = "global",
 ) -> NoisyBurstObservation:
-    """Return a copy of observation where burst lengths are estimator predictions.
+    """Return controller-view observation with estimated bursts/remaining.
 
-    The true remaining_burst is hidden; the caller sees only noisy estimates.
-    This is the causal uncertainty boundary: the controller never receives the
-    true burst, only what the estimator believes.  Evaluation still measures
-    against ground truth.
+    Observable information used (controller-legitimate):
+      * ``estimator.service_done(pid)`` — cumulative dispatched service per
+        ready pid, tracked from the scheduler's own execution history.
+        This is the *only* source for estimating remaining work.
+      * ``estimator.predict()/predict_with_noise(bucket)`` — EWMA over
+        *completed-job totals* (sums of observable service), never hidden
+        ``burst_time``.
+
+    Evaluation-only (not observable, not used for decisions):
+      * ``proc.burst_time`` / ``proc.remaining_burst`` from the ground-truth
+        observation are read *only* to populate ``EstimationError`` for
+        post-hoc analysis.  The controller's observed ``burst_time`` and
+        ``remaining_burst`` are derived solely from the two observable
+        quantities above.
+
+    Remaining-work estimation (strictly observable):
+        predicted_total = noisy EWMA prediction (evaluation-only noise)
+        service = estimator.service_done(pid)  # 0 if never dispatched
+        predicted_remaining = max(1, predicted_total - service)
+        (clamped below to 1, above to predicted_total; handles zero/negative
+        and the case where service already exceeds prediction).
 
     Args:
-        observation: Original simulator observation with exact bursts.
-        estimator: Causal burst estimator (call reset() per episode).
-        bucket: Bucket name for per-family prediction.
+        observation: Ground-truth simulator observation (contains hidden bursts;
+            treated as evaluation-only source for error metadata).
+        estimator: Causal estimator with per-pid service tracking.
+        bucket: EWMA bucket name.
 
     Returns:
-        NoisyBurstObservation with perturbed ready_processes.
+        NoisyBurstObservation with controller-visible noisy bursts and
+        evaluation-only errors.
+
+    Raises:
+        ValidationError: If observation/estimator invalid.
     """
     if not isinstance(observation, RuntimeObservation):
         raise ValidationError(f"observation must be RuntimeObservation, got {type(observation).__name__}")
@@ -246,37 +382,57 @@ def perturb_observation(
     errors: list[EstimationError] = []
     noisy_processes: list[ObservedProcess] = []
     for proc in observation.ready_processes:
-        predicted, err = estimator.predict_with_noise(proc.burst_time, bucket=bucket)
-        # Scale remaining proportionally: if predictor thinks job is longer,
-        # remaining scales by same factor (preserving progress fraction).
-        progress = 1.0 - (proc.remaining_burst / proc.burst_time) if proc.burst_time else 0.0
-        predicted_remaining = max(1, int(round(predicted * (1.0 - progress))))
-        # Never predict remaining > predicted total.
-        predicted_remaining = min(predicted_remaining, predicted)
-        noisy_processes.append(
-            ObservedProcess(
+        # Observable prediction (no hidden burst used).
+        # For evaluation-only error, pass true total if available, but the
+        # prediction value itself does NOT depend on it.
+        predicted_total, err = estimator.predict_with_noise(true_burst=proc.burst_time, bucket=bucket)
+        if err is not None:
+            # Fill pid for error reporting (evaluation-only).
+            err = EstimationError(
                 pid=proc.pid,
-                arrival_time=proc.arrival_time,
-                burst_time=predicted,
-                remaining_burst=predicted_remaining,
-                priority=proc.priority,
-            )
-        )
-        errors.append(
-            EstimationError(
-                pid=proc.pid,
-                true_burst=proc.burst_time,
-                predicted_burst=predicted,
+                true_burst=err.true_burst,
+                predicted_burst=err.predicted_burst,
                 absolute_error=err.absolute_error,
                 relative_error=err.relative_error,
                 overestimated=err.overestimated,
             )
+            errors.append(err)
+        else:
+            # Should not happen when true_burst provided, but handle.
+            errors.append(
+                EstimationError(
+                    pid=proc.pid,
+                    true_burst=proc.burst_time,
+                    predicted_burst=predicted_total,
+                    absolute_error=abs(predicted_total - proc.burst_time),
+                    relative_error=(predicted_total - proc.burst_time) / proc.burst_time if proc.burst_time else 0.0,
+                    overestimated=predicted_total > proc.burst_time,
+                )
+            )
+
+        # Observable remaining estimate: predicted total minus observable service.
+        # This is the fix: no use of proc.remaining_burst or true burst ratio.
+        service = estimator.service_done(proc.pid)
+        # Service should never exceed predicted_total by much, but if it does
+        # (e.g., predictor underestimated and job ran longer than predicted),
+        # clamp remaining to minimum 1 to keep observation valid.
+        predicted_remaining = predicted_total - service
+        if predicted_remaining < 1:
+            predicted_remaining = 1
+        if predicted_remaining > predicted_total:
+            predicted_remaining = predicted_total
+
+        noisy_processes.append(
+            ObservedProcess(
+                pid=proc.pid,
+                arrival_time=proc.arrival_time,
+                burst_time=predicted_total,
+                remaining_burst=predicted_remaining,
+                priority=proc.priority,
+            )
         )
 
-    # Recompute aggregates from noisy bursts.
     noisy_bursts = [p.burst_time for p in noisy_processes]
-    # Also perturb derived aggregates proportionally.
-    # observed_mean_burst and priority spread stay exact (priority is observable).
     noisy_obs = RuntimeObservation(
         current_time=observation.current_time,
         ready_processes=tuple(noisy_processes),

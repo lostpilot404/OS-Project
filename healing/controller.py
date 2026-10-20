@@ -738,27 +738,26 @@ class SelfHealingController:
             if process.pid == record.chosen_pid:
                 self._running_priority = process.priority
                 break
-        # Feed estimator with ground-truth completed bursts when uncertainty is enabled.
-        if self._burst_estimator is not None and record.completed_pids:
-            # Look up true burst lengths from the process table via the record's completed pids.
-            # The observation that produced this decision still carries the true burst in
-            # the engine's record; we map pid->burst from the ready_processes that were present
-            # before dispatch. Simpler: use the waiting_time arithmetic to infer nothing;
-            # instead infer burst from the slice duration when possible. For now, feed
-            # completed waiting_time-adjacent bursts via the observation's burst fields:
-            # the engine's observation before dispatch contains true bursts (even when
-            # controller view was noisy), so we can read them from record.observation.
-            # To avoid extra state, we estimate burst as max(1, waiting_time proxy) — but
-            # since we have the true execution slice end-start, that equals service time
-            # when no preemption. For non-preemptive policies this is the burst chunk.
-            # As a safe fallback we observe the service duration as a burst sample.
+        # Observable service accounting for burst estimator (strictly observable:
+        # scheduler sees which pid it dispatched and for how long).
+        if self._burst_estimator is not None:
             service = record.end_time - record.start_time - record.switch_overhead
+            if service >= 1:
+                self._burst_estimator.record_service(record.chosen_pid, int(service))
+            # On completion, the total observable CPU time for that pid is the sum
+            # of all its dispatched slices (tracked via record_service). Use that
+            # observable total as the EWMA sample — no hidden burst_time needed.
             for pid in record.completed_pids:
-                # Use service as approximate burst of the completed process;
-                # for RR-preempted processes completion service == remaining burst,
-                # which still reflects true burst size proportionally.
-                if service > 0:
-                    self._burst_estimator.observe_completed(int(service), bucket="global")
+                try:
+                    self._burst_estimator.record_completion(pid, bucket="global")
+                except ValidationError:
+                    # If service tracking missed the pid (e.g., first slice was
+                    # completion under non-preemptive policy where we still recorded
+                    # service above), fallback: the completed slice's service is the
+                    # total for this simple case. This branch should not trigger in
+                    # normal traces but keeps the estimator robust.
+                    if service >= 1:
+                        self._burst_estimator.observe_completed(int(service), bucket="global")
 
         pending = self._pending
         if pending is None:
