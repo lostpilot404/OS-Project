@@ -18,10 +18,10 @@ from workload shifts, and avoid harmful or unnecessary interventions under uncer
 > measurement and no real workload trace. "Waiting time", "context switch" and "CPU
 > utilization" below are simulator quantities.  By default the simulator exposes exact burst
 > times (as required by SJF); the new uncertainty module [`healing/burst_estimator.py`](healing/burst_estimator.py)
-> replaces that with an online estimator and calibrated prediction errors, and
+> replaces that with a modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (a modelled `EWMA + exp(N(bias, cv²))` mechanism, not a realistic predictor; the noise `cv`/`bias` have **not** been calibrated or validated against real workload traces), and
 > [`workload/drift.py`](workload/drift.py) adds mid-trace workload phase changes — both
 > off by default so the frozen study stays byte-identical, but available for reliability
-> experiments.  See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
+> experiments.  In the estimator-enabled drift experiment, fixed SJF still receives exact burst lengths and therefore acts as an **oracle baseline, not an equal-information comparison**.  See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
 ## How the self-healing loop works
 
@@ -124,10 +124,10 @@ from evaluation.reliability import compute_reliability_metrics
 gen = WorkloadGenerator(build_default_config().families)
 drifted = gen.generate_with_drift("mixed", seed=42, drift_kind="burst_shock")
 
-# 2. Burst uncertainty: online estimator with calibrated prediction errors
+# 2. Burst uncertainty: modelled online EWMA estimator plus log-normal noise (not calibrated/validated against real traces)
 cfg = HealingConfig(burst_estimator_enabled=True, burst_estimator_error_cv=0.30)
 ctrl = SelfHealingController(cfg, scheduler_config, HoldOnlyPolicy())
-# controller sees noisy bursts; engine and evaluation still measure against truth
+# controller sees noisy bursts (modelled EWMA+log-normal cv=0.30, not a realistic predictor); engine and evaluation still measure against truth; fixed SJF in the same experiment still sees exact bursts (oracle, not equal-information)
 
 # 3. Reliability metrics beyond mean waiting time
 from evaluation.reliability import compute_reliability_metrics, reliability_summary_for_arms
@@ -251,10 +251,8 @@ Rather than *replace Q-learning with another algorithm*, the project's contribut
    trace (at a declared fraction of the arrival span), so adaptation is tested on
    workload shifts that were never used during training.  Baseline `healing_detection.py`
    already did this for measurement; drift.py promotes it to a first-class workload feature.
-2. **Realistic uncertainty about CPU bursts** — `healing/burst_estimator.py` hides exact
-   burst lengths behind an online EWMA estimator with calibrated log-normal prediction
-   errors (`BurstEstimator`, `perturb_observation`).  This directly addresses the largest
-   realism limitation (SJF's perfect burst knowledge) without changing the simulator engine.
+2. **Modelled uncertainty about CPU bursts** — `healing/burst_estimator.py` hides exact
+   burst lengths behind a modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (`BurstEstimator`, `perturb_observation`; a modelled `EWMA + exp(N(bias, cv²))` mechanism, **not** calibrated or validated against real traces and not claimed to be realistic).  This directly addresses the largest realism limitation (SJF's perfect burst knowledge) without changing the simulator engine. In the estimator-enabled drift experiment, fixed SJF still receives exact burst lengths and therefore acts as an **oracle baseline, not an equal-information comparison**.
 3. **Safety-aware adaptation** — the controller weighs expected improvement against the
    declared `intervention_cost` (1 % of reference waiting time) and only `accepted` windows
    become the new known-good configuration; `inconclusive` windows are rolled back without

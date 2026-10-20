@@ -306,7 +306,18 @@ PYTHONPATH=. .venv/bin/python experiments/drift_uncertainty_experiment.py --reps
 - No real kernel validation — simulator scope acknowledged.
 - No mypy/ruff enforced — only pytest; code style not linted.
 
-**Final Git (verified 2026-10-20):** Branch `arena/1ffa6b9e-os-project`, verified HEAD `b2090fa72f14d406fdc14458f776b7d1253c5faa` (commit “Update git record to 61c9547”) — working tree clean before this edit (`git status` → `nothing to commit`), remote `origin https://github.com/lostpilot404/OS-Project.git` pushed `b2090fa` (verified `git push` output `61c9547..b2090fa`; chain `17cea9f..c6f0678..a203b13..61c9547..b2090fa`). Code+artifacts commit `c6f0678` (“Audit fixes: pooled P95…”) is ancestor; all commits pushed and verifiable via `git log`. Current HEAD after this commit is `git rev-parse HEAD` (see `git log --oneline -5`). No CI check results reported (no CI configured).
+**Final Git (verified 2026-10-20):** Branch `arena/1ffa6b9e-os-project`. Last validated implementation/results commit `c6f0678 Audit fixes: pooled P95, estimator sensitivity, inference and SJF oracle qualification` (contains code, evaluation, reliability, and regenerated `results/drift/*` with pooled P95). Subsequent commits `a203b13`, `61c9547`, `b2090fa`, `d91cc41` are documentation-only Git-record revisions. Verified GitHub branch HEAD at last check `d91cc41` (`d91cc41c7f94aa5754c15c2abbe86577fbb8414e`, commit “Update git record to b2090fa”), working tree clean at verification, remote `origin https://github.com/lostpilot404/OS-Project.git` pushed `d91cc41` (chain `17cea9f..c6f0678..a203b13..61c9547..b2090fa..d91cc41`). To verify current state:
+
+```bash
+git branch --show-current  # expect arena/1ffa6b9e-os-project
+git rev-parse HEAD          # current HEAD after this commit
+# should be descendant of d91cc41; verify via:
+git log --oneline --decorate -6
+git status --porcelain       # expect empty (clean)
+git remote get-url origin
+```
+
+This report does not embed a self-referential commit hash for this documentation edit; the implementation commit above is the last one affecting results. No CI check results reported (no CI configured).
 
 ---
 

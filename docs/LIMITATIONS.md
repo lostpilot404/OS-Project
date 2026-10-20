@@ -24,9 +24,9 @@ about a real operating system.
   not know these numbers; it would need predictors, and predictor error would change every
   number in `docs/EVALUATION_RESULTS.md`.  This is now **measurable**: set
   `HealingConfig(burst_estimator_enabled=True, burst_estimator_error_cv=0.30)` and the loop
-  sees `healing/burst_estimator.py`'s online EWMA predictor with calibrated log-normal noise
+  sees `healing/burst_estimator.py`'s modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (`EWMA + exp(N(bias, cv²))`, **not** calibrated or validated against real traces and not claimed to be realistic)
   instead of ground truth (`perturb_observation`); evaluation still measures against truth so
-  the cost of uncertainty can be quantified.  The frozen study leaves it off so committed
+  the cost of uncertainty can be quantified. Fixed SJF in the same experiment still receives exact burst lengths and is therefore an oracle baseline, not an equal-information comparison.  The frozen study leaves it off so committed
   artifacts stay byte-identical.
 * **Two recovery actions are only meaningful under Round Robin.** `shrink_quantum` and
   `grow_quantum` are masked out (and report `changed=False`) whenever the live policy is not
