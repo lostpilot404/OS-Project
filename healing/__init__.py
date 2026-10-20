@@ -35,6 +35,7 @@ from healing.diagnosis import (
     build_ready_evidence,
     diagnose,
 )
+from healing.burst_estimator import BurstEstimator, EstimationError, NoisyBurstObservation, perturb_observation
 from healing.monitor import CausalMonitor, MonitorSnapshot
 from healing.policies import (
     FAIRNESS_RULE_MAPPING,
@@ -60,6 +61,10 @@ __all__ = [
     "ReadyEvidence",
     "build_ready_evidence",
     "diagnose",
+    "BurstEstimator",
+    "EstimationError",
+    "NoisyBurstObservation",
+    "perturb_observation",
     "HealingContext",
     "HealingContextEncoder",
     "HealingPolicy",

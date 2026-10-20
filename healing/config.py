@@ -216,6 +216,18 @@ class HealingConfig:
     # Action bounds
     min_quantum: int = 1
     max_quantum: int = 16
+    # ------------------------------------------------------------------
+    # Reliability research extensions (Review 2 drift & uncertainty)
+    # ------------------------------------------------------------------
+    # All default to the *original study's* behaviour, so the frozen
+    # evaluation remains byte-identical when they are not enabled.
+    burst_estimator_enabled: bool = False
+    burst_estimator_error_cv: float = 0.30
+    burst_estimator_bias: float = 0.0
+    burst_estimator_alpha: float = 0.50
+    drift_enabled: bool = False
+    drift_kind: str = "burst_shock"
+    drift_injection_fraction: float = 0.35
 
     def __post_init__(self) -> None:
         _require_positive_int(self.window_completions, "window_completions")
@@ -283,6 +295,20 @@ class HealingConfig:
         _require_positive_int(self.max_quantum, "max_quantum")
         if self.max_quantum < self.min_quantum:
             raise ConfigurationError("max_quantum must be >= min_quantum")
+        # Reliability extensions validation (backwards compatible)
+        if not isinstance(self.burst_estimator_enabled, bool):
+            raise ConfigurationError("burst_estimator_enabled must be a bool")
+        _require_finite(self.burst_estimator_error_cv, "burst_estimator_error_cv", minimum=0.0)
+        _require_finite(self.burst_estimator_bias, "burst_estimator_bias", minimum=-10.0)
+        _require_finite(self.burst_estimator_alpha, "burst_estimator_alpha", minimum=0.0)
+        if not 0.0 < self.burst_estimator_alpha <= 1.0:
+            raise ConfigurationError("burst_estimator_alpha must be in (0, 1]")
+        if not isinstance(self.drift_enabled, bool):
+            raise ConfigurationError("drift_enabled must be a bool")
+        if self.drift_kind not in ("burst_shock", "arrival_storm", "phase_transition", "priority_inversion"):
+            raise ConfigurationError(f"drift_kind must be one of the declared drift kinds, got {self.drift_kind!r}")
+        if not 0.0 < self.drift_injection_fraction < 1.0:
+            raise ConfigurationError("drift_injection_fraction must be in (0, 1)")
 
     def as_dict(self) -> dict:
         """Return the full declared configuration as a plain dictionary."""

@@ -24,9 +24,16 @@ visualization/    figures rendered from the study artifacts
   `ProcessOutcome`, `ScheduleResult`.
 * `generator.py` — `WorkloadGenerator.generate(family, seed)` draws a workload from a
   declared family (arrival pattern × burst distribution × priority pattern) with
-  `numpy.random.default_rng(seed)`, so a `(family, seed)` pair is a reproducible instance.
+  `numpy.random.default_rng(seed)`, so a `(family, seed)` pair is a reproducible instance;
+  `generate_with_drift(family, seed, drift_kind)` injects a deterministic mid-trace phase shift
+  while preserving the pre-injection prefix.
 * `fingerprint.py` — content fingerprint used to prove that two arms were evaluated on the
   same instance.
+* `drift.py` — **workload drift**: `DriftSpec` + `apply_drift` inject `burst_shock`,
+  `arrival_storm`, `phase_transition` (batch→interactive) and `priority_inversion` at a
+  declared fraction of the arrival span (default 0.35).  Pre-injection work is untouched,
+  so the stable and drifted traces share a prefix — the controller cannot distinguish them
+  until the drift arrives.
 
 ### `scheduler/`
 
@@ -49,13 +56,14 @@ visualization/    figures rendered from the study artifacts
 
 | Module | Responsibility |
 |---|---|
-| `config.py` | every declared threshold, gate, cost and bound, validated in `__post_init__` and serialized into the summary artifact |
+| `config.py` | every declared threshold, gate, cost and bound, validated in `__post_init__` and serialized into the summary artifact; **reliability extensions** `burst_estimator_*` and `drift_*` are additive flags (default off) so the frozen evaluation stays byte-identical |
 | `monitor.py` | `CausalMonitor`: rolling completion window, EWMA reference and dispersion band with floors, trailing-window load level and its own reference/band; `MonitorSnapshot` is the immutable evidence object |
 | `detector.py` | `DegradationDetector.evaluate(...)` → `DetectionOutcome`. Suspect when the window mean exceeds `reference + k·band`; declared only after hysteresis, outside cooldown, inside the intervention budget, past the ready/work/congestion gates. Every suppression path has its own reason, so "no action" is always explained in the ledger |
 | `diagnosis.py` | `build_ready_evidence` + `diagnose`: a fixed-precedence mapping from *visible* ready-set evidence to one primary category (head-of-line blocking, fairness starvation, priority-ordering anomaly, tail dispersion, queue congestion) or `unexplained`, with the matched evidence attached |
 | `actions.py` | the 8-action recovery space, `SchedulerSettings`, `apply_healing_action`, and the no-op rule: an action that cannot change the live configuration reports `changed=False` and is never counted as an intervention |
 | `policies.py` | `HealingContext` + `HealingContextEncoder` (648 states), `MappedRulePolicy` (predeclared diagnosis→action rules), `HoldOnlyPolicy` (the detection control), `QLearningHealingPolicy` (epsilon-greedy with forced first visits, masked exploration and masked bootstrapping; greedy and read-only during evaluation) |
 | `verifier.py` | `verify(VerificationEvidence, config) -> VerificationVerdict`: the tri-state verdict. It subtracts the declared **phase baseline** — a least-squares prediction of the *no-action* post-window queue level from quantities observed at the trigger (`trigger_load`, `ready_count`, `log1p(visible_work)`, fitted on the training control) — converted into the statistic's own units through its denominator, and compares the residual with the declared accept / reject boundaries (+0.30 / −0.30, the 95th and 5th percentiles of the control residual). It also refuses to judge a window with too little telemetry (`insufficient_evidence_thin_telemetry`, `insufficient_evidence_window_truncated`). `rollback_required` folds in the declared `inconclusive_rollback` posture |
+| `burst_estimator.py` | **Uncertainty boundary**: `BurstEstimator` (causal EWMA per-bucket predictor with calibrated log-normal prediction errors) and `perturb_observation` which hides exact `remaining_burst` behind noisy estimates.  The controller sees only the estimate; evaluation still measures against ground truth.  Default `error_cv=0` degenerates to exact information (backwards compatible) |
 | `controller.py` | `SelfHealingController`: the state machine (idle → verification window open → verdict), the incident ledger, the reward assignment, the rollback at the next epoch, the safe fallback, and the counterfactual replay helpers (`forced_holds`) |
 
 ### `experiments/` and `evaluation/`
@@ -78,6 +86,12 @@ visualization/    figures rendered from the study artifacts
   with the runtime appendix.
 * `evaluation/metrics.py` — `compute_metrics(ScheduleResult)` → waiting/turnaround/response
   times, p95/max waiting, CPU utilization, throughput, context switches, switching overhead.
+* `evaluation/reliability.py` — **reliability beyond mean waiting time**:
+  `compute_reliability_metrics` (P95, starvation count, Jain fairness index, recovery delay
+  in decisions and time, false-intervention rate from counterfactual audit, rollback and
+  regression rates, fallback rate) and `reliability_summary_for_arms` (per-arm aggregation
+  against a baseline).  All definitions are on `ScheduleResult` + incident ledger and have
+  no hidden parameters.
 
 ## 2. Data flow of one trace
 
