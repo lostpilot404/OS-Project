@@ -306,7 +306,7 @@ PYTHONPATH=. .venv/bin/python experiments/drift_uncertainty_experiment.py --reps
 - No real kernel validation — simulator scope acknowledged.
 - No mypy/ruff enforced — only pytest; code style not linted.
 
-**Final Git (verified 2026-10-20):** Branch `arena/1ffa6b9e-os-project`, HEAD `a203b135d892ea618386d514fdbd8e556dcb1eb3` (commit “Update final git record to c6f0678”), working tree clean (`git status` → `nothing to commit` after commit), remote `origin https://github.com/lostpilot404/OS-Project.git` pushed `a203b13` (verified `git push` output `17cea9f..a203b13`). No CI check results reported (no CI configured).
+**Final Git (verified 2026-10-20):** Branch `arena/1ffa6b9e-os-project`, HEAD `61c9547274382c5fed9661232991033fd0e599d2` (commit “Finalize git record to a203b13”), working tree clean (`git status` → `nothing to commit` after commit), remote `origin https://github.com/lostpilot404/OS-Project.git` pushed `61c9547` (verified `git push` output `a203b13..61c9547`; full chain `17cea9f..c6f0678..a203b13..61c9547`). Code+artifacts commit `c6f0678` (“Audit fixes: pooled P95…”) is parent of the two metadata commits; all pushed and verifiable via `git log`. No CI check results reported (no CI configured).
 
 ---
 
