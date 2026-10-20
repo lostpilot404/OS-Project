@@ -18,7 +18,7 @@ from workload shifts, and avoid harmful or unnecessary interventions under uncer
 > measurement and no real workload trace. "Waiting time", "context switch" and "CPU
 > utilization" below are simulator quantities.  By default the simulator exposes exact burst
 > times (as required by SJF); the new uncertainty module [`healing/burst_estimator.py`](healing/burst_estimator.py)
-> replaces that with a modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (a modelled `EWMA + exp(N(bias, cv²))` mechanism, not a realistic predictor; the noise `cv`/`bias` have **not** been calibrated or validated against real workload traces), and
+> replaces that with a modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (a modelled `EWMA × exp(N(bias, sigma²))` mechanism where `sigma = error_cv` is the log-space standard deviation (name retained for backward compatibility; not mathematically identical to the multiplier's CV, which is `sqrt(exp(sigma²)-1)` ≈ 0.307 for sigma=0.30), not a realistic predictor; the noise `sigma`/`bias` have **not** been calibrated or validated against real workload traces), and
 > [`workload/drift.py`](workload/drift.py) adds mid-trace workload phase changes — both
 > off by default so the frozen study stays byte-identical, but available for reliability
 > experiments.  In the estimator-enabled drift experiment, fixed SJF still receives exact burst lengths and therefore acts as an **oracle baseline, not an equal-information comparison**.  See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
@@ -252,7 +252,7 @@ Rather than *replace Q-learning with another algorithm*, the project's contribut
    workload shifts that were never used during training.  Baseline `healing_detection.py`
    already did this for measurement; drift.py promotes it to a first-class workload feature.
 2. **Modelled uncertainty about CPU bursts** — `healing/burst_estimator.py` hides exact
-   burst lengths behind a modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (`BurstEstimator`, `perturb_observation`; a modelled `EWMA + exp(N(bias, cv²))` mechanism, **not** calibrated or validated against real traces and not claimed to be realistic).  This directly addresses the largest realism limitation (SJF's perfect burst knowledge) without changing the simulator engine. In the estimator-enabled drift experiment, fixed SJF still receives exact burst lengths and therefore acts as an **oracle baseline, not an equal-information comparison**.
+   burst lengths behind a modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (`BurstEstimator`, `perturb_observation`; a modelled `EWMA × exp(N(bias, sigma²))` mechanism where `sigma = error_cv` is the log-space standard deviation (name retained for backward compatibility; not mathematically identical to the multiplier's CV ≈ 0.307 for sigma=0.30), **not** calibrated or validated against real traces and not claimed to be realistic).  This directly addresses the largest realism limitation (SJF's perfect burst knowledge) without changing the simulator engine. In the estimator-enabled drift experiment, fixed SJF still receives exact burst lengths and therefore acts as an **oracle baseline, not an equal-information comparison**.
 3. **Safety-aware adaptation** — the controller weighs expected improvement against the
    declared `intervention_cost` (1 % of reference waiting time) and only `accepted` windows
    become the new known-good configuration; `inconclusive` windows are rolled back without

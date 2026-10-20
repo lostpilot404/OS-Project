@@ -221,8 +221,12 @@ class HealingConfig:
     # ------------------------------------------------------------------
     # All default to the *original study's* behaviour, so the frozen
     # evaluation remains byte-identical when they are not enabled.
+    # Note: burst_estimator_error_cv is the log-space standard deviation
+    # (sigma) for multiplicative log-normal noise exp(N(bias, sigma^2));
+    # name retained for backward compatibility, not the multiplier's CV
+    # (CV = sqrt(exp(sigma^2)-1) ≈ 0.307 for sigma=0.30). Sampling unchanged.
     burst_estimator_enabled: bool = False
-    burst_estimator_error_cv: float = 0.30
+    burst_estimator_error_cv: float = 0.30  # log-space sigma; name for compat
     burst_estimator_bias: float = 0.0
     burst_estimator_alpha: float = 0.50
     drift_enabled: bool = False

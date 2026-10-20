@@ -8,7 +8,7 @@ Date: 2026-10-20 (Asia/Calcutta) • Branch: arena/1ffa6b9e-os-project • Base:
 
 **Fix (observable-only):**
 - Per-PID observable ledger: `record_service(pid, duration)` called on each dispatch slice from `healing/controller.py:observe_decision()`, cumulative `service_done[pid]`.
-- Per-PID total prediction: EWMA over **completed-job true totals** (those totals are observable only after completion as service sums; the EWMA update is triggered in `record_completion()` with the held-out label — used for next jobs, not current remaining). Prediction is `ewma[bucket]` seeded per config, multiplied by sampled **log-normal noise** `cv=error_cv, bias=error_bias`.
+- Per-PID total prediction: EWMA over **completed-job true totals** (those totals are observable only after completion as service sums; the EWMA update is triggered in `record_completion()` with the held-out label — used for next jobs, not current remaining). Prediction is `ewma[bucket]` seeded per config, multiplied by sampled **log-normal noise** `exp(N(bias, sigma²))` where `sigma = error_cv` is the log-space standard deviation (name `error_cv` retained for backward compatibility; not the multiplier's CV `sqrt(exp(sigma²)-1)` ≈ 0.307 for sigma=0.30), `bias = error_bias`.
 - Remaining estimate: `max(1, min(predicted_total, predicted_total - service_done[pid]))`. No hidden burst/remaining accessed. Clamped to ≥1 and ≤ total; zero-noise means `error_cv=0` → no added noise (deterministic, not unbiased).
 - Error metadata (`absolute_error`, `overestimate`) is evaluation-only via `EstimationError`; not fed to policy.
 - `predict_with_noise(pid, true_burst=None)` signature preserved: `true_burst` optional for evaluation; when omitted the EWMA/bucketed predictor is used (observable path).

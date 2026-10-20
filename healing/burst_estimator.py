@@ -110,15 +110,24 @@ class BurstEstimator:
         is ever read to compute remaining.
 
     Noise is injected at prediction time to model estimator error:
-    ``predicted_total = max(1, round(EWMA_mean * exp(N(bias, cv^2))))``
-    where N is normal in log space.  ``error_cv == 0`` means "no added
-    log-normal noise" (prediction equals EWMA mean); it does not imply
-    predictions equal ground truth or are unbiased, which depends on workload
-    history.
+    ``predicted_total = max(1, round(EWMA_mean * exp(N(bias, sigma^2))))``
+    where N(bias, sigma^2) is normal in log space with standard deviation
+    ``sigma = error_cv`` (the parameter name ``error_cv`` is retained for
+    backward compatibility but is **not** mathematically identical to the
+    resulting multiplier's coefficient of variation, which is
+    ``sqrt(exp(sigma^2) - 1)`` ≈ 0.307 for sigma=0.30).  ``error_cv == 0``
+    means "no added log-normal noise" (prediction equals EWMA mean); it
+    does not imply predictions equal ground truth or are unbiased, which
+    depends on workload history.
 
     Attributes:
         alpha: EWMA smoothing factor in (0, 1].
-        error_cv: Coefficient of variation of multiplicative log-normal noise.
+        error_cv: Log-space standard deviation (sigma) of the normal
+            variable used to generate multiplicative log-normal noise
+            ``exp(N(bias, sigma^2))``. Name retained for backward
+            compatibility; not mathematically identical to the multiplier's
+            coefficient of variation (``sqrt(exp(sigma^2)-1)`` ≈ 0.307 for
+            sigma=0.30).
         error_bias: Mean log-error (negative = systematic underestimation).
         initial_guess: Prior prediction before any observation.
         seed: Base seed for reproducible noise draws.

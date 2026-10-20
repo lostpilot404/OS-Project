@@ -24,7 +24,7 @@ about a real operating system.
   not know these numbers; it would need predictors, and predictor error would change every
   number in `docs/EVALUATION_RESULTS.md`.  This is now **measurable**: set
   `HealingConfig(burst_estimator_enabled=True, burst_estimator_error_cv=0.30)` and the loop
-  sees `healing/burst_estimator.py`'s modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (`EWMA + exp(N(bias, cv²))`, **not** calibrated or validated against real traces and not claimed to be realistic)
+  sees `healing/burst_estimator.py`'s modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (`EWMA × exp(N(bias, sigma²))` where `sigma = error_cv` is the log-space standard deviation, name retained for backward compatibility; not the multiplier's CV ≈ 0.307 for sigma=0.30, **not** calibrated or validated against real traces and not claimed to be realistic)
   instead of ground truth (`perturb_observation`); evaluation still measures against truth so
   the cost of uncertainty can be quantified. Fixed SJF in the same experiment still receives exact burst lengths and is therefore an oracle baseline, not an equal-information comparison.  The frozen study leaves it off so committed
   artifacts stay byte-identical.

@@ -256,7 +256,7 @@ Three additive modules implement the four distinctive points:
   keeps one EWMA per bucket (family/priority) over already-completed bursts; before any
   completions it returns `initial_guess`.  `perturb_observation(observation, estimator)`
   hides the simulator's exact `remaining_burst` behind log-normal multiplicative noise
-  (`error_cv` = coefficient of variation, `error_bias` = systematic bias; the log-normal `EWMA + exp(N(bias, cv²))` mechanism is **modelled**, **not** calibrated or validated against real traces and not claimed to be realistic).  `error_cv == 0` degenerates to exact information (oracle baseline for SJF vs noisy estimate for adaptive arms),
+  (`error_cv` = log-space standard deviation `sigma` for `exp(N(bias, sigma²))` (name retained for backward compatibility; not the multiplier's CV `sqrt(exp(sigma²)-1)` ≈ 0.307 for sigma=0.30), `error_bias` = systematic bias; the log-normal `EWMA × exp(N(bias, sigma²))` mechanism is **modelled**, **not** calibrated or validated against real traces and not claimed to be realistic).  `error_cv == 0` degenerates to exact information (oracle baseline for SJF vs noisy estimate for adaptive arms),
   so the frozen study stays byte-identical.  The controller sees only the estimate;
   evaluation still measures against ground truth, so the cost of uncertainty is quantified.
 * **`evaluation/reliability.py`** — reliability beyond mean waiting time, from the same
