@@ -167,5 +167,27 @@ class WorkloadGenerator:
         )
         return priorities
 
+    def generate_with_drift(self, family_name: str, seed: int, drift_kind: str) -> "Workload":
+        """Generate a workload with mid-trace drift injected.
+
+        Convenience wrapper that first generates a stable workload and then
+        applies a deterministic drift injection.  The drift is reproducible
+        from (family_name, seed, drift_kind) and pre-injection prefix is
+        identical to the stable trace.
+
+        Args:
+            family_name: Base family.
+            seed: Seed for base workload.
+            drift_kind: One of ``workload.drift.DRIFT_KINDS``.
+
+        Returns:
+            Drifted workload.
+        """
+        from workload.drift import DriftSpec, apply_drift  # local import to avoid cycles
+
+        base = self.generate(family_name, seed)
+        spec = DriftSpec(kind=drift_kind, seed=seed)
+        return apply_drift(base, spec)
+
     def __repr__(self) -> str:
         return f"WorkloadGenerator(families={list(self._families)})"

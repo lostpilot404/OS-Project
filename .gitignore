@@ -50,3 +50,6 @@ results/study/training_history.csv
 /figures/reward_by_family.png
 /figures/state_space.png
 /figures/training_curve.png
+
+# Quick presentation output is separate from frozen study evidence.
+/results/demo/

@@ -435,6 +435,18 @@ class SelfHealingController:
             raise ValidationError("forced_holds indices must be >= 0")
         self._monitor = CausalMonitor(config)
         self._detector = DegradationDetector(config)
+        # Optional uncertainty boundary: when enabled the controller sees
+        # noisy burst estimates instead of exact simulator bursts.
+        self._burst_estimator = None
+        if config.burst_estimator_enabled:
+            from healing.burst_estimator import BurstEstimator as _BurstEstimator
+
+            self._burst_estimator = _BurstEstimator(
+                alpha=config.burst_estimator_alpha,
+                error_cv=config.burst_estimator_error_cv,
+                error_bias=config.burst_estimator_bias,
+                seed=42,
+            )
         self._episodes: List[EpisodeRecord] = []
         self._episode_index = -1
         self._training = False
@@ -490,6 +502,8 @@ class SelfHealingController:
         """Reset everything that is per-trace; learning state survives across episodes."""
         self._monitor.reset()
         self._detector.reset()
+        if self._burst_estimator is not None:
+            self._burst_estimator.reset()
         self._settings = self._initial_settings
         self._last_accepted = self._initial_settings
         self._pending: Optional[_PendingIncident] = None
@@ -541,10 +555,19 @@ class SelfHealingController:
             raise ValidationError("episode must be >= 0")
         if self._episode_index < 0:
             raise ValidationError("begin_episode must be called before selecting actions")
+        # Uncertainty boundary: optionally replace exact bursts with estimates.
+        effective_observation = observation
+        if self._burst_estimator is not None:
+            from healing.burst_estimator import perturb_observation as _perturb
+
+            effective_observation = _perturb(observation, self._burst_estimator).observation
+            # The simulator's ground-truth remaining work is still used for
+            # scheduling correctness; the controller's *view* is noisy.
+
         self._training = training
         self._decisions_since_conclusion += 1
-        self._last_ready_count = len(observation.ready_processes)
-        visible_now = sum(p.remaining_burst for p in observation.ready_processes)
+        self._last_ready_count = len(effective_observation.ready_processes)
+        visible_now = sum(p.remaining_burst for p in effective_observation.ready_processes)
         self._last_work_ratio = visible_now / max(
             1.0,
             self._monitor.snapshot().reference_wait
@@ -571,12 +594,12 @@ class SelfHealingController:
             # decision epoch without completed work carries no new performance evidence.
             reason = "no_new_completions"
         else:
-            visible_work = sum(p.remaining_burst for p in observation.ready_processes)
+            visible_work = sum(p.remaining_burst for p in effective_observation.ready_processes)
             outcome = self._detector.evaluate(
                 self._monitor,
-                ready_count=len(observation.ready_processes),
+                ready_count=len(effective_observation.ready_processes),
                 visible_remaining_work=visible_work,
-                observed_mean_burst=observation.observed_mean_burst,
+                observed_mean_burst=effective_observation.observed_mean_burst,
                 load_level=self._monitor.load_level(),
                 load_reference=self._monitor.load_reference,
                 decisions_since_conclusion=self._decisions_since_conclusion,
@@ -588,7 +611,7 @@ class SelfHealingController:
             if outcome.absorbable and outcome.snapshot is not None:
                 self._monitor.absorb_into_reference(outcome.snapshot)
             if outcome.triggered and outcome.snapshot is not None:
-                decision = self._open_incident(observation, outcome, training=training, episode=episode)
+                decision = self._open_incident(effective_observation, outcome, training=training, episode=episode)
                 state_index = decision.state_index
                 epsilon = decision.epsilon
                 explored = decision.explored
@@ -715,6 +738,26 @@ class SelfHealingController:
             if process.pid == record.chosen_pid:
                 self._running_priority = process.priority
                 break
+        # Observable service accounting for burst estimator (strictly observable:
+        # scheduler sees which pid it dispatched and for how long).
+        if self._burst_estimator is not None:
+            service = record.end_time - record.start_time - record.switch_overhead
+            if service >= 1:
+                self._burst_estimator.record_service(record.chosen_pid, int(service))
+            # On completion, the total observable CPU time for that pid is the sum
+            # of all its dispatched slices (tracked via record_service). Use that
+            # observable total as the EWMA sample — no hidden burst_time needed.
+            for pid in record.completed_pids:
+                try:
+                    self._burst_estimator.record_completion(pid, bucket="global")
+                except ValidationError:
+                    # If service tracking missed the pid (e.g., first slice was
+                    # completion under non-preemptive policy where we still recorded
+                    # service above), fallback: the completed slice's service is the
+                    # total for this simple case. This branch should not trigger in
+                    # normal traces but keeps the estimator robust.
+                    if service >= 1:
+                        self._burst_estimator.observe_completed(int(service), bucket="global")
 
         pending = self._pending
         if pending is None:

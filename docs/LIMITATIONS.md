@@ -19,19 +19,35 @@ about a real operating system.
 
 ## 2. Model assumptions that a real scheduler does not enjoy
 
-* **Burst times are visible.** `RuntimeObservation` exposes each ready process's burst and
+* **Burst times are visible by default.** `RuntimeObservation` exposes each ready process's burst and
   remaining burst, so SJF and the diagnosis features are implementable. A real scheduler does
   not know these numbers; it would need predictors, and predictor error would change every
-  number in `docs/EVALUATION_RESULTS.md`.
+  number in `docs/EVALUATION_RESULTS.md`.  This is now **measurable**: set
+  `HealingConfig(burst_estimator_enabled=True, burst_estimator_error_cv=0.30)` and the loop
+  sees `healing/burst_estimator.py`'s modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (`EWMA × exp(N(bias, sigma²))` where `sigma = error_cv` is the log-space standard deviation, name retained for backward compatibility; not the multiplier's CV ≈ 0.307 for sigma=0.30, **not** calibrated or validated against real traces and not claimed to be realistic)
+  instead of ground truth (`perturb_observation`); evaluation still measures against truth so
+  the cost of uncertainty can be quantified. Fixed SJF in the same experiment still receives exact burst lengths and is therefore an oracle baseline, not an equal-information comparison.  The frozen study leaves it off so committed
+  artifacts stay byte-identical.
 * **Two recovery actions are only meaningful under Round Robin.** `shrink_quantum` and
   `grow_quantum` are masked out (and report `changed=False`) whenever the live policy is not
   Round Robin, because they cannot change the schedule there.
-* **The arrival process is stationary within a trace.** The traces used here have a burst
+* **The arrival process is stationary within a trace by default.** The traces used here have a burst
   backlog at the start and then drain; the detector's reference is a slow EWMA of that
   behaviour. Neither the model nor the detector claims to handle non-stationary real traffic.
+  This too is now **injectable**: `workload/drift.py` (and `WorkloadGenerator.generate_with_drift`)
+  inserts `burst_shock`, `arrival_storm`, `phase_transition` and `priority_inversion` at a
+  declared fraction of the arrival span, preserving the pre-injection prefix so stable and
+  drifted traces can be compared causally.  `experiments/healing_detection.py` already did
+  this for measurement; `drift.py` promotes it to a first-class workload feature.
 * **Switch cost is constant** (`switching_cost = 1` time unit) and there are no other
   adaptation costs (no migration, no cache invalidation, no re-tuning latency). Real recovery
   costs are action-specific and larger.
+* **Reliability is no longer hidden in the mean.** Even with drift and burst error turned off,
+  `evaluation/reliability.py` computes P95 waiting time, starvation count, Jain fairness index,
+  recovery delay (decisions and time), false-intervention / rollback / regression rates,
+  fallback rate, throughput and utilization from `ScheduleResult` + incident ledger + audit — so
+  every future experiment that enables drift or the estimator can report them without changing
+  the engine.
 
 ## 3. Measured weaknesses of the healing loop (with numbers)
 
@@ -134,7 +150,10 @@ about a real operating system.
   paired spread of the same statistic against its own hold run (0.103) is the size of the
   remaining headroom; closing it (for example with a per-trace drain model or several windows
   per action) is **not** implemented here, and the specification search that was run on
-  train/validation (`healing_verification_models.csv`) is recorded, not hidden.
+  train/validation (`healing_verification_models.csv`) is recorded, not hidden.  However,
+  `evaluation/reliability.py` now makes the *consequence* of that headroom measurable
+  (rollback rate, recovery delay, false-intervention rate) and `workload/drift.py` lets
+  future work test whether richer references actually shrink it under workload shift.
 * That the tri-state verdict generalises beyond the family mix tested: the accept/reject
   boundaries are percentiles of a control distribution measured on six training families, and
   `poisson_arrivals` (never seen in training) is the only distribution shift in the evaluation.
