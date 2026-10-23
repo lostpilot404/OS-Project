@@ -1,0 +1,474 @@
+{
+  "started_at": "2026-10-23T18:02:30.557Z",
+  "environment": {
+    "browser": "HeadlessChrome/138.0.7204.0",
+    "viewports": [
+      "1440x1000",
+      "420x900"
+    ],
+    "runner": "puppeteer-core 24 / @sparticuz chromium 138"
+  },
+  "checks": [
+    {
+      "name": "stylesheet and script load with 200",
+      "ok": true,
+      "detail": [
+        "200 /static/styles.css",
+        "200 /static/app.js"
+      ]
+    },
+    {
+      "name": "button starts ready with the empty label",
+      "ok": true,
+      "detail": {
+        "label": "Run comparison",
+        "disabled": false
+      }
+    },
+    {
+      "name": "button says \"Running four policies…\" and is disabled while the request is open",
+      "ok": true,
+      "detail": {
+        "label": "Running four policies…",
+        "disabled": true
+      }
+    },
+    {
+      "name": "button returns to a ready state after success",
+      "ok": true,
+      "detail": {
+        "label": "Run comparison again",
+        "disabled": false,
+        "rows": 4
+      }
+    },
+    {
+      "name": "repeated clicks while running did not fire duplicate requests",
+      "ok": true,
+      "detail": {
+        "comparisonPosts": 1
+      }
+    },
+    {
+      "name": "captured 01-comparison-complete-1440.png",
+      "ok": true,
+      "detail": {
+        "bytes": 209630
+      }
+    },
+    {
+      "name": "the ready button really re-runs the comparison",
+      "ok": true,
+      "detail": {
+        "reran": 1
+      }
+    },
+    {
+      "name": "an API failure restores the button and explains itself",
+      "ok": true,
+      "detail": {
+        "label": "Run comparison",
+        "disabled": false,
+        "banner": "The comparison could not run. simulated engine failure for the error path Dismiss",
+        "rows": 0,
+        "table": false
+      }
+    },
+    {
+      "name": "captured 02-comparison-error-1440.png",
+      "ok": true,
+      "detail": {
+        "bytes": 124469
+      }
+    },
+    {
+      "name": "the banner Dismiss control actually removes the banner",
+      "ok": true,
+      "detail": {
+        "hidden": true,
+        "html": 0
+      }
+    },
+    {
+      "name": "a retry after the failure produces the comparison table",
+      "ok": true,
+      "detail": {
+        "label": "Run comparison again",
+        "disabled": false,
+        "rows": 4
+      }
+    },
+    {
+      "name": "after every run the footer, the sidebar and /api/runs agree",
+      "ok": true,
+      "detail": [
+        {
+          "footer": 2,
+          "rail": 2,
+          "apiCount": 2,
+          "apiReturned": 2,
+          "healthStored": 2
+        },
+        {
+          "footer": 3,
+          "rail": 3,
+          "apiCount": 3,
+          "apiReturned": 3,
+          "healthStored": 3
+        },
+        {
+          "footer": 4,
+          "rail": 4,
+          "apiCount": 4,
+          "apiReturned": 4,
+          "healthStored": 4
+        }
+      ]
+    },
+    {
+      "name": "a failed run changes no counter, and the overview still agrees",
+      "ok": true,
+      "detail": {
+        "beforeFail": {
+          "footer": 4,
+          "rail": null,
+          "apiCount": 4,
+          "apiReturned": 4,
+          "healthStored": 4
+        },
+        "afterFailSamePage": {
+          "footer": 4,
+          "rail": null,
+          "apiCount": 4,
+          "apiReturned": 4,
+          "healthStored": 4
+        },
+        "afterFail": {
+          "footer": 4,
+          "rail": 4,
+          "apiCount": 4,
+          "apiReturned": 4,
+          "healthStored": 4
+        }
+      }
+    },
+    {
+      "name": "the failed-run banner clears on request",
+      "ok": true,
+      "detail": {
+        "hidden": true
+      }
+    },
+    {
+      "name": "captured 03-overview-counts-1440.png",
+      "ok": true,
+      "detail": {
+        "bytes": 178144
+      }
+    },
+    {
+      "name": "counters survive a full page reload",
+      "ok": true,
+      "detail": {
+        "afterReload": {
+          "footer": 4,
+          "rail": 4,
+          "apiCount": 4,
+          "apiReturned": 4,
+          "healthStored": 4
+        }
+      }
+    },
+    {
+      "name": "the run list reports how much of the history it is showing",
+      "ok": true,
+      "detail": [
+        "Newest first · re-openable results, not new executions"
+      ]
+    },
+    {
+      "name": "1440 px Workload: ordinary table, no chart toolbar, chart at full width",
+      "ok": true,
+      "detail": {
+        "tableDisplay": "table",
+        "tableScroll": 0,
+        "chartTools": "none",
+        "ganttMinWidth": "880px",
+        "pageOverflow": 0,
+        "rows": 3
+      }
+    },
+    {
+      "name": "captured 04-workload-1440.png",
+      "ok": true,
+      "detail": {
+        "bytes": 161260
+      }
+    },
+    {
+      "name": "1440 px Studio: four examples in three groups, one-line summary rows, ready Run button",
+      "ok": true,
+      "detail": {
+        "library": [
+          "Small teaching workload",
+          "Successful recovery (seed 13)",
+          "Inconclusive verification and rollback (seed 3)",
+          "Custom workload"
+        ],
+        "groups": [
+          "Teaching example",
+          "Self-healing recovery",
+          "Custom workload"
+        ],
+        "summaryDirection": "row",
+        "pageOverflow": 0,
+        "runButton": {
+          "label": "Run simulation",
+          "disabled": false
+        }
+      }
+    },
+    {
+      "name": "captured 05-studio-1440.png",
+      "ok": true,
+      "detail": {
+        "bytes": 212806
+      }
+    },
+    {
+      "name": "1440 px Comparison: normal table, four rows, ready button",
+      "ok": true,
+      "detail": {
+        "display": "table",
+        "rows": 4,
+        "button": {
+          "label": "Run comparison again",
+          "disabled": false
+        }
+      }
+    },
+    {
+      "name": "navigation reaches Recovery Analysis with a real verdict and lifecycle",
+      "ok": true,
+      "detail": {
+        "h1": "Recovery Analysis",
+        "verdict": "accepted FCFS → SJF",
+        "pageText": 7479,
+        "stages": 8,
+        "rails": 7
+      }
+    },
+    {
+      "name": "JSON export returns the run that is on screen",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "id": "785cb52f",
+        "shown": "785cb52f",
+        "keys": "result,run_id,status"
+      }
+    },
+    {
+      "name": "420 px Workload: no page scroll, all nine columns shown as labelled rows",
+      "ok": true,
+      "detail": [
+        "PID:P1",
+        "Arrival:0",
+        "Burst:5",
+        "Priority:2",
+        "First start:0",
+        "Completion:5",
+        "Waiting:0",
+        "Turnaround:5",
+        "Response:0"
+      ]
+    },
+    {
+      "name": "420 px Workload: the whole timeline fits with legible labels",
+      "ok": true,
+      "detail": {
+        "css": "20px",
+        "renderedPx": 9
+      }
+    },
+    {
+      "name": "captured 06-workload-420.png",
+      "ok": true,
+      "detail": {
+        "bytes": 162610
+      }
+    },
+    {
+      "name": "420 px: \"Actual size\" brings back the scrollable full-detail timeline without breaking the page",
+      "ok": true,
+      "detail": {
+        "pressed": "false",
+        "label": "Actual size",
+        "scroll": 518,
+        "pageOverflow": 0
+      }
+    },
+    {
+      "name": "captured 07-workload-420-actual-size.png",
+      "ok": true,
+      "detail": {
+        "bytes": 161630
+      }
+    },
+    {
+      "name": "420 px Studio: summary values sit on their own left-aligned line inside the card",
+      "ok": true,
+      "detail": {
+        "pageOverflow": 0,
+        "library": 4,
+        "summary": [
+          {
+            "dir": "column",
+            "valueRight": 197,
+            "cardRight": 408,
+            "text": "ScenarioSmall teaching workload"
+          },
+          {
+            "dir": "column",
+            "valueRight": 140,
+            "cardRight": 408,
+            "text": "Workloadthree processes"
+          },
+          {
+            "dir": "column",
+            "valueRight": 307,
+            "cardRight": 408,
+            "text": "Parametersprocesses 3, quantum 2, switching cost 0"
+          },
+          {
+            "dir": "column",
+            "valueRight": 94,
+            "cardRight": 408,
+            "text": "Recovery rulenot used"
+          }
+        ],
+        "controls": 4
+      }
+    },
+    {
+      "name": "captured 08-studio-420.png",
+      "ok": true,
+      "detail": {
+        "bytes": 186441
+      }
+    },
+    {
+      "name": "420 px Comparison: bar charts keep legible labels by scrolling rather than shrinking",
+      "ok": true,
+      "detail": {
+        "svgWidth": 560,
+        "scroll": 198,
+        "labelPx": 9
+      }
+    },
+    {
+      "name": "420 px Comparison: four policies stacked with all seven columns, ready button",
+      "ok": true,
+      "detail": {
+        "pageOverflow": 0,
+        "display": "block",
+        "rows": 4,
+        "cells": 7,
+        "button": {
+          "label": "Run comparison again",
+          "disabled": false
+        },
+        "chart": {
+          "svgWidth": 560,
+          "scroll": 198,
+          "labelPx": 9
+        }
+      }
+    },
+    {
+      "name": "captured 09-compare-420.png",
+      "ok": true,
+      "detail": {
+        "bytes": 185168
+      }
+    },
+    {
+      "name": "the only failed request is the deliberately injected one",
+      "ok": true,
+      "detail": [
+        "500 http://127.0.0.1:8000/api/comparisons"
+      ]
+    },
+    {
+      "name": "no console errors beyond the injected 500",
+      "ok": true,
+      "detail": [
+        "[error] Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "file": "01-comparison-complete-1440.png",
+      "label": "Policy Comparison after a completed run: button ready again",
+      "bytes": 209630
+    },
+    {
+      "file": "02-comparison-error-1440.png",
+      "label": "After a failed comparison: button restored, banner shown",
+      "bytes": 124469
+    },
+    {
+      "file": "03-overview-counts-1440.png",
+      "label": "Overview after several runs: footer and sidebar agree",
+      "bytes": 178144
+    },
+    {
+      "file": "04-workload-1440.png",
+      "label": "Workload Explorer at 1440 px (unchanged desktop layout)",
+      "bytes": 161260
+    },
+    {
+      "file": "05-studio-1440.png",
+      "label": "Simulation Studio at 1440 px",
+      "bytes": 212806
+    },
+    {
+      "file": "06-workload-420.png",
+      "label": "Workload Explorer at 420 px: fitted timeline, stacked process rows",
+      "bytes": 162610
+    },
+    {
+      "file": "07-workload-420-actual-size.png",
+      "label": "420 px Workload with the timeline at actual size",
+      "bytes": 161630
+    },
+    {
+      "file": "08-studio-420.png",
+      "label": "Simulation Studio at 420 px: parameter summary reflows",
+      "bytes": 186441
+    },
+    {
+      "file": "09-compare-420.png",
+      "label": "Policy Comparison at 420 px: stacked policy metrics",
+      "bytes": 185168
+    }
+  ],
+  "notes": [],
+  "assets": [
+    "200 /static/styles.css",
+    "200 /static/app.js"
+  ],
+  "failedResponses": [
+    "500 http://127.0.0.1:8000/api/comparisons"
+  ],
+  "consoleLogs": [
+    "[error] Failed to load resource: the server responded with a status of 500 (Internal Server Error)"
+  ],
+  "consoleLogsExcludingInjectedFailure": [],
+  "summary": {
+    "passed": 36,
+    "total": 36
+  },
+  "finished_at": "2026-10-23T18:02:44.547Z"
+}

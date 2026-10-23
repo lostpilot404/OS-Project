@@ -1,0 +1,786 @@
+{
+  "started_at": "2026-10-23T17:39:37.329Z",
+  "checks": [
+    {
+      "name": "stylesheet requested and served 200",
+      "ok": true,
+      "detail": [
+        {
+          "url": "http://127.0.0.1:8000/static/styles.css?v=5829677ed1",
+          "status": 200,
+          "type": "stylesheet"
+        }
+      ]
+    },
+    {
+      "name": "script requested and served 200",
+      "ok": true,
+      "detail": [
+        {
+          "url": "http://127.0.0.1:8000/static/app.js?v=8e393c0d27",
+          "status": 200,
+          "type": "script"
+        }
+      ]
+    },
+    {
+      "name": "shell is no-store and stamps its assets",
+      "ok": true,
+      "detail": {
+        "cacheControl": "no-store, must-revalidate",
+        "text": [
+          "/static/styles.css?v=5829677ed1",
+          "/static/app.js?v=8e393c0d27"
+        ]
+      }
+    },
+    {
+      "name": "page is styled by the served stylesheet",
+      "ok": true,
+      "detail": {
+        "railPosition": "fixed",
+        "railBackground": "rgb(20, 24, 28)",
+        "railWidth": 248,
+        "jsRan": true,
+        "status": "Engine ready · 3.11.2",
+        "buttonBg": "rgb(34, 89, 125)",
+        "bodyFont": "system-ui",
+        "h1Font": "\"Iowan Old Style\"",
+        "sheetCount": 1,
+        "cssRules": 298
+      }
+    },
+    {
+      "name": "script booted and reached the backend",
+      "ok": true,
+      "detail": "Engine ready · 3.11.2"
+    },
+    {
+      "name": "teaching example executed through the real engine",
+      "ok": true,
+      "detail": {
+        "status": "Completed in 21 ms · run 0237e090",
+        "result": "Executed Small teaching workload — mean waiting 4.33 u, FCFS 4.33 u. Final policy FCFS. Workload Explorer → Policy Comparison →"
+      }
+    },
+    {
+      "name": "overview: no horizontal overflow",
+      "ok": true,
+      "detail": 0
+    },
+    {
+      "name": "overview: no overlapping blocks",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "overview: no cramped running text",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "overview: exactly one active nav item",
+      "ok": true,
+      "detail": [
+        "Overview"
+      ]
+    },
+    {
+      "name": "captured 01-overview.png",
+      "ok": true,
+      "detail": {
+        "bytes": 144465
+      }
+    },
+    {
+      "name": "studio library shows three groups and four examples",
+      "ok": true,
+      "detail": {
+        "groups": [
+          "Teaching example",
+          "Self-healing recovery",
+          "Custom workload"
+        ],
+        "cards": [
+          "Small teaching workload",
+          "Successful recovery (seed 13)",
+          "Inconclusive verification and rollback (seed 3)",
+          "Custom workload"
+        ],
+        "selected": "Small teaching workload"
+      }
+    },
+    {
+      "name": "studio: no horizontal overflow",
+      "ok": true,
+      "detail": 0
+    },
+    {
+      "name": "studio: no overlapping blocks",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "studio: no cramped running text",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "captured 02-studio-library.png",
+      "ok": true,
+      "detail": {
+        "bytes": 211923
+      }
+    },
+    {
+      "name": "workload: real teaching trace (3 processes, 3 slices, 4.33 u)",
+      "ok": false,
+      "detail": {
+        "mean": "4.33u\n          FCFS 4.33",
+        "rows": 3,
+        "slices": 6
+      }
+    },
+    {
+      "name": "workload: charts not clipped at 1440",
+      "ok": true,
+      "detail": [
+        {
+          "clippedX": 0,
+          "clippedY": 0,
+          "svgW": 1046,
+          "boxW": 1046
+        }
+      ]
+    },
+    {
+      "name": "workload: no overlapping blocks",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "captured 03-workload-explorer.png",
+      "ok": true,
+      "detail": {
+        "bytes": 160979
+      }
+    },
+    {
+      "name": "comparison: four real executions on the teaching workload",
+      "ok": true,
+      "detail": [
+        "FCFS 4.33 7.33 4.33 2 100.00% 9",
+        "SJF best 1.67 4.67 1.67 2 100.00% 9",
+        "Round Robin 4.33 7.33 2 5 100.00% 9",
+        "Priority 3.67 6.67 3.67 2 100.00% 9"
+      ]
+    },
+    {
+      "name": "compare: no overlapping blocks",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "compare: no cramped running text",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "captured 05-policy-comparison.png",
+      "ok": true,
+      "detail": {
+        "bytes": 209022
+      }
+    },
+    {
+      "name": "research: figures present",
+      "ok": true
+    },
+    {
+      "name": "research: no overlapping blocks",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "research: no cramped running text",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "captured 06-research-results.png",
+      "ok": true,
+      "detail": {
+        "bytes": 195731
+      }
+    },
+    {
+      "name": "about: no overlapping blocks",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "about: no cramped running text",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "about: no horizontal overflow",
+      "ok": true,
+      "detail": 0
+    },
+    {
+      "name": "captured 07-about-method.png",
+      "ok": true,
+      "detail": {
+        "bytes": 390092
+      }
+    },
+    {
+      "name": "recovery: a real accepted incident from seed 13",
+      "ok": true,
+      "detail": {
+        "verdict": "accepted FCFS → SJF",
+        "stages": [
+          "Normal scheduling",
+          "Monitoring window mean 105.17",
+          "Degradation detected t=243, decision 6",
+          "Diagnosis",
+          "Selected intervention",
+          "Observation window t=243 -> 319",
+          "Verification",
+          "Final decision"
+        ],
+        "residual": "+0.4375",
+        "meta": "reason verified_phase_residual window t=243 → t=319 final policy SJF confirmed failure no"
+      }
+    },
+    {
+      "name": "recovery: no overlapping blocks",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "recovery: no cramped running text",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "recovery: charts not clipped",
+      "ok": true,
+      "detail": [
+        {
+          "clippedX": 0,
+          "clippedY": 0,
+          "svgW": 1046,
+          "boxW": 1046
+        }
+      ]
+    },
+    {
+      "name": "captured 04-recovery-analysis.png",
+      "ok": true,
+      "detail": {
+        "bytes": 419105
+      }
+    },
+    {
+      "name": "back/forward move between pages",
+      "ok": true,
+      "detail": {
+        "back": {
+          "hash": "#/recovery",
+          "h1": "Recovery Analysis"
+        },
+        "forward": {
+          "hash": "#/studio",
+          "h1": "Simulation Studio"
+        }
+      }
+    },
+    {
+      "name": "every page marks exactly one nav item",
+      "ok": true,
+      "detail": {
+        "overview": {
+          "active": [
+            "Overview"
+          ],
+          "title": "Overview — Adaptive CPU Scheduling",
+          "h1": "A self-healing CPU scheduler, observed end to end"
+        },
+        "studio": {
+          "active": [
+            "Simulation Studio"
+          ],
+          "title": "Simulation Studio — Adaptive CPU Scheduling",
+          "h1": "Simulation Studio"
+        },
+        "workload": {
+          "active": [
+            "Workload Explorer"
+          ],
+          "title": "Workload Explorer — Adaptive CPU Scheduling",
+          "h1": "Workload Explorer"
+        },
+        "recovery": {
+          "active": [
+            "Recovery Analysis"
+          ],
+          "title": "Recovery Analysis — Adaptive CPU Scheduling",
+          "h1": "Recovery Analysis"
+        },
+        "compare": {
+          "active": [
+            "Policy Comparison"
+          ],
+          "title": "Policy Comparison — Adaptive CPU Scheduling",
+          "h1": "Policy Comparison"
+        },
+        "research": {
+          "active": [
+            "Research Results"
+          ],
+          "title": "Research Results — Adaptive CPU Scheduling",
+          "h1": "Research Results"
+        },
+        "about": {
+          "active": [
+            "About & Method"
+          ],
+          "title": "About & Method — Adaptive CPU Scheduling",
+          "h1": "About the system"
+        }
+      }
+    },
+    {
+      "name": "420px: no horizontal overflow",
+      "ok": true,
+      "detail": 0
+    },
+    {
+      "name": "420px: all seven destinations visible without a hidden scroll",
+      "ok": true,
+      "detail": {
+        "overflow": 0,
+        "railHeight": 134,
+        "linksVisible": 7,
+        "linkCount": 7,
+        "cardWidth": 362,
+        "bodyFont": "14px"
+      }
+    },
+    {
+      "name": "captured 08-studio-420px.png",
+      "ok": true,
+      "detail": {
+        "bytes": 182294
+      }
+    },
+    {
+      "name": "no failing requests during the session",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "no console errors",
+      "ok": true,
+      "detail": []
+    }
+  ],
+  "shots": [
+    {
+      "file": "01-overview.png",
+      "bytes": 144465,
+      "label": "Overview after the teaching run"
+    },
+    {
+      "file": "02-studio-library.png",
+      "bytes": 211923,
+      "label": "Simulation Studio with the example library"
+    },
+    {
+      "file": "03-workload-explorer.png",
+      "bytes": 160979,
+      "label": "Workload Explorer with the teaching run"
+    },
+    {
+      "file": "05-policy-comparison.png",
+      "bytes": 209022,
+      "label": "Policy Comparison on the teaching workload"
+    },
+    {
+      "file": "06-research-results.png",
+      "bytes": 195731,
+      "label": "Research Results"
+    },
+    {
+      "file": "07-about-method.png",
+      "bytes": 390092,
+      "label": "About & Method"
+    },
+    {
+      "file": "04-recovery-analysis.png",
+      "bytes": 419105,
+      "label": "Recovery Analysis, seed 13 accepted"
+    },
+    {
+      "file": "08-studio-420px.png",
+      "bytes": 182294,
+      "label": "Simulation Studio at 420px"
+    }
+  ],
+  "notes": [],
+  "assets": [
+    {
+      "url": "http://127.0.0.1:8000/static/styles.css?v=5829677ed1",
+      "status": 200,
+      "type": "stylesheet"
+    },
+    {
+      "url": "http://127.0.0.1:8000/static/app.js?v=8e393c0d27",
+      "status": 200,
+      "type": "script"
+    }
+  ],
+  "overview": {
+    "viewport": {
+      "w": 1440,
+      "h": 1000
+    },
+    "pageHeight": 1000,
+    "horizontalOverflow": 0,
+    "activeNav": [
+      "Overview"
+    ],
+    "title": "Overview — Adaptive CPU Scheduling",
+    "h1": "A self-healing CPU scheduler, observed end to end",
+    "rail": {
+      "x": 0,
+      "y": 0,
+      "w": 248,
+      "h": 1000
+    },
+    "main": {
+      "x": 296,
+      "y": 48,
+      "w": 1096,
+      "h": 828
+    },
+    "overflowing": [],
+    "overlaps": [],
+    "charts": [],
+    "cramped": [],
+    "cut": [],
+    "trailingGap": 106,
+    "fontSizes": {
+      "h1": "32px",
+      "body": "14.5px"
+    }
+  },
+  "studio": {
+    "viewport": {
+      "w": 1440,
+      "h": 1000
+    },
+    "pageHeight": 1365,
+    "horizontalOverflow": 0,
+    "activeNav": [
+      "Simulation Studio"
+    ],
+    "title": "Simulation Studio — Adaptive CPU Scheduling",
+    "h1": "Simulation Studio",
+    "rail": {
+      "x": 0,
+      "y": 0,
+      "w": 248,
+      "h": 1000
+    },
+    "main": {
+      "x": 296,
+      "y": 48,
+      "w": 1096,
+      "h": 1193
+    },
+    "overflowing": [],
+    "overlaps": [],
+    "charts": [],
+    "cramped": [],
+    "cut": [],
+    "trailingGap": 48,
+    "fontSizes": {
+      "h1": "32px",
+      "body": "14.5px"
+    }
+  },
+  "workload": {
+    "viewport": {
+      "w": 1440,
+      "h": 1000
+    },
+    "pageHeight": 1310,
+    "horizontalOverflow": 0,
+    "activeNav": [
+      "Workload Explorer"
+    ],
+    "title": "Workload Explorer — Adaptive CPU Scheduling",
+    "h1": "Workload Explorer",
+    "rail": {
+      "x": 0,
+      "y": 0,
+      "w": 248,
+      "h": 1000
+    },
+    "main": {
+      "x": 296,
+      "y": 48,
+      "w": 1096,
+      "h": 1138
+    },
+    "overflowing": [],
+    "overlaps": [],
+    "charts": [
+      {
+        "clippedX": 0,
+        "clippedY": 0,
+        "svgW": 1046,
+        "boxW": 1046
+      }
+    ],
+    "cramped": [],
+    "cut": [],
+    "trailingGap": 80,
+    "fontSizes": {
+      "h1": "32px",
+      "body": "14.5px"
+    }
+  },
+  "compare": {
+    "viewport": {
+      "w": 1440,
+      "h": 1000
+    },
+    "pageHeight": 1791,
+    "horizontalOverflow": 0,
+    "activeNav": [
+      "Policy Comparison"
+    ],
+    "title": "Policy Comparison — Adaptive CPU Scheduling",
+    "h1": "Policy Comparison",
+    "rail": {
+      "x": 0,
+      "y": 0,
+      "w": 248,
+      "h": 1000
+    },
+    "main": {
+      "x": 296,
+      "y": 48,
+      "w": 1096,
+      "h": 1619
+    },
+    "overflowing": [],
+    "overlaps": [],
+    "charts": [
+      {
+        "clippedX": 0,
+        "clippedY": 0,
+        "svgW": 1046,
+        "boxW": 1046
+      },
+      {
+        "clippedX": 0,
+        "clippedY": 0,
+        "svgW": 1046,
+        "boxW": 1046
+      }
+    ],
+    "cramped": [],
+    "cut": [],
+    "trailingGap": 80,
+    "fontSizes": {
+      "h1": "32px",
+      "body": "14.5px"
+    }
+  },
+  "research": {
+    "viewport": {
+      "w": 1440,
+      "h": 1000
+    },
+    "pageHeight": 1484,
+    "horizontalOverflow": 0,
+    "activeNav": [
+      "Research Results"
+    ],
+    "title": "Research Results — Adaptive CPU Scheduling",
+    "h1": "Research Results",
+    "rail": {
+      "x": 0,
+      "y": 0,
+      "w": 248,
+      "h": 1000
+    },
+    "main": {
+      "x": 296,
+      "y": 48,
+      "w": 1096,
+      "h": 1311
+    },
+    "overflowing": [],
+    "overlaps": [],
+    "charts": [
+      {
+        "clippedX": 0,
+        "clippedY": 0,
+        "svgW": 1046,
+        "boxW": 1046
+      }
+    ],
+    "cramped": [],
+    "cut": [],
+    "trailingGap": 80,
+    "fontSizes": {
+      "h1": "32px",
+      "body": "14.5px"
+    }
+  },
+  "about": {
+    "viewport": {
+      "w": 1440,
+      "h": 1000
+    },
+    "pageHeight": 1866,
+    "horizontalOverflow": 0,
+    "activeNav": [
+      "About & Method"
+    ],
+    "title": "About & Method — Adaptive CPU Scheduling",
+    "h1": "About the system",
+    "rail": {
+      "x": 0,
+      "y": 0,
+      "w": 248,
+      "h": 1000
+    },
+    "main": {
+      "x": 296,
+      "y": 48,
+      "w": 1096,
+      "h": 1694
+    },
+    "overflowing": [],
+    "overlaps": [],
+    "charts": [],
+    "cramped": [],
+    "cut": [],
+    "trailingGap": 48,
+    "fontSizes": {
+      "h1": "32px",
+      "body": "14.5px"
+    }
+  },
+  "recovery": {
+    "viewport": {
+      "w": 1440,
+      "h": 1000
+    },
+    "pageHeight": 2526,
+    "horizontalOverflow": 0,
+    "activeNav": [
+      "Recovery Analysis"
+    ],
+    "title": "Recovery Analysis — Adaptive CPU Scheduling",
+    "h1": "Recovery Analysis",
+    "rail": {
+      "x": 0,
+      "y": 0,
+      "w": 248,
+      "h": 1000
+    },
+    "main": {
+      "x": 296,
+      "y": 48,
+      "w": 1096,
+      "h": 2354
+    },
+    "overflowing": [],
+    "overlaps": [],
+    "charts": [
+      {
+        "clippedX": 0,
+        "clippedY": 0,
+        "svgW": 1046,
+        "boxW": 1046
+      }
+    ],
+    "cramped": [],
+    "cut": [],
+    "trailingGap": 48,
+    "fontSizes": {
+      "h1": "32px",
+      "body": "14.5px"
+    }
+  },
+  "navAudit": {
+    "overview": {
+      "active": [
+        "Overview"
+      ],
+      "title": "Overview — Adaptive CPU Scheduling",
+      "h1": "A self-healing CPU scheduler, observed end to end"
+    },
+    "studio": {
+      "active": [
+        "Simulation Studio"
+      ],
+      "title": "Simulation Studio — Adaptive CPU Scheduling",
+      "h1": "Simulation Studio"
+    },
+    "workload": {
+      "active": [
+        "Workload Explorer"
+      ],
+      "title": "Workload Explorer — Adaptive CPU Scheduling",
+      "h1": "Workload Explorer"
+    },
+    "recovery": {
+      "active": [
+        "Recovery Analysis"
+      ],
+      "title": "Recovery Analysis — Adaptive CPU Scheduling",
+      "h1": "Recovery Analysis"
+    },
+    "compare": {
+      "active": [
+        "Policy Comparison"
+      ],
+      "title": "Policy Comparison — Adaptive CPU Scheduling",
+      "h1": "Policy Comparison"
+    },
+    "research": {
+      "active": [
+        "Research Results"
+      ],
+      "title": "Research Results — Adaptive CPU Scheduling",
+      "h1": "Research Results"
+    },
+    "about": {
+      "active": [
+        "About & Method"
+      ],
+      "title": "About & Method — Adaptive CPU Scheduling",
+      "h1": "About the system"
+    }
+  },
+  "mobile": {
+    "overflow": 0,
+    "railHeight": 134,
+    "linksVisible": 7,
+    "linkCount": 7,
+    "cardWidth": 362,
+    "bodyFont": "14px"
+  },
+  "failedResponses": [],
+  "consoleLogs": [],
+  "finished_at": "2026-10-23T17:39:43.859Z"
+}

@@ -328,7 +328,7 @@ def test_a_stored_run_can_be_read_back_and_exported(client):
 def test_recent_runs_is_empty_before_any_simulation(client):
     body = client.get("/api/runs").json()
     # The fixture registry keeps six runs; the endpoint reports that limit, not the default.
-    assert body == {"runs": [], "count": 0, "history_limit": 6}
+    assert body == {"runs": [], "count": 0, "returned": 0, "history_limit": 6}
 
 
 def test_recent_runs_summarises_runs_newest_first(client):
@@ -397,6 +397,56 @@ def test_recent_runs_is_bounded_by_the_registry(client):
     kept = [run["run_id"] for run in body["runs"]]
     assert kept == list(reversed(created[1:]))
     assert client.get(f"/api/simulations/{created[0]}").status_code == 404
+
+
+def test_run_count_is_the_registry_size_not_the_page_size(client, monkeypatch):
+    """The interface shows one "runs in this session" figure; both endpoints must agree.
+
+    ``count`` is the registry's size and ``returned`` is how many summaries the response
+    carries. Reporting the page size as the count made the footer and the overview disagree.
+    """
+    for _ in range(3):
+        _post(client, "teaching")
+
+    body = client.get("/api/runs").json()
+    assert body["count"] == 3 == body["returned"] == len(body["runs"])
+    assert client.get("/api/health").json()["simulation"]["stored_runs"] == 3
+
+    # Shrink the page so the summaries are truncated: the count must not follow the page.
+    registry = client.app.state.registry
+    monkeypatch.setattr(registry, "recent", lambda limit=10: registry.__class__.recent(registry, 2))
+    truncated = client.get("/api/runs").json()
+    assert truncated["count"] == 3
+    assert truncated["returned"] == 2
+    assert len(truncated["runs"]) == 2
+    assert client.get("/api/health").json()["simulation"]["stored_runs"] == 3
+
+
+def test_run_count_tracks_the_registry_through_runs_and_evictions(client):
+    counts = []
+    for _ in range(4):
+        _post(client, "recovery-rollback")
+        runs = client.get("/api/runs").json()
+        counts.append((runs["count"], client.get("/api/health").json()["simulation"]["stored_runs"]))
+    assert counts == [(1, 1), (2, 2), (3, 3), (4, 4)]
+
+    for _ in range(4):
+        _post(client, "teaching")
+    runs = client.get("/api/runs").json()
+    # Six kept, eight executed: the count is what the registry holds, not what ran.
+    assert runs["count"] == 6
+    assert runs["history_limit"] == 6
+    assert runs["returned"] == 6
+    assert client.get("/api/health").json()["simulation"]["stored_runs"] == 6
+
+
+def test_run_count_survives_a_failed_request(client):
+    before = client.get("/api/runs").json()["count"]
+    assert _post(client, "nope").status_code == 422          # unknown scenario
+    assert _post(client, "custom", {"processes": []}).status_code == 422
+    after = client.get("/api/runs").json()
+    assert after["count"] == before
+    assert client.get("/api/health").json()["simulation"]["stored_runs"] == before
 
 
 def test_unknown_run_ids_produce_a_clear_404(client):

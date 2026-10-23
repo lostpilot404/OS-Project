@@ -158,11 +158,18 @@ Base URL `http://127.0.0.1:8000`. Interactive OpenAPI docs are at `/docs`.
 { "processes": [ ... ], "quantum": 4, "switching_cost": 0 }
 ```
 
-`GET /api/runs` answers with `{"runs": [...], "count": n, "history_limit": 32}`. Each entry
-carries only what a list needs — `run_id`, `scenario_id`, `scenario_name`, `kind`,
+`GET /api/runs` answers with `{"runs": [...], "count": n, "returned": m, "history_limit": 32}`.
+Each entry carries only what a list needs — `run_id`, `scenario_id`, `scenario_name`, `kind`,
 `executed_at`, `status`, `final_policy`, `mean_waiting_time`, `verdict` — so the Overview page
 never downloads full traces to show the session's history. It is empty before the first run
 and reports the registry's real limit, not a constant.
+
+`count` is the number of runs the registry holds and `returned` is how many summaries this
+response carries; they differ only when the page is smaller than the history, and
+`/api/health`'s `stored_runs` is the same figure as `count`. The interface prints exactly one
+counter — the footer status bar and the Overview's *Session history* fact both read it — so
+the two can no longer disagree, and the run list says *showing the 10 most recent of 16* when
+it truncates.
 
 ### Response shape (`POST /api/simulations`, HTTP 201)
 
@@ -254,6 +261,15 @@ made from headless screenshots at fixed viewports.
 | Tables/charts look cramped | the charts scroll horizontally inside their panel on narrow screens; resize or scroll the chart area |
 | Verdict differs from the guide | read the incident record on **Recovery Analysis**; never relabel inconclusive as accepted |
 | A page says *No simulation in this session yet* | that page describes the current run; run a simulation in the Studio first |
+| The footer and the Overview disagree about how many runs exist | they cannot: both print `count` from `/api/runs`, refreshed whenever the registry changes |
+
+### Narrow screens (≤ 560 px)
+
+The layout reflows instead of shrinking. Wide tables (process list, comparison results) become
+one labelled block per row — every column is kept, and the header row stays in the DOM for
+screen readers. The dispatch timeline is fitted to the panel width by default with its label
+sizes enlarged so they stay legible, and a *Fit to width / Actual size* toggle brings back the
+full-detail scrollable chart. Nothing is hidden and no text is scaled down to fit.
 
 The original, JavaScript-free static page is still available for printing or for a machine
 without a server: `python tools/build_teacher_dashboard.py --input results/demo/demo.json

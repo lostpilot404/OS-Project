@@ -153,6 +153,15 @@ class RunRegistry:
         with self._lock:
             return list(self._runs)
 
+    def size(self) -> int:
+        """Number of runs the registry currently holds.
+
+        This is the one figure the interface may show as "runs in this session": it counts
+        every retained run, not just the summaries a single request happens to return.
+        """
+        with self._lock:
+            return len(self._runs)
+
     @property
     def limit(self) -> int:
         """Number of runs this registry keeps before evicting the oldest."""
@@ -310,7 +319,7 @@ def create_app(registry: Optional[RunRegistry] = None) -> FastAPI:
             "simulation": {
                 "max_concurrent_runs": MAX_CONCURRENT_RUNS,
                 "history_limit": application.state.registry.limit,
-                "stored_runs": len(application.state.registry.ids()),
+                "stored_runs": application.state.registry.size(),
             },
         }
 
@@ -361,7 +370,16 @@ def create_app(registry: Optional[RunRegistry] = None) -> FastAPI:
     def recent_runs() -> Dict[str, Any]:
         registry = application.state.registry
         runs = registry.recent()
-        return {"runs": runs, "count": len(runs), "history_limit": registry.limit}
+        # ``count`` is how many runs the registry holds (the same figure /api/health reports
+        # as ``stored_runs``); ``returned`` is how many summaries this response carries, which
+        # is capped so the overview never downloads a long history. Reporting the page size as
+        # the count made the interface show two different "runs in this session" figures.
+        return {
+            "runs": runs,
+            "count": registry.size(),
+            "returned": len(runs),
+            "history_limit": registry.limit,
+        }
 
     @application.get("/api/simulations/{run_id}")
     def get_simulation(run_id: str) -> JSONResponse:

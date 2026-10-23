@@ -1,0 +1,64 @@
+{
+  "checks": [
+    {
+      "name": "workload: summary, table and CPU lane agree (3 intervals, 3 rows, 4.33 u)",
+      "ok": true,
+      "detail": {
+        "summary": "Initial policy FCFS · 3 dispatch intervals · 0 u switch time · 0 u idle",
+        "mean": "4.33u\n          FCFS 4.33",
+        "rows": 3,
+        "lanes": 4,
+        "cpuSlices": 3
+      }
+    },
+    {
+      "name": "hard reload on an analysis page keeps the route but not the in-memory run (reported)",
+      "ok": true,
+      "detail": {
+        "h1": "Workload Explorer",
+        "hasTrace": false,
+        "emptyState": "No simulation in this session yet",
+        "historyRuns": "os-project-dashboard 1.0.0 · probe 0.12 ms · 5 runs in this session"
+      }
+    },
+    {
+      "name": "footer run counter refreshes only on the 25 s health poll (reported, not fixed)",
+      "ok": true,
+      "detail": {
+        "footer": "os-project-dashboard 1.0.0 · probe 0.12 ms · 5 runs in this session",
+        "apiStored": 5
+      }
+    },
+    {
+      "name": "420px: page never scrolls sideways; chart and table scroll inside their panels",
+      "ok": true,
+      "detail": {
+        "pageOverflow": 0,
+        "panelScroll": 518,
+        "panelW": 362,
+        "svgW": 880,
+        "metricCols": "198px 198px",
+        "tableScroll": 438
+      }
+    },
+    {
+      "name": "captured 09-workload-420px.png",
+      "ok": true,
+      "detail": {
+        "bytes": 130035
+      }
+    }
+  ],
+  "reload": {
+    "h1": "Workload Explorer",
+    "hasTrace": false,
+    "emptyState": "No simulation in this session yet",
+    "historyRuns": "os-project-dashboard 1.0.0 · probe 0.12 ms · 5 runs in this session"
+  },
+  "footer": {
+    "footer": "os-project-dashboard 1.0.0 · probe 0.12 ms · 5 runs in this session",
+    "apiStored": 5
+  },
+  "console1440": [],
+  "console420": []
+}
