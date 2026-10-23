@@ -1,20 +1,27 @@
 # Adaptive CPU Scheduling Using Reinforcement Learning for Dynamic Workloads
 
-**Project system: a self-healing CPU scheduler.** A discrete-event simulator runs a
+**Research focus: Reliable, Self-Healing CPU Scheduling Under Workload Drift and Uncertainty.**
+
+**Project system: a safety-aware self-healing CPU scheduler.** A discrete-event simulator runs a
 reproducible workload trace, monitors the performance the scheduler actually achieves,
 declares a *degradation event* when realized waiting time rises above the trace's own stable
 behaviour, diagnoses a likely cause from observable evidence, asks a recovery controller
 (a predeclared rule or a tabular Q-learning agent) for one recovery action, applies it,
 verifies the outcome over a declared observation window, and then **accepts, rolls back or
 falls back** to a safe configuration — recording every decision, its evidence, its cost and
-its outcome in an incident ledger.
+its outcome in an incident ledger.  The central research question is not *can RL find a
+better policy?* but *can an adaptive scheduler recognize when it is degrading, recover safely
+from workload shifts, and avoid harmful or unnecessary interventions under uncertainty?*
 
 > **Scope.** This is a **synthetic, discrete-event simulation study**, not a kernel
 > modification. There is no Linux/Windows kernel module, no syscall, no real hardware
 > measurement and no real workload trace. "Waiting time", "context switch" and "CPU
-> utilization" below are simulator quantities, and the simulator grants the scheduler burst
-> knowledge that a real operating system does not have. See
-> [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
+> utilization" below are simulator quantities.  By default the simulator exposes exact burst
+> times (as required by SJF); the new uncertainty module [`healing/burst_estimator.py`](healing/burst_estimator.py)
+> replaces that with a modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (a modelled `EWMA × exp(N(bias, sigma²))` mechanism where `sigma = error_cv` is the log-space standard deviation (name retained for backward compatibility; not mathematically identical to the multiplier's CV, which is `sqrt(exp(sigma²)-1)` ≈ 0.307 for sigma=0.30), not a realistic predictor; the noise `sigma`/`bias` have **not** been calibrated or validated against real workload traces), and
+> [`workload/drift.py`](workload/drift.py) adds mid-trace workload phase changes — both
+> off by default so the frozen study stays byte-identical, but available for reliability
+> experiments.  In the estimator-enabled drift experiment, fixed SJF still receives exact burst lengths and therefore acts as an **oracle baseline, not an equal-information comparison**.  See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
 ## Quick lecturer demo and WSL2 setup
 
@@ -37,8 +44,9 @@ Do not omit `demo`: the no-command default launches the full research workflow.
 - [Actual captured Linux output](docs/examples/demo_linux_output.txt).
 - [Audit](docs/FINALIZATION_AUDIT.md) and [delivery checks](docs/FINAL_DELIVERY_CHECKS.md).
 
-Finalization tests on Debian 12/Python 3.11.2: **500 passed, one existing plotting
-warning**. Actual execution inside Windows WSL remains unverified. The frozen
+The earlier demo/report finalization run on Debian 12/Python 3.11.2 had
+**500 passed, one existing plotting warning** (before the reliability extensions were
+consolidated). Actual execution inside Windows WSL remains unverified. The frozen
 research study was not rerun and its artifacts remain unchanged.
 
 ## How the self-healing loop works
@@ -129,7 +137,41 @@ Primary-command flags: `--results-dir DIR`, `--figures-dir DIR`, `--no-figures`,
     --results-dir /tmp/healing-results --figures-dir /tmp/healing-figures
 ```
 
-Tests (500 passed in 38.37 s on the finalization Linux host; timing is host-dependent):
+Reliability extensions (opt-in, frozen study stays byte-identical when off):
+
+```python
+from healing import HealingConfig, SelfHealingController, HoldOnlyPolicy
+from scheduler.runtime import RuntimeSimulator
+from workload.generator import WorkloadGenerator
+from config import build_default_config
+from evaluation.reliability import compute_reliability_metrics
+
+# 1. Mid-trace drift: burst_shock / arrival_storm / phase_transition / priority_inversion
+gen = WorkloadGenerator(build_default_config().families)
+drifted = gen.generate_with_drift("mixed", seed=42, drift_kind="burst_shock")
+
+# 2. Burst uncertainty: modelled online EWMA estimator plus log-normal noise (not calibrated/validated against real traces)
+cfg = HealingConfig(burst_estimator_enabled=True, burst_estimator_error_cv=0.30)
+ctrl = SelfHealingController(cfg, scheduler_config, HoldOnlyPolicy())
+# controller sees noisy bursts (modelled EWMA+log-normal cv=0.30, not a realistic predictor); engine and evaluation still measure against truth; fixed SJF in the same experiment still sees exact bursts (oracle, not equal-information)
+
+# 3. Reliability metrics beyond mean waiting time
+from evaluation.reliability import compute_reliability_metrics, reliability_summary_for_arms
+# per-trace: P95, starvation, Jain fairness, recovery delay, rollback/regression rates
+reliability = compute_reliability_metrics(schedule_result, incidents=ledger, audit_gains=gains)
+```
+
+Or enable via config and re-run the study on drifted traces:
+
+```python
+from healing import HealingConfig
+cfg = HealingConfig(drift_enabled=True, drift_kind="phase_transition",
+                    burst_estimator_enabled=True, burst_estimator_error_cv=0.4)
+# passed to SelfHealingController — healing-study accepts a custom config
+```
+
+Combined-branch verification: **529 passed, one existing plotting warning in 47.20 s**
+on Debian 12 / Python 3.11.2. Run the complete combined test suite:
 
 ```bash
 .venv/bin/python -m pytest -q
@@ -142,16 +184,23 @@ config.py            shared configuration (workload families, Q-learning, schedu
 main.py              command-line entry point (primary system + preserved workflows)
 healing/             the self-healing loop: config, monitor, detector, diagnosis, actions,
                      policies, verifier, controller (state machine + incident ledger),
-                     canonical reward computation (reward.py) and the single-source
-                     canonical numbers quoted by the docs (canonical_numbers.py)
+                     canonical reward computation (reward.py), single-source
+                     canonical numbers (canonical_numbers.py), **burst_estimator.py**
+                     (online burst prediction under uncertainty) — all wired through
+                     HealingConfig with drift/uncertainty flags (default off for
+                     frozen reproducibility)
 scheduler/           event-driven engine (runtime.py) and the four fixed baselines
-workload/            workload model, family generator and content fingerprinting
+workload/            workload model, family generator, content fingerprinting, **drift.py**
+                     (mid-trace phase changes: burst_shock, arrival_storm,
+                     phase_transition, priority_inversion)
 rl/                  tabular Q-learning agent and the offline/runtime controllers
 experiments/         healing study harness, threshold derivation, detector scenarios,
                      preserved offline study, legacy pipeline
-evaluation/          metrics, paired bootstrap, counterfactual helpers
+evaluation/          metrics, paired bootstrap, counterfactual helpers, **reliability.py**
+                     (P95, starvation, Jain fairness, recovery delay, false-intervention
+                     rate, rollback/regression rates, utilization)
 visualization/       figures rendered from the study artifacts; shared style in style.py
-tests/               unit, integration and end-to-end tests
+tests/               unit, integration and end-to-end tests (plus drift/estimator/reliability)
 docs/                methodology, architecture, evaluation results, limitations, reports
 results/healing/     committed evidence of the frozen held-out run (tables + summary),
                      including the canonical 784-row action probe and its labeled legacy archive
@@ -200,6 +249,11 @@ themselves are useful even where the arms only modestly beat FCFS: mean marginal
 **+188.79** wait units per intervention for `rule_wait` (94.3 % of interventions helped) and
 **+192.07** for `q_recovery` (95.0 %), against **−130.84** and 23.3 % for the fairness rule.
 
+See `docs/LEAKAGE_FIX_AND_DRIFT_REPORT.md` for the causal burst estimator and mid-trace drift
+evaluation (burst_shock/arrival_storm, 70 traces/condition, paired CIs: healing −33.6
+[−40.8, −25.7] vs FCFS under burst_shock, Q vs rule +0.26 [0.06, 0.59] practically negligible;
+all metrics traceable to per-trace CSVs with explicit denominators).
+
 Verification is the main limitation. The verdict is taken on a phase-adjusted residual whose
 two boundaries are percentiles of the no-action control, and one window carries only about one
 standard deviation of evidence for the effect of a single action: **every accepted intervention
@@ -214,6 +268,33 @@ coverage curve is flat after ~900 episodes.
 Full evidence, including denominators and confidence intervals, is in
 [`docs/EVALUATION_RESULTS.md`](docs/EVALUATION_RESULTS.md).
 
+## What makes this project distinctive
+
+Rather than *replace Q-learning with another algorithm*, the project's contribution is
+**reliability under drift and uncertainty**:
+
+1. **Workloads that change mid-execution** — `workload/drift.py` injects burst shocks,
+   arrival storms, batch→interactive phase transitions and priority inversions *inside* a
+   trace (at a declared fraction of the arrival span), so adaptation is tested on
+   workload shifts that were never used during training.  Baseline `healing_detection.py`
+   already did this for measurement; drift.py promotes it to a first-class workload feature.
+2. **Modelled uncertainty about CPU bursts** — `healing/burst_estimator.py` hides exact
+   burst lengths behind a modelled online EWMA per-bucket predictor plus log-normal multiplicative noise (`BurstEstimator`, `perturb_observation`; a modelled `EWMA × exp(N(bias, sigma²))` mechanism where `sigma = error_cv` is the log-space standard deviation (name retained for backward compatibility; not mathematically identical to the multiplier's CV ≈ 0.307 for sigma=0.30), **not** calibrated or validated against real traces and not claimed to be realistic).  This directly addresses the largest realism limitation (SJF's perfect burst knowledge) without changing the simulator engine. In the estimator-enabled drift experiment, fixed SJF still receives exact burst lengths and therefore acts as an **oracle baseline, not an equal-information comparison**.
+3. **Safety-aware adaptation** — the controller weighs expected improvement against the
+   declared `intervention_cost` (1 % of reference waiting time) and only `accepted` windows
+   become the new known-good configuration; `inconclusive` windows are rolled back without
+   penalty and cannot trigger the safe fallback.  Verification is a *conservative safety
+   gate*, not a benefit claim.
+4. **Reliability beyond mean waiting time** — `evaluation/reliability.py` measures recovery
+   delay, false-intervention rate, regression/rollback rates, P95 waiting time, starvation
+   count, Jain fairness, context-switch overhead and utilization on *workload shifts not used
+   during training*.
+
+The result is: *Adaptive CPU Scheduling Using Reinforcement Learning for Dynamic Workloads*
+is a safety-aware CPU scheduling simulator that detects performance degradation under
+changing workloads, adapts using learned or rule-based recovery policies, verifies the
+effects of its decisions, and rolls back harmful interventions under uncertainty.
+
 ## Limitations
 
 * The loop **does not beat fixed SJF** on these workloads, and the learned controller is not
@@ -225,8 +306,10 @@ Full evidence, including denominators and confidence intervals, is in
   recall on injected degradations is 75.0 % (burst shock) / 56.4 % (arrival storm) at a median
   detection delay of six decision intervals.
 * Everything is measured in a **single-CPU simulator** with a fixed switching cost, no I/O,
-  observable burst times and stationary arrivals within a trace. Real kernels have none of
-  these properties.
+  and — unless `HealingConfig.burst_estimator_enabled` is turned on — observable burst times
+  and stationary arrivals within a trace. Turning on the estimator and drift modules
+  quantifies how burst-prediction error and non-stationarity degrade the numbers in
+  `docs/EVALUATION_RESULTS.md`; they do not claim to model a real kernel.
 * Intervals are conditional on the declared design (five training seeds, seven families, fixed
   repetitions); they are not claims about all workloads.
 

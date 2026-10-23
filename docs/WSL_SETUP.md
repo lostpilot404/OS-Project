@@ -66,7 +66,7 @@ cd "$HOME"
 git clone https://github.com/lostpilot404/OS-Project.git
 cd "$HOME/OS-Project"
 git fetch origin
-git switch --track origin/arena/49fb0ff9-os-project
+git switch main
 ```
 
 For an existing checkout:
@@ -76,13 +76,15 @@ cd "$HOME/OS-Project"
 git status --short
 # Preserve/commit your own changes before switching; do not reset or clean.
 git fetch origin
-git switch arena/49fb0ff9-os-project
+git switch main
 ```
 
-If the local branch does not exist but the remote does, use the fresh-clone tracking
-command. This delivery uses `arena/49fb0ff9-os-project`, not the originally requested
-`arena/4a2c2384-os-project`. Check the delivered commit with `git log -1 --oneline`.
-Do not switch branches during a presentation.
+For an existing checkout, after switching to `main`, update with
+`git pull --ff-only origin main`. If no local `main` exists, use
+`git switch --track origin/main` instead. The work originally prepared on
+`arena/49fb0ff9-os-project` is consolidated into `main`; use `main` for normal work.
+Check the delivered commit with `git log -1 --oneline`. Do not switch branches during
+a presentation.
 
 ```bash
 git branch --show-current

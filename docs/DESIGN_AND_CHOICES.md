@@ -232,7 +232,65 @@ validation (`HealingExperimentConfig.__post_init__`).
 **Why.** Otherwise "held out" means nothing. The retirement is recorded in
 `experiments/healing_config.py` and in `docs/METHODOLOGY.md` §2.
 
-## 9. Defects found and fixed during the rework
+## 9. Reliability extensions: drift, burst uncertainty and safety metrics
+
+**Decision.** Keep the project name exactly as it is — *Adaptive CPU Scheduling Using
+Reinforcement Learning for Dynamic Workloads* — but shift its research focus to
+**reliable, self-healing recovery under workload drift and uncertainty** (Review 2
+recommendation).  The existing self-healing architecture (monitor → detect → diagnose →
+act → verify → rollback/fallback) is preserved unchanged; the contribution becomes how
+to make it *trustworthy* when workloads change and information is imperfect.
+
+Three additive modules implement the four distinctive points:
+
+* **`workload/drift.py`** — four deterministic mid-trace injections at a declared
+  arrival-span fraction (default 0.35): `burst_shock` (×4 CPU time after injection),
+  `arrival_storm` (×0.35 gap compression), `phase_transition` (second half drawn from a
+  different family, modelling batch→interactive shifts), `priority_inversion` (priority
+  skew).  Pre-injection prefix is untouched, so stable and drifted traces share a causal
+  prefix; the controller cannot distinguish them until the drift arrives.  The two simpler
+  injections already existed as *measurement* tools in `experiments/healing_detection.py`;
+  `drift.py` promotes them to first-class workload features and adds the two regime-change
+  kinds.
+* **`healing/burst_estimator.py`** — a causal online burst predictor.  `BurstEstimator`
+  keeps one EWMA per bucket (family/priority) over already-completed bursts; before any
+  completions it returns `initial_guess`.  `perturb_observation(observation, estimator)`
+  hides the simulator's exact `remaining_burst` behind log-normal multiplicative noise
+  (`error_cv` = log-space standard deviation `sigma` for `exp(N(bias, sigma²))` (name retained for backward compatibility; not the multiplier's CV `sqrt(exp(sigma²)-1)` ≈ 0.307 for sigma=0.30), `error_bias` = systematic bias; the log-normal `EWMA × exp(N(bias, sigma²))` mechanism is **modelled**, **not** calibrated or validated against real traces and not claimed to be realistic).  `error_cv == 0` degenerates to exact information (oracle baseline for SJF vs noisy estimate for adaptive arms),
+  so the frozen study stays byte-identical.  The controller sees only the estimate;
+  evaluation still measures against ground truth, so the cost of uncertainty is quantified.
+* **`evaluation/reliability.py`** — reliability beyond mean waiting time, from the same
+  `ScheduleResult` + incident ledger + audit the study already produces: P95 waiting time,
+  starvation count (> 3× median), Jain's fairness index, recovery delay (decisions and
+  simulated time between detection and verification close), false-intervention rate
+  (`matched_gain ≤ 0` from audit), rollback rate, regression rate (worse than `fixed_fcfs`),
+  fallback rate, CPU utilization and switching overhead.  All definitions are on finished
+  schedules and ledgers, no hidden parameters.
+
+**Why additive flags, not a new protocol.** `HealingConfig` gains six new fields
+(`burst_estimator_enabled`, `burst_estimator_error_cv/bias/alpha`, `drift_enabled`,
+`drift_kind`, `drift_injection_fraction`) all defaulting to the frozen study's behaviour.
+That keeps `main.py healing-study` byte-identical when flags are off, lets past results
+be re-read without regeneration, and makes the incremental evaluation plan honest: (1) add
+drift + estimator; (2) revise verification/rollback; (3) re-freeze on held-out traces
+with paired stats — without introducing DQN/PPO/multicore/I/O all at once.
+
+**Why not replace Q-learning.** On the frozen workload set RL does not beat the rule
+(`+0.18` [−0.04, +0.48]) and neither beats fixed SJF.  The interesting question is no
+longer *which learner wins* but *whether any adaptive loop can avoid regressions when
+workloads shift* — and the project's counterfactual audit already supplies the ground truth
+for that.  A new learner is a second paper; a trustworthy recovery loop is this paper.
+
+**Safety-aware adaptation, concretely.** The cost of switching (`intervention_cost = 1 %`
+of reference waiting time → band units) is subtracted from the reward, and only `accepted`
+windows become the new `last_accepted` configuration.  `inconclusive` is rolled back
+without penalty or failure count, so weak evidence never teaches the controller that an
+action was harmful and never triggers the safe fallback (two consecutive *confirmed*
+`rejected` failures).  The verification gate is thus a conservative filter, and the
+reliability metrics above make its failures visible (rollback rate, false-intervention
+rate, recovery delay).
+
+## 10. Defects found and fixed during the rework
 
 Kept as engineering history, because each line changed a measured number and none of them is a
 design preference. The verification, reward and audit defects are the ones that produced the

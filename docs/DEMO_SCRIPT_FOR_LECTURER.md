@@ -15,7 +15,7 @@ python main.py --help
 python -m pytest -q tests/test_demo.py
 ```
 
-Use the delivered branch `arena/49fb0ff9-os-project`. The tested host was Debian 12,
+Use `main`, which consolidates the demo and reliability-extension branches. The tested host was Debian 12,
 Python 3.11.2; actual Windows WSL execution remains unverified. Run the demo once
 before presenting, enlarge terminal text, and have this guide and the source open.
 After installation the demo needs no network. Do not run `python main.py` alone:

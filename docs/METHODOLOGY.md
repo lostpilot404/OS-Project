@@ -8,24 +8,38 @@ which parts of the pipeline are causal. Every number quoted here is reproduced i
 
 ## 1. Object of study
 
-The **self-healing CPU scheduler**: a scheduling loop that (i) monitors realized performance
-from completed work only, (ii) declares a degradation event against a declared reference with
-threshold, hysteresis and cooldown, (iii) diagnoses a cause from the visible ready set,
-(iv) selects one of eight recovery actions with a predeclared rule or a tabular Q-learning
-controller, (v) applies it, (vi) verifies the outcome over a declared window, and
-(vii) accepts it, rolls it back, or falls back to a pinned safe configuration — recording the
-decision, its evidence, its cost and its outcome.
+The **self-healing CPU scheduler — reliable recovery under workload drift and uncertainty**:
+a scheduling loop that (i) monitors realized performance from completed work only, (ii)
+declares a degradation event against a declared reference with threshold, hysteresis and
+cooldown, (iii) diagnoses a cause from the visible ready set, (iv) selects one of eight
+recovery actions with a predeclared rule or a tabular Q-learning controller, (v) applies it,
+(vi) verifies the outcome over a declared window, and (vii) accepts it, rolls it back, or
+falls back to a pinned safe configuration — recording the decision, its evidence, its cost
+and its outcome.
 
-Two questions are being asked:
+The research shift (Review 2) is from *can RL find a better policy?* to *can an adaptive
+scheduler recognize when it is degrading, recover safely from workload changes, and avoid
+harmful interventions under uncertainty?*  The existing architecture already supports that
+question: the change is to measure reliability, not just mean waiting time, and to test the
+loop on workload shifts and burst-prediction errors it was never trained on.
+
+Three questions are being asked:
 
 1. **Does the loop help relative to doing nothing?** (`rule_wait`/`q_recovery` vs
    `detector_only`, which runs the full monitoring/detection/diagnosis machinery but never
    intervenes.)
 2. **Does the loop beat a fixed scheduler?** (`rule_wait`/`q_recovery` vs `fixed_sjf`,
    `fixed_fcfs`, `fixed_round_robin`, `fixed_priority`.)
+3. **Does it recover reliably under drift and uncertainty?**  Measured by `evaluation/reliability.py`:
+   recovery delay (decisions and time), false-intervention / rollback / regression rates,
+   P95 waiting time, starvation count, Jain fairness index, context-switch overhead and
+   CPU utilization — computed on workload shifts (`workload/drift.py`) and burst-estimator
+   noise (`healing/burst_estimator.py`) that were held out of training, with paired
+   bootstrap and counterfactual audit as the ground truth.
 
-Both are answered on a held-out seed, with paired statistics over identical workloads, and
-with a counterfactual audit of every intervention.
+(1) and (2) are answered on the frozen held-out seed; (3) is additive — the same pipeline
+with `HealingConfig(drift_enabled=True)` or `HealingConfig(burst_estimator_enabled=True)`
+produces the reliability numbers without changing the committed artifacts.
 
 ## 2. Workloads and splits
 
@@ -83,7 +97,8 @@ the `*_from_sjf` arms, so the comparison measures the *recovery* and not the sta
 ## 4. Metrics
 
 All metrics come from `evaluation/metrics.py::compute_metrics(ScheduleResult)` and are
-computed from the finished schedule only:
+computed from the finished schedule only, plus reliability overlays from
+`evaluation/reliability.py` (same inputs, no new definitions of waiting time):
 
 * `avg_waiting_time`, `median_waiting_time`, `p95_waiting_time`, `max_waiting_time` — a
   process's waiting time is `start_time − arrival_time` over the *whole* run, including every
@@ -95,7 +110,16 @@ computed from the finished schedule only:
 * `context_switches` and `switching_overhead`;
 * healing-specific: `incidents`, `interventions`, `accepted`, `rejected`, `inconclusive`,
   `held`, `confirmed_failures`, `fallback_triggered`, `final_policy`, `final_quantum`, plus
-  per-incident evidence in the incident ledger.
+  per-incident evidence in the incident ledger;
+* **reliability** (additive, from `evaluation/reliability.py` on `ScheduleResult` + ledger + audit):
+  `p95_waiting_time`, `max_waiting_time`, starvation count (> 3× median wait),
+  Jain's fairness index over waiting times, recovery delay (median decisions / time between
+  detection and verification close), `false_intervention_rate` (audited interventions with
+  `matched_gain ≤ 0`), `rollback_rate` (`(rejected+inconclusive)/interventions`),
+  `regression_rate` (share of traces worse than `fixed_fcfs`), `fallback_rate`,
+  `cpu_utilization` and `switching_overhead` — reported alongside mean waiting time because
+  a mean alone hides tail and safety behaviour, and because the reliability question is
+  evaluated on workload shifts the learner never saw.
 
 The three verdicts are distinct and must never be collapsed into "not accepted":
 
