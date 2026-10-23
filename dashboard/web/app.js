@@ -24,6 +24,7 @@
     health: null,
     online: false,
     recentRuns: [],
+    sessionRuns: null,         // registry size, from /api/runs; the only run counter shown
     teachingPolicy: null,
     sort: { key: 'pid', direction: 1 },
   };
@@ -171,6 +172,12 @@
       }
     });
 
+    // The banner lives outside #view, so the delegated handler below never sees its Dismiss
+    // button. It needs its own listener or the control does nothing.
+    el('banner').addEventListener('click', (event) => {
+      if (event.target.closest('[data-action="dismiss-banner"]')) clearBanner();
+    });
+
     view().addEventListener('click', (event) => {
       const scenario = event.target.closest('[data-action="select-scenario"]');
       if (scenario) { selectScenario(scenario.dataset.id); return; }
@@ -182,6 +189,7 @@
         else if (name === 'compare') runComparison();
         else if (name === 'teaching-policy') applyTeachingPolicy(action.dataset.policy);
         else if (name === 'sort') sortWorkload(action.dataset.key);
+        else if (name === 'toggle-chart-fit') toggleChartFit(action);
         else if (name === 'add-process') addProcess();
         else if (name === 'remove-process') removeProcess(Number(action.dataset.index));
         else if (name === 'reset-processes') resetProcesses();
@@ -236,8 +244,7 @@
       pill.className = `rail-status ${state.online ? 'ok' : 'bad'}`;
       label.textContent = state.online ? `Engine ready · ${health.engine.python}` : 'Engine degraded';
       el('health-retry').hidden = state.online;
-      el('footer-engine').textContent =
-        `${health.service} ${health.version} · probe ${health.engine.probe_ms} ms · ${health.simulation.stored_runs} run${health.simulation.stored_runs === 1 ? '' : 's'} in this session`;
+      renderCounters();
       return state.online;
     } catch (error) {
       state.online = false;
@@ -245,10 +252,38 @@
       pill.className = 'rail-status bad';
       label.textContent = 'Backend unavailable';
       el('health-retry').hidden = false;
-      el('footer-engine').textContent = '';
+      renderCounters();
       if (!quiet) console.warn('health check failed', error);
       return false;
     }
+  }
+
+  /**
+   * Write the session run count everywhere it appears.
+   *
+   * There is exactly one counter: ``state.sessionRuns``, read from ``GET /api/runs``, whose
+   * ``count`` is the registry's own size (the same figure ``/api/health`` calls
+   * ``stored_runs``). The footer used to read its count from the health payload while the
+   * overview read a different one from the runs list, so after a run the two disagreed until
+   * the next health poll.
+   */
+  function renderCounters() {
+    const node = el('footer-engine');
+    if (!node) return;
+    const health = state.health;
+    if (!health) {
+      node.textContent = '';
+      return;
+    }
+    const parts = [`${health.service} ${health.version}`, `probe ${health.engine.probe_ms} ms`];
+    if (state.sessionRuns !== null) parts.push(runCountText('kept in memory'));
+    node.textContent = parts.join(' · ');
+  }
+
+  function runCountText(suffix) {
+    if (state.sessionRuns === null) return 'run history unavailable';
+    const count = `${state.sessionRuns} run${state.sessionRuns === 1 ? '' : 's'}`;
+    return suffix ? `${count} ${suffix}` : count;
   }
 
   async function loadExamples() {
@@ -265,9 +300,13 @@
     try {
       const payload = await api('/api/runs');
       state.recentRuns = payload.runs || [];
+      // ``count`` is the registry size; ``returned`` only differs if the page is truncated.
+      state.sessionRuns = typeof payload.count === 'number' ? payload.count : state.recentRuns.length;
     } catch (error) {
       state.recentRuns = [];
+      state.sessionRuns = null;
     }
+    renderCounters();
   }
 
   async function loadResearch() {
@@ -481,26 +520,58 @@
 
   // ---------------------------------------------------------------- comparison
 
-  async function runComparison() {
-    if (!state.run || state.comparisonBusy) return;
-    state.comparisonBusy = true;
-    const runId = state.run.run_id;
+  function currentComparison() {
+    if (!state.run || !state.comparison) return null;
+    return state.comparison.runId === state.run.run_id ? state.comparison.result : null;
+  }
+
+  function comparisonLabel() {
+    return currentComparison() ? 'Run comparison again' : 'Run comparison';
+  }
+
+  /** Reflect the in-flight state immediately, without rebuilding the page. */
+  function setComparisonBusy(busy) {
     const button = $('[data-action="compare"]');
-    if (button) { button.disabled = true; button.textContent = 'Running four policies…'; }
+    if (!button) return;
+    button.disabled = busy;
+    button.textContent = busy ? 'Running four policies…' : comparisonLabel();
+  }
+
+  function isCurrentRun(runId) {
+    return Boolean(state.run && state.run.run_id === runId);
+  }
+
+  async function runComparison() {
+    if (!state.run || state.comparisonBusy) return;      // one request at a time
+    const runId = state.run.run_id;
+    state.comparisonBusy = true;
+    state.comparison = null;                              // a new comparison is authoritative
+    setComparisonBusy(true);
     try {
       const payload = await api('/api/comparisons', { method: 'POST', body: JSON.stringify({ run_id: runId }) });
-      if (!state.run || state.run.run_id !== runId) return;   // a newer run replaced it
+      if (!isCurrentRun(runId)) return;                   // a newer run replaced this page
       state.comparison = { result: payload.result, runId };
-      render();
     } catch (error) {
+      if (!isCurrentRun(runId)) return;
       showBanner('error', `<strong>The comparison could not run.</strong> ${esc(error.message)}`);
-      if (button) { button.disabled = false; button.textContent = 'Run comparison'; }
     } finally {
+      // The flag must be cleared before the final paint, or the page keeps rendering the
+      // in-flight button ("Running four policies…", disabled) after the work has finished.
       state.comparisonBusy = false;
+      if (isCurrentRun(runId)) render();
     }
   }
 
   // ---------------------------------------------------------------- inspection
+
+  function toggleChartFit(button) {
+    const frame = button.closest('.chart-frame');
+    if (!frame) return;
+    const fit = frame.dataset.fit !== 'true';
+    frame.dataset.fit = fit ? 'true' : 'false';
+    button.setAttribute('aria-pressed', String(fit));
+    button.textContent = fit ? 'Fit to width' : 'Actual size';
+  }
 
   function inspectSlice(node) {
     view().querySelectorAll('g.slice.selected').forEach((other) => other.classList.remove('selected'));
@@ -648,7 +719,13 @@
     return `
 
       <p class="section-head" style="margin:0 0 4px"><span class="hint">${esc(summary)}</span></p>
-      <div class="chart-scroll" id="gantt">${svg}</div>
+      <div class="chart-frame" data-fit="true">
+        <div class="chart-tools">
+          <span class="hint">Small screen: the trace is fitted to the width. “Actual size” shows full detail with sideways scrolling.</span>
+          <button class="chart-toggle" type="button" data-action="toggle-chart-fit" aria-pressed="true">Fit to width</button>
+        </div>
+        <div class="chart-scroll" id="gantt" aria-label="Dispatch timeline; the same intervals are listed as text in the process table">${svg}</div>
+      </div>
       ${legendRow()}
       <div class="inspector is-empty" id="inspector">
         <p class="hint">Select a dispatch block — click it, or focus it and press Enter — to read the recorded interval.</p>
@@ -684,7 +761,7 @@
             <div><dt>Engine</dt><dd>${esc(engine)}</dd></div>
             <div><dt>Policies</dt><dd>${esc((health && health.engine.policies || ['FCFS', 'SJF', 'Round Robin', 'Priority']).join(' · '))}</dd></div>
             <div><dt>Time units</dt><dd>Simulated, not seconds</dd></div>
-            <div><dt>Session history</dt><dd>${recent.length} run${recent.length === 1 ? '' : 's'} kept in memory</dd></div>
+            <div><dt>Session history</dt><dd>${runCountText('kept in memory')}</dd></div>
           </dl>
         </div>
       </section>
@@ -703,7 +780,7 @@
         <div class="panel flush">
           <div class="section-head" style="padding:20px 24px 0;margin:0">
             <h2>${lastRun ? 'Earlier runs in this session' : 'Runs in this session'}</h2>
-            <span class="hint">Newest first · re-openable results, not new executions</span>
+            <span class="hint">Newest first · ${historyHint()}</span>
           </div>
           ${earlier.length ? `
             <div class="table-scroll">
@@ -735,6 +812,15 @@
         </div>
       </section>`;
   };
+
+  function historyHint() {
+    const shown = state.recentRuns.length;
+    const total = state.sessionRuns;
+    if (typeof total === 'number' && total > shown) {
+      return `showing the ${shown} most recent of ${total} · re-openable results, not new executions`;
+    }
+    return 're-openable results, not new executions';
+  }
 
   function overviewCurrentRun(run) {
     const result = run.result;
@@ -967,8 +1053,8 @@
           aria-sort="${state.sort.key === key ? (state.sort.direction === 1 ? 'ascending' : 'descending') : 'none'}">${label}</th>`).join('');
     const body = sorted.map((row) => `
       <tr>
-        <td><span class="process-key ${POLICY_CLASS[row.policy] || ''}">P${esc(row.pid)}</span></td>
-        ${columns.slice(1).map(([key]) => `<td class="num">${esc(row[key] ?? '—')}</td>`).join('')}
+        <td data-label="PID"><span class="process-key ${POLICY_CLASS[row.policy] || ''}">P${esc(row.pid)}</span></td>
+        ${columns.slice(1).map(([key, label]) => `<td class="num" data-label="${esc(label)}">${esc(row[key] ?? '—')}</td>`).join('')}
       </tr>`).join('');
 
     return `
@@ -1000,7 +1086,7 @@
             <span class="hint">${sorted.length} processes · total waiting ${rows.reduce((s, r) => s + (r.waiting_time || 0), 0)} u · click a column to sort</span>
           </div>
           <div class="table-scroll">
-            <table class="data">
+            <table class="data stacked">
               <thead><tr>${head}</tr></thead>
               <tbody>${body}</tbody>
             </table>
@@ -1202,7 +1288,7 @@
     PAGES.compare.title = 'Policy Comparison';
     if (!state.run) return noRunPage('Policy Comparison', 'A comparison runs on the workload of the current run. Run a simulation in the Studio first.');
     const { result, run_id: runId, source } = state.run;
-    const comparison = state.comparison && state.comparison.runId === runId ? state.comparison.result : null;
+    const comparison = currentComparison();
 
     return `
       ${pageHead({
@@ -1229,7 +1315,7 @@
             <h2 style="font-size:15px">Execute the comparison</h2>
             <p class="panel-intro" style="margin-top:8px">Four simulations run now on this workload. Nothing is reused from earlier comparisons.</p>
             <button class="btn btn-primary" type="button" data-action="compare" style="margin-top:16px"
-              ${state.comparisonBusy ? 'disabled' : ''}>${state.comparisonBusy ? 'Running four policies…' : comparison ? 'Run comparison again' : 'Run comparison'}</button>
+              ${state.comparisonBusy ? 'disabled' : ''}>${state.comparisonBusy ? 'Running four policies…' : comparisonLabel()}</button>
           </div>
         </div>
       </section>
@@ -1270,7 +1356,7 @@
             <span class="hint">Four separate executions · times in simulated units</span>
           </div>
           <div class="table-scroll">
-            <table class="data" style="min-width:660px">
+            <table class="data stacked" style="min-width:660px">
               <thead><tr>
                 <th scope="col">Policy</th>
                 <th scope="col" class="num">Mean waiting</th>
@@ -1283,13 +1369,13 @@
               <tbody>
                 ${policies.map((row) => `
                   <tr>
-                    <td class="name">${esc(row.name)}${row.name === best ? ' <span class="badge accepted plain">best</span>' : ''}</td>
-                    <td class="num ${row.name === best ? 'best' : ''}">${fmt(row.metrics.avg_waiting_time)}</td>
-                    <td class="num">${fmt(row.metrics.avg_turnaround_time)}</td>
-                    <td class="num">${fmt(row.metrics.avg_response_time)}</td>
-                    <td class="num">${fmt(row.metrics.context_switches)}</td>
-                    <td class="num">${pct(row.metrics.cpu_utilization)}</td>
-                    <td class="num">${fmt(row.metrics.total_elapsed_time)}</td>
+                    <td class="name" data-label="Policy">${esc(row.name)}${row.name === best ? ' <span class="badge accepted plain">best</span>' : ''}</td>
+                    <td class="num ${row.name === best ? 'best' : ''}" data-label="Mean waiting">${fmt(row.metrics.avg_waiting_time)}</td>
+                    <td class="num" data-label="Turnaround">${fmt(row.metrics.avg_turnaround_time)}</td>
+                    <td class="num" data-label="Response">${fmt(row.metrics.avg_response_time)}</td>
+                    <td class="num" data-label="Switches">${fmt(row.metrics.context_switches)}</td>
+                    <td class="num" data-label="CPU busy">${pct(row.metrics.cpu_utilization)}</td>
+                    <td class="num" data-label="Elapsed">${fmt(row.metrics.total_elapsed_time)}</td>
                   </tr>`).join('')}
               </tbody>
             </table>

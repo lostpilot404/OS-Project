@@ -386,6 +386,17 @@ hr { border: 0; border-top: 1px solid var(--line); margin: var(--s6) 0; }
 .chart-scroll { overflow-x: auto; padding-bottom: var(--s2); }
 .chart-scroll svg { display: block; height: auto; width: 100%; }
 #gantt svg { min-width: 880px; }
+
+/* The chart toolbar only appears on small screens, where the timeline is wider than the
+   panel. Fitting shows the whole trace at a glance; "Actual size" restores the scrollable
+   full-detail view. Nothing is dropped in either mode. */
+.chart-tools { display: none; }
+.chart-toggle {
+  font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 5px; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); color: var(--ink-2);
+}
+.chart-toggle:hover { border-color: var(--line-strong); color: var(--ink); }
+.chart-toggle[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); font-weight: 600; }
 .chart-caption { font-size: 12px; color: var(--muted); margin-top: var(--s3); line-height: 1.55; }
 .legend { display: flex; flex-wrap: wrap; gap: var(--s2) var(--s4); margin-top: var(--s3); font-size: 12px; color: var(--muted); }
 .legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -701,6 +712,57 @@ table.data tbody tr:last-child td { border-bottom: 0; }
   .doc dt { margin-top: var(--s2); }
   .section-head { flex-direction: column; align-items: flex-start; gap: var(--s1); }
   .empty { padding: var(--s5) var(--s4); }
+
+  /* Run summary: give the value its own line instead of wrapping one word against the edge. */
+  .run-card .summary div { flex-direction: column; align-items: flex-start; gap: 2px; padding-bottom: var(--s2); }
+  .run-card .summary dd { text-align: left; }
+
+  /* Charts: fit the whole timeline by default; "Actual size" keeps the scrollable detail. */
+  .chart-tools {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: var(--s2); margin-bottom: var(--s3);
+  }
+  .chart-tools .hint { font-size: 11.5px; max-width: 62%; }
+  .chart-frame[data-fit="true"] .chart-scroll { overflow-x: hidden; }
+  .chart-frame[data-fit="true"] #gantt svg { min-width: 0; }
+  /* Scaled down to the panel width the labels would render at ~4 px, which is unreadable.
+     Enlarging the SVG's own type keeps them legible while every interval stays on screen. */
+  .chart-frame[data-fit="true"] #gantt text { font-size: 20px; }
+  /* The bar charts carry their labels at the bar ends, so enlarging the type would collide.
+     They keep a legible minimum width and scroll sideways instead of shrinking to 4 px. */
+  .chart-scroll svg.chart { min-width: 560px; }
+  /* A visible scrollbar and one sentence tell the reader the chart continues sideways. */
+  .chart-scroll { scrollbar-width: thin; padding-bottom: var(--s3); }
+  .chart-scroll::-webkit-scrollbar { height: 8px; }
+  .chart-scroll::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+  .chart-caption::after { content: " Scroll a chart sideways if its axis is cut off."; }
+
+  /* Wide tables become stacked key/value cards: every column stays visible and readable
+     without a horizontal scroll or a cut-off header. The header row is hidden visually but
+     kept for assistive technology. */
+  table.data.stacked { min-width: 0 !important; display: block; }
+  table.data.stacked thead {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0;
+    overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+  }
+  table.data.stacked tbody { display: block; }
+  table.data.stacked tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 2px var(--s3); padding: var(--s3) 0; border-bottom: 1px solid var(--line);
+  }
+  table.data.stacked tr:last-child { border-bottom: 0; }
+  table.data.stacked td {
+    display: flex; flex-direction: column; gap: 1px;
+    padding: 2px 0; border: 0; white-space: normal; text-align: left;
+  }
+  table.data.stacked td::before {
+    content: attr(data-label);
+    font-size: 10.5px; letter-spacing: 0.07em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+  }
+  table.data.stacked td:first-child { grid-column: 1 / -1; }
+  table.data.stacked td.num { font-variant-numeric: tabular-nums; }
+  .table-scroll:has(table.data.stacked) { overflow-x: visible; }
 }
 
 @media (prefers-reduced-motion: reduce) {
