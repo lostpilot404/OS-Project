@@ -237,11 +237,15 @@ Every failure uses one shape, and the message is written for a person:
 HeadlessChrome 138.0.7204.0 driven by Puppeteer — against the running server: startup and
 health, all four scenarios, recovery/rollback, custom workloads and validation, policy
 comparisons, export, backend-loss and recovery, duplicate-submission and stale-response
-handling, keyboard operation, and 1440 / 900 / 420 px layouts. Records and screenshots:
-[docs/manual_evidence/web/](manual_evidence/web/) for the first interface, and
-[docs/manual_evidence/web-v2/](manual_evidence/web-v2/) for the current one — every page at
-1440 / 900 / 420 px, the empty states, and 50 scripted browser checks with their results in
-`browser-checks.json`.
+handling, keyboard operation, and 1440 / 900 / 420 px layouts.
+
+Screenshots and raw check results live in [docs/manual_evidence/](manual_evidence/), indexed by
+[its README](manual_evidence/README.md): [`web/`](manual_evidence/web/) for the first interface,
+[`web-v2/`](manual_evidence/web-v2/) for the redesigned one (every page at 1440 / 900 / 420 px,
+the empty states, 50 scripted checks), [`web-v3/`](manual_evidence/web-v3/) for the capture that
+found three interface defects, and [`web-v4/`](manual_evidence/web-v4/) for the verification
+after they were fixed (36 checks: the comparison button lifecycle, an injected API failure, run
+counts agreeing with the registry, and the 420 px reflow).
 
 **Not verified here:** Windows PowerShell. The commands above are the Windows equivalents of
 the Linux commands that were executed; run them once before class. No desktop browser
