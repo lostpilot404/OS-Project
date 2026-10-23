@@ -16,6 +16,31 @@ its outcome in an incident ledger.
 > knowledge that a real operating system does not have. See
 > [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
+## Quick lecturer demo and WSL2 setup
+
+Follow [the exact WSL2 Ubuntu setup](docs/WSL_SETUP.md), including selection of the
+recorded Python 3.11.2 interpreter rather than assuming Ubuntu's default Python.
+After installing `requirements.lock` in the activated environment:
+
+```bash
+python main.py demo
+```
+
+This executes two small deterministic **real self-healing rule** fixtures, prints
+observations, scheduling segments, incidents, verification and measured metrics, and
+saves `results/demo/demo.json`. It does **not** train Q-learning or rerun the study.
+Do not omit `demo`: the no-command default launches the full research workflow.
+
+- [5–8 minute lecturer script](docs/DEMO_SCRIPT_FOR_LECTURER.md).
+- [New final academic report source](docs/OS_Project_Final_Report.md) and
+  [plain black-and-white PDF](docs/OS_Project_Final_Report.pdf).
+- [Actual captured Linux output](docs/examples/demo_linux_output.txt).
+- [Audit](docs/FINALIZATION_AUDIT.md) and [delivery checks](docs/FINAL_DELIVERY_CHECKS.md).
+
+Finalization tests on Debian 12/Python 3.11.2: **500 passed, one existing plotting
+warning**. Actual execution inside Windows WSL remains unverified. The frozen
+research study was not rerun and its artifacts remain unchanged.
+
 ## How the self-healing loop works
 
 ```mermaid
@@ -104,7 +129,7 @@ Primary-command flags: `--results-dir DIR`, `--figures-dir DIR`, `--no-figures`,
     --results-dir /tmp/healing-results --figures-dir /tmp/healing-figures
 ```
 
-Tests (472 tests, ~50 s):
+Tests (500 passed in 38.37 s on the finalization Linux host; timing is host-dependent):
 
 ```bash
 .venv/bin/python -m pytest -q

@@ -51,12 +51,14 @@ def _build_parser() -> argparse.ArgumentParser:
         default="healing-study",
         choices=(
             "healing-study",
+            "demo",
             "study",
             "experiment",
             "train",
             "runtime-experiment",
         ),
         help=(
+            "'demo' runs two quick deterministic self-healing rule fixtures (no training); "
             "'healing-study' (default) runs the self-healing scheduling study: training, "
             "held-out evaluation, recovery-ledger and counterfactual-recovery audit; "
             "'study' runs the preserved offline policy-selection study; 'experiment' runs "
@@ -262,6 +264,14 @@ def _report_healing_study(artifacts) -> None:
 def main(argv: Optional[Sequence[str]] = None) -> int:
     """Run the command-line interface and return its exit code."""
     args = _build_parser().parse_args(argv)
+    if args.command == "demo":
+        from experiments.demo import run_demo
+        try:
+            run_demo(args.results_dir or Path("results/demo"))
+        except OSError as exc:
+            raise SystemExit(f"Demo output could not be written: {exc}. Use --results-dir with a writable directory.") from exc
+        return 0
+
     if args.command == "healing-study":
         artifacts = run_healing_experiment(
             results_dir=args.results_dir or Path("results/healing"),
