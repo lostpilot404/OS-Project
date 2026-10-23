@@ -1,0 +1,96 @@
+$ .venv/bin/python main.py demo --results-dir /tmp/os-teacher-demo
+Self-healing scheduler: deterministic quick demonstration
+Real engine + default thresholds + waiting-time recovery rule; no Q training.
+Times below are simulated units, not seconds. Fixtures are not study results.
+
+INPUT mixed seed=3; fingerprint=9475e3b31f3fc1e0
+Processes (arrival, burst, priority):
+  P4: (0, 12, 2)
+  P5: (2, 10, 2)
+  P1: (3, 41, 4)
+  P14: (3, 24, 5)
+  P7: (8, 44, 4)
+  P10: (8, 5, 2)
+  P6: (9, 41, 4)
+  P11: (9, 17, 5)
+  P9: (10, 2, 5)
+  P13: (12, 32, 1)
+  P12: (13, 22, 1)
+  P2: (14, 5, 5)
+  P3: (15, 9, 4)
+  P15: (15, 14, 5)
+  P8: (18, 30, 4)
+Execution decisions (ready IDs are arrived, unfinished work):
+  d00 t=0 ready=[4] FCFS -> P4 [0,12) switch=0 wait+=44
+  d01 t=12 ready=[5,1,14,7,10,6,11,9,13] FCFS -> P5 [13,23) switch=1 wait+=129
+  d02 t=23 ready=[1,14,7,10,6,11,9,13,12,2,3,15,8] FCFS -> P1 [24,65) switch=1 wait+=505
+  d03 t=65 ready=[14,7,10,6,11,9,13,12,2,3,15,8] FCFS -> P14 [66,90) switch=1 wait+=276
+  d04 t=90 ready=[7,10,6,11,9,13,12,2,3,15,8] FCFS -> P7 [91,135) switch=1 wait+=451
+  d05 t=135 ready=[10,6,11,9,13,12,2,3,15,8] FCFS -> P10 [136,141) switch=1 wait+=55
+  d06 t=141 ready=[6,11,9,13,12,2,3,15,8] SJF -> P9 [142,144) switch=1 wait+=25
+  d07 t=144 ready=[6,11,13,12,2,3,15,8] SJF -> P2 [145,150) switch=1 wait+=43
+  d08 t=150 ready=[6,11,13,12,3,15,8] SJF -> P3 [151,160) switch=1 wait+=61
+  d09 t=160 ready=[6,11,13,12,15,8] SJF -> P15 [161,175) switch=1 wait+=76
+  d10 t=175 ready=[6,11,13,12,8] SJF -> P11 [176,193) switch=1 wait+=73
+  d11 t=193 ready=[6,13,12,8] FCFS -> P6 [194,235) switch=1 wait+=127
+  d12 t=235 ready=[13,12,8] FCFS -> P13 [236,268) switch=1 wait+=67
+  d13 t=268 ready=[12,8] FCFS -> P12 [269,291) switch=1 wait+=24
+  d14 t=291 ready=[8] FCFS -> P8 [292,322) switch=1 wait+=1
+Concluded incident evidence (verdict issued after the observation window):
+  Trigger d6 t=141: completed-window wait=51.000 > threshold=28.203
+  Diagnosis: fairness_starvation: oldest ready job has waited at least 132 time units (recent completed-work wait 51.0 vs reference 23.8 (band 3.6, window 6 completions); also matched: priority_ordering_anomaly, fairness_starvation, queue_congestion)
+  Context bins=[1, 2, 2, 0, 1] -> state=205/648
+  Offered: hold,set_sjf,set_round_robin,set_priority; rule selected: set_sjf
+  Verdict=inconclusive; reason=inconclusive_residual_within_null_range; residual=0.20592237689676574; reward=-0.1607442897699009
+  At window end t=193: rollback to FCFS; confirmed_failure=False
+SUMMARY mean wait=130.467; FCFS same input=150.600; difference=-20.133
+  mean response=130.467; switches=14; elapsed=322; utilization=95.652%
+  Waiting per process = completion - arrival - burst; mean = sum / process count.
+
+INPUT mixed seed=13; fingerprint=d95b8651c9399209
+Processes (arrival, burst, priority):
+  P1: (0, 45, 4)
+  P11: (1, 40, 2)
+  P4: (2, 43, 3)
+  P7: (6, 48, 5)
+  P14: (7, 31, 4)
+  P13: (9, 31, 2)
+  P8: (10, 14, 5)
+  P12: (13, 48, 2)
+  P2: (17, 44, 3)
+  P6: (17, 41, 1)
+  P9: (17, 9, 3)
+  P15: (17, 40, 2)
+  P10: (18, 4, 3)
+  P3: (19, 41, 5)
+  P5: (20, 4, 5)
+Execution decisions (ready IDs are arrived, unfinished work):
+  d00 t=0 ready=[1] FCFS -> P1 [0,45) switch=0 wait+=457
+  d01 t=45 ready=[11,4,7,14,13,8,12,2,6,9,15,10,3,5] FCFS -> P11 [46,86) switch=1 wait+=534
+  d02 t=86 ready=[4,7,14,13,8,12,2,6,9,15,10,3,5] FCFS -> P4 [87,130) switch=1 wait+=529
+  d03 t=130 ready=[7,14,13,8,12,2,6,9,15,10,3,5] FCFS -> P7 [131,179) switch=1 wait+=540
+  d04 t=179 ready=[14,13,8,12,2,6,9,15,10,3,5] FCFS -> P14 [180,211) switch=1 wait+=321
+  d05 t=211 ready=[13,8,12,2,6,9,15,10,3,5] FCFS -> P13 [212,243) switch=1 wait+=289
+  d06 t=243 ready=[8,12,2,6,9,15,10,3,5] SJF -> P10 [244,248) switch=1 wait+=41
+  d07 t=248 ready=[8,12,2,6,9,15,3,5] SJF -> P5 [249,253) switch=1 wait+=36
+  d08 t=253 ready=[8,12,2,6,9,15,3] SJF -> P9 [254,263) switch=1 wait+=61
+  d09 t=263 ready=[8,12,2,6,15,3] SJF -> P8 [264,278) switch=1 wait+=76
+  d10 t=278 ready=[12,2,6,15,3] SJF -> P15 [279,319) switch=1 wait+=165
+  d11 t=319 ready=[12,2,6,3] SJF -> P6 [320,361) switch=1 wait+=127
+  d12 t=361 ready=[12,2,3] SJF -> P3 [362,403) switch=1 wait+=85
+  d13 t=403 ready=[12,2] SJF -> P2 [404,448) switch=1 wait+=46
+  d14 t=448 ready=[12] SJF -> P12 [449,497) switch=1 wait+=1
+Concluded incident evidence (verdict issued after the observation window):
+  Trigger d6 t=243: completed-window wait=105.167 > threshold=75.703
+  Diagnosis: fairness_starvation: oldest ready job has waited at least 233 time units (recent completed-work wait 105.2 vs reference 63.8 (band 9.6, window 6 completions); also matched: priority_ordering_anomaly, fairness_starvation, queue_congestion)
+  Context bins=[1, 2, 2, 0, 1] -> state=205/648
+  Offered: hold,set_sjf,set_round_robin,set_priority; rule selected: set_sjf
+  Verdict=accepted; reason=verified_phase_residual; residual=0.437454899124583; reward=0.07078823245791635
+  At window end t=319: keep configuration; confirmed_failure=False
+SUMMARY mean wait=220.533; FCFS same input=255.800; difference=-35.267
+  mean response=220.533; switches=14; elapsed=497; utilization=97.183%
+  Waiting per process = completion - arrival - burst; mean = sum / process count.
+
+Saved real inputs, observations, intervals, incidents and metrics: /tmp/os-teacher-demo/demo.json
+
+EXIT CODE: 0

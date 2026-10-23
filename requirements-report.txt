@@ -1,4 +1,4 @@
-# Extra dependencies needed only to regenerate the Review 2 report files
+# Optional dependencies for academic PDF verification/builds and Review 2 reports
 # (PDF via ReportLab, DOCX via python-docx).
 # The simulator, experiments and tests need requirements.lock instead.
 reportlab==5.0.1

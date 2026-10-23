@@ -35,7 +35,7 @@ from healing.config import HealingConfig
 from healing.controller import SelfHealingController
 from scheduler import POLICY_CLASSES
 from scheduler.runtime import RuntimeSimulator
-from workload.drift import DRIFT_KINDS, DriftSpec, apply_drift
+from workload.drift import DRIFT_INJECTION_FRACTION, DRIFT_KINDS, DriftSpec, apply_drift
 from workload.generator import WorkloadGenerator
 from workload.models import Workload
 
@@ -61,6 +61,23 @@ ARMS_TO_TEST = ["fixed_fcfs", "fixed_sjf", "detector_only", "rule_wait", "q_reco
 # Training uses 6 families (all but poisson_arrivals); testing uses all 7.
 
 
+def _comparison_interpretations(comparisons: List[Dict[str, Any]]) -> List[str]:
+    """Interpret measured intervals without drift-specific overrides or rounding tests."""
+    lines = []
+    for row in comparisons:
+        if "mean_difference" not in row:
+            continue
+        low, high = float(row["ci95_low"]), float(row["ci95_high"])
+        status = "excludes zero" if low > 0 or high < 0 else "includes zero"
+        lines.append(
+            f"- {row['target']} minus {row['reference']}: "
+            f"{row['mean_difference']:.6g}, 95% CI [{low:.6g}, {high:.6g}] "
+            f"({status}, using unrounded bounds). Negative favors target for waiting time; "
+            "statistical separation alone does not establish practical importance."
+        )
+    return lines
+
+
 def run_drift_evaluation(
     *,
     final_test_seed: int = 23819,
@@ -71,6 +88,8 @@ def run_drift_evaluation(
     training_episodes_per_seed: int = 200,
     output_dir: Path = Path("results/drift"),
 ) -> Dict[str, Any]:
+    # Validate the drift before training or creating output.
+    DriftSpec(kind=drift_kind, phase_target_family="short_jobs" if drift_kind == "phase_transition" else None)
     output_dir.mkdir(parents=True, exist_ok=True)
     config = HealingExperimentConfig(
         final_test_seed=final_test_seed,
@@ -97,8 +116,10 @@ def run_drift_evaluation(
     # Apply drift to copies (deterministic, same seed → same injection time)
     drifted_workloads: List[HealingWorkload] = []
     for hw in base_workloads:
-        spec = DriftSpec(kind=drift_kind, seed=hw.seed)
-        drifted = apply_drift(hw.workload, spec)
+        target = generator.generate("short_jobs", hw.seed) if drift_kind == "phase_transition" else None
+        spec = DriftSpec(kind=drift_kind, seed=hw.seed,
+                         phase_target_family="short_jobs" if target is not None else None)
+        drifted = apply_drift(hw.workload, spec, target_workload=target)
         drifted_workloads.append(HealingWorkload(split=hw.split, family=hw.family, repetition=hw.repetition, seed=hw.seed, workload=drifted))
 
     test_workloads = drifted_workloads
@@ -176,20 +197,10 @@ def run_drift_evaluation(
         p95s = float(np.mean([t["reliability"].p95_waiting for t in all_traces])) if all_traces else 0
         print(f"  {arm_name}: mean_wait={means:.2f} p95={p95s:.2f} n={len(all_traces)}")
 
-    # Reliability summary — fix regression handling for multi-seed arms:
-    # For q_recovery we have 5× traces (one per seed per workload). To compare with
-    # baseline's 70 traces, we average the 5 seeds per workload first, then compare
-    # per-workload means. This preserves pairing by (family, repetition, fingerprint).
+    # Per-trace aggregate metrics; regression below is separately paired by
+    # workload key after averaging training seeds, regardless of repetition count.
     per_arm_metrics = {arm: [t["reliability"] for t in traces] for arm, traces in per_arm_traces.items()}
-    # Build corrected per-workload means for summary
     summary_rows = reliability_summary_for_arms(per_arm_metrics, baseline_arm="fixed_fcfs")
-    # Fix regression_rate for multi-seed arms (where n != baseline n): compute per-workload
-    # mean over seeds, then compare to baseline at same (family, rep) index.
-    # Baseline workloads are in fixed order: 70 traces, family-major, rep-minor as built.
-    # For any arm with 350 traces, average every 5 consecutive traces that share fingerprint
-    # (since models are iterated seed-major: for each seed, we iterated test_workloads in order).
-    # Our traces are seed-major: 70 per seed ×5 seeds = 350, in seed order. So per-workload
-    # mean is mean of traces[i], traces[i+70], ... for each workload index i.
     # Pooled P95 (tail over all process waits, not per-trace mean of maxes).
     # _p95 uses ceil(0.95*n)-1, so per-trace P95 with n=15 is definitionally max.
     # Pooled pools n≈1050 (70×15) or 5250 (350×15) values so P95 < max and interpretable.
@@ -211,32 +222,25 @@ def run_drift_evaluation(
             row["pooled_n"] = 0
 
     baseline_traces = per_arm_traces.get("fixed_fcfs", [])
-    if baseline_traces and len(baseline_traces) == 70:
-        baseline_by_idx = { (t["workload"].family, t["workload"].repetition): t["reliability"].mean_waiting for t in baseline_traces }
+    if baseline_traces:
+        baseline_by_key = {
+            (t["workload"].family, t["workload"].repetition, t["workload"].fingerprint):
+            t["reliability"].mean_waiting for t in baseline_traces
+        }
         for row in summary_rows:
-            arm = row["arm"]
-            if arm == "fixed_fcfs":
+            if row["arm"] == "fixed_fcfs":
                 continue
-            traces = per_arm_traces.get(arm, [])
-            if len(traces) == 70:
-                # Single-seed arm: direct per-index comparison already done, but recompute for clarity
-                worse = sum(1 for t in traces if t["reliability"].mean_waiting > baseline_by_idx[(t["workload"].family, t["workload"].repetition)])
-                row["regression_rate"] = worse / len(traces)
-            elif len(traces) == 350:
-                # Multi-seed: per-workload mean over 5 seeds
-                # Group by (family, rep)
-                from collections import defaultdict
-                grouped = defaultdict(list)
-                for t in traces:
-                    grouped[(t["workload"].family, t["workload"].repetition)].append(t["reliability"].mean_waiting)
-                worse = 0
-                total = 0
-                for key, vals in grouped.items():
-                    mean_val = sum(vals)/len(vals)
-                    if mean_val > baseline_by_idx[key]:
-                        worse += 1
-                    total += 1
-                row["regression_rate"] = worse / total if total else None
+            grouped = {}
+            for trace in per_arm_traces[row["arm"]]:
+                hw = trace["workload"]
+                key = (hw.family, hw.repetition, hw.fingerprint)
+                grouped.setdefault(key, []).append(trace["reliability"].mean_waiting)
+            if set(grouped) != set(baseline_by_key):
+                raise ValueError("Regression comparison requires identical workload keys")
+            row["regression_rate"] = sum(
+                sum(values) / len(values) > baseline_by_key[key]
+                for key, values in grouped.items()
+            ) / len(grouped)
 
     # Write summary CSV
     summary_path = output_dir / f"drift_{drift_kind}_est{estimator_enabled}_cv{estimator_error_cv}_summary.csv"
@@ -311,18 +315,18 @@ def run_drift_evaluation(
     lines = []
     lines.append(f"# Drift & Uncertainty Evaluation — {drift_kind} drift, estimator={estimator_enabled} cv={estimator_error_cv}")
     lines.append("")
-    lines.append(f"**Workloads:** {len(test_workloads)} traces ({repetitions} reps × {len(config.families)} families: {', '.join(f.name for f in config.families)}), seed {final_test_seed}, drift `{drift_kind}` via workload/drift.py at fraction {DriftSpec(kind=drift_kind).injection_fraction} (deterministic per-workload seed, pre-injection prefix identical).")
+    lines.append(f"**Workloads:** {len(test_workloads)} traces ({repetitions} reps × {len(config.families)} families: {', '.join(f.name for f in config.families)}), seed {final_test_seed}, drift `{drift_kind}` via workload/drift.py at fraction {DRIFT_INJECTION_FRACTION} (deterministic per-workload seed, pre-injection prefix identical).")
     lines.append(f"**Workload families:** 7 synthetic families (arrival pattern × burst distribution × priority). Training uses 6 families cycling (all but poisson_arrivals, which is held out to test distribution shift); testing uses all 7. Each trace has 15 processes by default; burst_shock multiplies post-injection bursts by 4.0, arrival_storm compresses post-injection gaps by 0.35, etc. See config.py and workload/drift.py for exact generators.")
     est_note = f"""**Estimator:** {'enabled' if estimator_enabled else 'disabled (exact burst baseline)'}; when enabled EWMA per-bucket over completed totals (observable service sums, alpha={config.healing.burst_estimator_alpha}), log-normal multiplicative noise `exp(N(bias, sigma²))` where `sigma = error_cv = {estimator_error_cv}` is the log-space standard deviation (parameter name `burst_estimator_error_cv` retained for backward compatibility; not mathematically identical to the multiplier's CV `sqrt(exp(sigma²)-1)` ≈ 0.307 for sigma=0.30) bias={config.healing.burst_estimator_bias} via derive_seed; observable source = dispatched service history (no hidden burst/remaining used); ground truth retained only for evaluation via EstimationError (not used for decisions). When enabled=False, controller sees exact remaining_burst (simulator assumption, same as frozen study). SJF baseline `fixed_sjf` always uses exact burst_time (oracle, not equal-information) even when estimator is enabled for adaptive arms; no estimated-burst SJF variant is included in this run. Sampling behavior unchanged (parameter name and value retained)."""
     lines.append(est_note)
     lines.append(f"**Training:** {len(models)} Q tables, {training_episodes_per_seed} episodes/seed on stationary workloads (6 families, poisson_arrivals held out); test on drifted workloads never seen in training. Seeds: {list(config.training_seeds)}.")
-    lines.append(f"**Evaluation:** Each workload instance presented to every arm (paired by fingerprint); 70 traces for single-policy arms, 350 for q_recovery (5 seeds ×70). Metrics via evaluation/reliability.py and evaluation/metrics.py. Bootstrap: family-stratified crossed bootstrap {config.bootstrap_replicates} replicates seed {config.bootstrap_seed}, same as frozen study.")
+    lines.append(f"**Evaluation:** Each workload instance presented to every arm (paired by fingerprint); {len(test_workloads)} traces for single-policy arms, {len(models) * len(test_workloads)} for q_recovery ({len(models)} seeds). Metrics via evaluation/reliability.py and evaluation/metrics.py. Bootstrap: family-stratified crossed bootstrap {config.bootstrap_replicates} replicates seed {config.bootstrap_seed}, same as frozen study.")
     lines.append("")
     lines.append("**Formulas & denominators (explicit):**")
-    lines.append("- mean_waiting = sum(waiting_time)/n, waiting_time = start−arrival per process (includes preemptions); per-trace p95 = ceil(0.95n)th ordered waiting — with n=15 per trace, ceil(0.95*15)=15 so per-trace p95 is definitionally the max (not evidence about tail shape); max = max(waiting); pooled_p95_waiting = ceil(0.95*N)th over all process waits pooled across traces (N≈1050 for 70-trace arms, 5250 for q_recovery), interpretable tail; starved = count(waiting > 3×median); fairness = (sum w)²/(n sum w²) (Jain, 1=perfect); throughput = n/total_time; cpu_util = 100×busy/total_time; switches = count(pid changes); switching_overhead = switches×switching_cost.")
+    lines.append("- mean_waiting = sum(waiting_time)/n, waiting_time = completion−arrival−burst per process (includes preemptions); per-trace p95 = ceil(0.95n)th ordered waiting — with n=15 per trace, ceil(0.95*15)=15 so per-trace p95 is definitionally the max (not evidence about tail shape); max = max(waiting); pooled_p95_waiting = ceil(0.95*N)th over all process waits pooled across traces (N≈1050 for 70-trace arms, 5250 for q_recovery), interpretable tail; starved = count(waiting > 3×median); fairness = (sum w)²/(n sum w²) (Jain, 1=perfect); throughput = n/total_time; cpu_util = 100×busy/total_time; switches = count(pid changes); switching_overhead = switches×switching_cost.")
     lines.append("- incidents = detector events; interventions = action_changed (HOLD excluded); rollback_rate = (rejected+inconclusive)/interventions (per trace, mean over traces); recovery_delay_decisions = mean verification_decisions per incident (where incidents>0); fallback = any incident with fallback_triggered (safe fallback after 2 consecutive confirmed failures).")
     lines.append("- false_intervention_rate = share of interventions with matched_gain≤0 from counterfactual audit (requires audit; None in lightweight drift script — see frozen study's healing_audit.csv for full audit). regression_rate = share of traces where mean_waiting > baseline trace at same (family,rep) (for q_recovery: mean over 5 seeds per workload vs baseline).")
-    lines.append("- Aggregation: per-arm means over traces (for q_recovery over 350 traces = 5 seeds, else 70); comparisons are paired per-workload differences, family-stratified.")
+    lines.append("- Aggregation: per-arm means over traces (for q_recovery over all seed/workload records, not independent workload counts); comparisons are paired per-workload differences, family-stratified.")
     lines.append("")
     lines.append("| Arm | Mean wait | P95 (per-trace mean of max) | Pooled P95 (all waits) | Pooled max | Starved | Fairness | Throughput | CPU util | Switches | Incidents | Interv | Rollback | Recovery delay (dec) | Fallback | Regression vs FCFS |")
     lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
@@ -340,7 +344,7 @@ def run_drift_evaluation(
         lines.append(f"| {row['arm']} | {row['mean_waiting']:.2f} | {row['p95_waiting']:.2f} (=max, n=15) | {pp95_s} (N={row.get('pooled_n',0)}) | {pmax_s} | {row['starved_processes']:.2f} | {row['fairness_index']:.3f} | {row['throughput']:.4f} | {row['cpu_utilization']:.1f} | {row['context_switches']:.1f} | {row['incidents']:.2f} | {row['interventions']:.2f} | {rr_s} | {rd_s} | {row['fallback_rate']:.3f} | {reg_s} |")
     lines.append("")
     if comparisons:
-        lines.append("**Paired bootstrap mean-waiting differences (target − reference, 95% CI, family-stratified crossed over seeds×workloads; Q's 350 records = 5 seeds×70 shared workload instances, not 350 independent workloads; crossed bootstrap in evaluation/paired.py::paired_bootstrap_difference resamples seeds and workloads independently retaining pairing and stratification):**")
+        lines.append("**Paired bootstrap mean-waiting differences (target − reference, 95% CI, family-stratified crossed over seeds×workloads; Q records share workload instances across training seeds and are not independent workloads; crossed bootstrap in evaluation/paired.py::paired_bootstrap_difference resamples seeds and workloads independently retaining pairing and stratification):**")
         lines.append("| Target | Reference | Mean diff | 95% CI |")
         lines.append("|---|---|---:|---|")
         for c in comparisons:
@@ -351,39 +355,18 @@ def run_drift_evaluation(
         lines.append("")
     lines.append("**Interpretation (evidence-limited, no overclaim):**")
     lines.append("- All arms measured on identical workload instances (same seeds, same drift injection), family-stratified; q_recovery reports mean over 5 seeds and per-seed traces in CSV.")
-    # Dynamic drift-specific sentence to keep numbers consistent with summary/comparisons
-    if drift_kind == "burst_shock":
-        lines.append(f"- Under burst_shock, healing (rule_wait and q_recovery) improves mean wait ~12% vs fixed_fcfs (286→253) with no throughput/CPU loss; per-trace P95 equals max by definition (n=15, ceil(0.95*15)=15), so the interpretable tail is pooled P95 over all process waits (see pooled_p95_waiting vs pooled_max_waiting). Fixed SJF oracle (~209, exact burst knowledge, not equal-information) still beats healing by ~44 units (see q_recovery−fixed_sjf CI), showing gap to oracle ordering; adaptive arms used noisy EWMA estimates when estimator enabled.")
-    elif drift_kind == "arrival_storm":
-        lines.append(f"- Under arrival_storm, healing improves mean wait ~5% vs fixed_fcfs (138→130) with no throughput/CPU loss; per-trace P95 equals max by definition (n=15, ceil(0.95*15)=15), so the interpretable tail is pooled P95 over all process waits. Fixed SJF oracle (~99, exact burst knowledge, not equal-information) still beats healing by ~31 units (see q_recovery−fixed_sjf CI), showing gap to oracle ordering; adaptive arms used noisy EWMA estimates when estimator enabled.")
-    else:
-        lines.append(f"- Under {drift_kind}, healing vs fixed_fcfs and SJF oracle gaps are as in the table above; per-trace P95 equals max by definition (n=15, ceil(0.95*15)=15), so the interpretable tail is pooled P95 over all process waits. Fixed SJF oracle uses exact burst_time while adaptive arms used noisy EWMA when estimator enabled.")
-
-    # Dynamic q_recovery vs rule_wait sentence from actual comparisons (avoid stale numbers)
-    qr_rw = next((c for c in comparisons if c.get("target")=="q_recovery" and c.get("reference")=="rule_wait" and "mean_difference" in c), None)
-    if qr_rw is not None:
-        # For display, CIs are rounded to 2 decimals; e.g. arrival_storm 0.0036 -> 0.00 is treated as including 0 per audit spec
-        dl = round(float(qr_rw["ci95_low"]), 2)
-        dh = round(float(qr_rw["ci95_high"]), 2)
-        excludes_zero_display = dl > 0 or dh < 0
-        if drift_kind == "arrival_storm":
-            excludes_zero_display = False  # spec: +0.19 [0.00,0.56] includes zero (borderline)
-        elif drift_kind == "burst_shock" and estimator_enabled:
-            excludes_zero_display = True  # spec: +0.26 [0.06,0.59] excludes zero
-        status = "CI excludes 0, statistically distinguishable but 0.1-0.5% of ~253 mean, not practically meaningful; large paired N gives narrow CI" if excludes_zero_display else "CI includes 0, not statistically distinguishable; effect 0.1-0.5% of mean"
-        lines.append(f"- q_recovery vs rule_wait ({drift_kind}, estimator={estimator_enabled}): {qr_rw['mean_difference']:.2f} [{qr_rw['ci95_low']:.2f}, {qr_rw['ci95_high']:.2f}] ({status}); n=5 training seeds×70 workloads=350 paired records, crossed family-stratified bootstrap retains pairing. Q coverage ~3-7% of 648 states, flat after ~900 episodes, so extra episodes don't buy new states (see EVALUATION_RESULTS §8). For cross-drift reference: burst_shock +0.26 [0.06,0.59] excludes 0 (~0.1% mean), arrival_storm +0.19 [0.00,0.56] includes 0.")
-    else:
-        lines.append("- q_recovery vs rule_wait: see comparisons table; n=5 training seeds×70 workloads=350 paired records, crossed family-stratified bootstrap retains pairing. Q coverage ~3-7% of 648 states, flat after ~900 episodes, so extra episodes don't buy new states (see EVALUATION_RESULTS §8).")
-    lines.append("- Estimator error cv0.30 (modelled log-normal, not claimed realistic/unbiased): rule_wait 252.91→252.75 (−0.06%) vs Q 254.15→253.01 (−0.45%) — small sensitivities, not '<0.2% every arm'; decisions are thresholded on queue aging, not precise remainders; no claim it predicts real OS bursts.")
-    lines.append("- Recovery delay ~5 decisions (~165 time units), rollback ~70-80% (most interventions rolled back after window), fallback 0 — conservative verifier (accept 8.5%, reject 0.3%, inconclusive 91%). False-intervention rate requires audit (frozen study: 5.7% rule_wait, 5.0% q_recovery on held-out).")
-    lines.append("- Arrival_storm lowers waits (higher throughput, lower util) and incident rate; ordering preserved but effect size smaller (130 vs 137 for FCFS).")
-    lines.append("- Limitations: single-CPU, fixed switch cost 1, no I/O/multicore/cache, synthetic families only, 70 traces/condition, Q undertrained, intervals conditional on declared design. Conclusions apply to simulator, not production kernel.")
+    lines.extend(_comparison_interpretations(comparisons))
+    lines.append("- Fixed SJF receives exact bursts; when the estimator is enabled this is an oracle, not an equal-information comparison.")
+    lines.append("- Recovery delays measure verification-window closure, not independently proven recovery. Audit-dependent false-intervention rates are unavailable in this lightweight run.")
+    if drift_kind == "phase_transition":
+        lines.append("- Phase transition uses short_jobs suffix bursts/priorities drawn with the base workload seed; original arrivals and process IDs are retained.")
+    lines.append("- Limitations: single-CPU, fixed switch cost 1, no I/O/multicore/cache, synthetic families only, declared sample/episode budget, intervals conditional on declared design. Conclusions apply to simulator, not production kernel.")
     lines.append("")
-    lines.append("**Traceability:** Every reported mean is sum(col)/n over per_trace CSV rows (fingerprint links to workload); comparisons are paired per-workload differences. Raw per-trace CSV: `drift_{kind}_est{cv}_per_trace.csv`. Aggregation reproduced by `reliability_summary_for_arms` (evaluation/reliability.py).")
+    lines.append("**Traceability:** Every reported mean is sum(col)/n over per_trace CSV rows (fingerprint links to workload); comparisons are paired per-workload differences. Raw per-trace CSV is named in Artifacts below. Metric means use `reliability_summary_for_arms`; this script separately computes fingerprint-paired seed-averaged regression rates and pooled tails.")
     lines.append("**Reproduce:** `PYTHONPATH=. .venv/bin/python experiments/drift_uncertainty_experiment.py --reps 10 --train-episodes 200 --drift burst_shock --cv 0.30` (+ `--no-estimator`, `--drift arrival_storm`).")
-    lines.append(f"**Artifacts:** {summary_path.name}, {detail_path.name}, {comp_path.name if comparisons else 'no comparisons'}, {Path(report_path).name if 'report_path' in locals() else 'report.md'}")
-
     report_path = output_dir / f"drift_{drift_kind}_est{estimator_enabled}_cv{estimator_error_cv}_report.md"
+    lines.append(f"**Artifacts:** {summary_path.name}, {detail_path.name}, {comp_path.name if comparisons else 'no comparisons'}, {report_path.name}")
+
     report_path.write_text("\n".join(lines))
     print("\n" + "\n".join(lines))
     print(f"\nArtifacts: {summary_path}, {detail_path}, {comp_path if comparisons else ''}, {report_path}")

@@ -1,0 +1,4 @@
+$ .venv/bin/python tools/build_plain_report.py --source docs/OS_Project_Final_Report.md --output /tmp/os-teacher-final-report.pdf
+Built /tmp/os-teacher-final-report.pdf (18 pages) from docs/OS_Project_Final_Report.md
+
+EXIT CODE: 0

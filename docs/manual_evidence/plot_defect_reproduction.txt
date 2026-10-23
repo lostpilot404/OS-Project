@@ -1,0 +1,20 @@
+$ .venv/bin/python -m pytest -q tests/test_probe_schema.py (after adding regression assertion, before plot fix)
+        def capture_figure(self, path, *args, **kwargs):
+            saved[pathlib.Path(path).name] = self
+            return original_savefig(self, path, *args, **kwargs)
+
+        monkeypatch.setattr(Figure, "savefig", capture_figure)
+        # Should not raise
+        paths = plot_healing_figures(tmp_path, metrics, comparisons, detection, audit, canonical)
+        assert "figure_action_effects" in paths
+        assert pathlib.Path(paths["figure_action_effects"]).exists()
+        action_figure = saved["healing_action_effects.png"]
+        recovery_figure = saved["healing_recovery_outcomes.png"]
+>       assert action_figure is not recovery_figure
+E       assert <Figure size 1820x672 with 2 Axes> is not <Figure size 1820x672 with 2 Axes>
+
+tests/test_probe_schema.py:120: AssertionError
+=========================== short test summary info ============================
+FAILED tests/test_probe_schema.py::test_healing_plots_accepts_canonical_schema
+1 failed, 4 passed in 1.38s
+Original pytest exit code: 1 (the wrapping shell printed tail afterward).

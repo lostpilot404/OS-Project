@@ -1,0 +1,10 @@
+$ env PYTHONPATH=. .venv/bin/python experiments/drift_uncertainty_experiment.py --drift unsupported --out /tmp/os-teacher-invalid-drift
+usage: drift_uncertainty_experiment.py [-h] [--seed SEED] [--reps REPS]
+                                       [--drift {burst_shock,arrival_storm,phase_transition,priority_inversion}]
+                                       [--estimator] [--no-estimator]
+                                       [--cv CV]
+                                       [--train-episodes TRAIN_EPISODES]
+                                       [--out OUT]
+drift_uncertainty_experiment.py: error: argument --drift: invalid choice: 'unsupported' (choose from 'burst_shock', 'arrival_storm', 'phase_transition', 'priority_inversion')
+
+EXIT CODE: 2

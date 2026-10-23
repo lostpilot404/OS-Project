@@ -53,3 +53,10 @@ results/study/training_history.csv
 
 # Quick presentation output is separate from frozen study evidence.
 /results/demo/
+
+# Local secrets and machine-specific environment settings (never submission assets).
+.env
+.env.*
+!.env.example
+*.pem
+*.key

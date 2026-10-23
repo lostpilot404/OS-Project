@@ -83,6 +83,8 @@ def test_pipeline_separates_splits_pairs_all_methods_and_records_validation_demo
     report = artifacts.paths["report"].read_text()
     assert "untouched final test" in report.lower()
     assert "gamma" in report
+    assert "across 1 independently trained model(s)" in report
+    assert "the five independently trained models" not in report
 
 
 def test_runtime_default_uses_undiscounted_waiting_objective_and_explicit_feature_metadata() -> None:
