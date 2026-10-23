@@ -2,8 +2,8 @@
 
 These answers distinguish the primary healing study, the non-healing runtime appendix,
 and the legacy offline selector. Current direct observations and provenance are in
-[MANUAL_VERIFICATION_REPORT.md](MANUAL_VERIFICATION_REPORT.md); commands and arithmetic
-are in [TEACHER_LIVE_DEMO.md](TEACHER_LIVE_DEMO.md).
+[MANUAL_VERIFICATION_REPORT.md](MANUAL_VERIFICATION_REPORT.md); commands, the classroom
+dashboard and arithmetic are in [TEACHER_LIVE_DEMO.md](TEACHER_LIVE_DEMO.md).
 
 ## Purpose, scheduling and metrics
 
@@ -142,6 +142,84 @@ rejections, unchanged thresholds, and FCFS after t189.
 The verifier has a limited online observation window; final waiting measures the completed
 trace. They answer different questions. Seed 3 improves final mean versus FCFS but has
 residual 0.205922 and rolls back. This is not an accepted success or failed program.
+
+## The classroom dashboard
+
+**What is the dashboard, and is it a second simulator?**
+No. `dashboard/` and `tools/build_teacher_dashboard.py` only *read* what the simulator
+already wrote: `demo.json` for the two fixtures and `results/healing/` for the research
+panel. The builder validates the trace against the per-process outcomes and the recorded
+metrics (busy time, switches, totals, fingerprint, incident decision indices) and refuses
+to draw anything that disagrees. The page states that it is replaying recorded data.
+
+**Are the charts hand-made or animated?**
+No. Every chart is inline SVG generated from the recorded values; nothing runs in the
+browser except tab switching, a policy selector and the inspect-a-block read-out. With
+JavaScript disabled the page still shows every section, because all panels are rendered in
+the HTML and the script only filters visibility.
+
+**How do I know the numbers on the page are not typed in?**
+The build fails if `demo.json` is missing, malformed, or internally inconsistent (for
+example a metric total that does not equal the sum of per-process waiting times). The
+research sentences are generated from the study summary — including "is Q better than the
+rule?" — so a different artifact produces a different sentence. The page also prints the
+demo file's SHA-256 prefix. `tests/test_teacher_dashboard.py` covers all of this.
+
+**Why does the seed-3 rollback not count as a failure on the dashboard?**
+Because it is not one. The residual (+0.2059) lies inside the declared null range, so the
+verdict is *inconclusive*; the declared posture rolls such a change back without advancing
+the confirmed-failure counter. Only a residual at or below −0.30 is a rejected, confirmed
+failure. The page shows this on the verification-band chart and in the incident record.
+
+**Does the dashboard run the full study or train a model?**
+No. It never trains and never evaluates; it reads the committed `healing_summary.json` and
+`healing_comparisons.csv`. Use `--no-research` for a demo-only copy, or `--research PATH` to
+point at a fresh study directory.
+
+**What if the page opens unstyled or fails to build?**
+See the recovery list in [TEACHER_LIVE_DEMO.md](TEACHER_LIVE_DEMO.md) §C. In short: rerun
+the demo, rebuild with `--force`, and never hand-edit the generated HTML.
+
+## The live console (backend + browser)
+
+**Is the web app a second simulator?**
+No. `tools/serve_dashboard.py` starts FastAPI; `dashboard/service.py` validates the request,
+calls `experiments.demo.run_fixture` / `run_healing_workload` / `scheduler.POLICY_CLASSES`,
+passes the result through the existing `dashboard.model` schema and returns it. The browser
+(`dashboard/web/app.js`) has no scheduling, detection or metric code — it sends requests and
+renders returned values, including SVG charts produced in Python.
+
+**How do I know the browser is showing a real execution and not a saved file?**
+Every result carries a run id, the server's engine time and the execution timestamp, and is
+shown under an "Executed now" tag. Pressing Run again produces a new run id. The API tests
+re-execute each scenario and compare the payload with a direct engine call, so a stale or
+invented response would fail the suite.
+
+**What happens if the engine or the server fails?**
+The UI shows the error text and refuses to draw a result: a 422 names the offending field, a
+500 reports the engine failure message, and a dead server produces "The backend could not be
+reached" with a Retry button. Old results stay on screen only with an explicit "previous
+successful run" warning.
+
+**Can two people (or two clicks) corrupt each other's runs?**
+No. Each run gets its own temporary directory outside the repository, the history is bounded
+to 32 runs, at most four simulations execute at once (further requests get HTTP 429), and the
+UI disables Run while a request is in flight. A comparison response that arrives after a newer
+run is discarded instead of replacing it.
+
+**Does the console touch the committed research artifacts?**
+Only by reading `results/healing/healing_summary.json` and its comparisons CSV. Requests
+cannot carry paths at all, so a client cannot aim the server at a directory.
+
+**Are the numbers identical to the command line?**
+Yes. `main.py demo` output and `demo.json` are byte-identical to the pre-change baseline
+(SHA-256 prefix `c3f4826d5ce935c9`), because the CLI and the API call the same fixture
+function.
+
+**Where is the setup and the troubleshooting list?**
+[docs/LIVE_DASHBOARD.md](LIVE_DASHBOARD.md) — requirements, PowerShell and Linux commands,
+the API table, error shapes and common failures. The classroom sequence is §A2 of
+[TEACHER_LIVE_DEMO.md](TEACHER_LIVE_DEMO.md).
 
 ## Reproducibility, findings and limitations
 

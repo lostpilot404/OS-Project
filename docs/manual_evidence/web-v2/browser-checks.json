@@ -1,0 +1,404 @@
+{
+  "checked_at": "2026-10-23T17:25:44.928Z",
+  "results": [
+    {
+      "name": "deep link renders Recovery Analysis",
+      "ok": true,
+      "detail": {
+        "title": "Recovery Analysis — Adaptive CPU Scheduling",
+        "h1": "Recovery Analysis",
+        "empty": true,
+        "cta": "Open Simulation Studio",
+        "active": "Recovery Analysis"
+      }
+    },
+    {
+      "name": "empty state offers Open Simulation Studio",
+      "ok": true,
+      "detail": {
+        "title": "Recovery Analysis — Adaptive CPU Scheduling",
+        "h1": "Recovery Analysis",
+        "empty": true,
+        "cta": "Open Simulation Studio",
+        "active": "Recovery Analysis"
+      }
+    },
+    {
+      "name": "active nav item matches the route",
+      "ok": true,
+      "detail": "Recovery Analysis"
+    },
+    {
+      "name": "document title names the page",
+      "ok": true,
+      "detail": "Recovery Analysis — Adaptive CPU Scheduling"
+    },
+    {
+      "name": "unknown route falls back to Overview",
+      "ok": true,
+      "detail": "http://127.0.0.1:8000/#/does-not-exist"
+    },
+    {
+      "name": "route overview renders one page",
+      "ok": true,
+      "detail": {
+        "h1": "A self-healing CPU scheduler, observed end to end",
+        "active": [
+          "Overview"
+        ]
+      }
+    },
+    {
+      "name": "route overview marks exactly one nav item",
+      "ok": true,
+      "detail": [
+        "Overview"
+      ]
+    },
+    {
+      "name": "route studio renders one page",
+      "ok": true,
+      "detail": {
+        "h1": "Simulation Studio",
+        "active": [
+          "Simulation Studio"
+        ]
+      }
+    },
+    {
+      "name": "route studio marks exactly one nav item",
+      "ok": true,
+      "detail": [
+        "Simulation Studio"
+      ]
+    },
+    {
+      "name": "route workload renders one page",
+      "ok": true,
+      "detail": {
+        "h1": "Workload Explorer",
+        "active": [
+          "Workload Explorer"
+        ]
+      }
+    },
+    {
+      "name": "route workload marks exactly one nav item",
+      "ok": true,
+      "detail": [
+        "Workload Explorer"
+      ]
+    },
+    {
+      "name": "route recovery renders one page",
+      "ok": true,
+      "detail": {
+        "h1": "Recovery Analysis",
+        "active": [
+          "Recovery Analysis"
+        ]
+      }
+    },
+    {
+      "name": "route recovery marks exactly one nav item",
+      "ok": true,
+      "detail": [
+        "Recovery Analysis"
+      ]
+    },
+    {
+      "name": "route compare renders one page",
+      "ok": true,
+      "detail": {
+        "h1": "Policy Comparison",
+        "active": [
+          "Policy Comparison"
+        ]
+      }
+    },
+    {
+      "name": "route compare marks exactly one nav item",
+      "ok": true,
+      "detail": [
+        "Policy Comparison"
+      ]
+    },
+    {
+      "name": "route research renders one page",
+      "ok": true,
+      "detail": {
+        "h1": "Research Results",
+        "active": [
+          "Research Results"
+        ]
+      }
+    },
+    {
+      "name": "route research marks exactly one nav item",
+      "ok": true,
+      "detail": [
+        "Research Results"
+      ]
+    },
+    {
+      "name": "route about renders one page",
+      "ok": true,
+      "detail": {
+        "h1": "About the system",
+        "active": [
+          "About & Method"
+        ]
+      }
+    },
+    {
+      "name": "route about marks exactly one nav item",
+      "ok": true,
+      "detail": [
+        "About & Method"
+      ]
+    },
+    {
+      "name": "rail has seven destinations and no example controls",
+      "ok": true,
+      "detail": {
+        "n": 7
+      }
+    },
+    {
+      "name": "rail text mentions no seed or scenario",
+      "ok": true,
+      "detail": "\n  \n    \n    \n      adaptive scheduling\n      simulation console\n    \n  \n\n  \n   "
+    },
+    {
+      "name": "teaching run reports a completion line",
+      "ok": true,
+      "detail": "Completed in 50 ms · run 18472bb3"
+    },
+    {
+      "name": "one click sends exactly one run request",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "name": "teaching mean waiting is 4.33 u",
+      "ok": true,
+      "detail": "4.33u\n          FCFS 4.33"
+    },
+    {
+      "name": "teaching offers four policy views",
+      "ok": true,
+      "detail": [
+        "FCFS",
+        "SJF",
+        "Round Robin",
+        "Priority"
+      ]
+    },
+    {
+      "name": "teaching table lists three processes",
+      "ok": true,
+      "detail": 3
+    },
+    {
+      "name": "teaching SJF mean waiting is 1.67",
+      "ok": true,
+      "detail": "1.67u\n          FCFS 4.33"
+    },
+    {
+      "name": "teaching Round Robin mean waiting is 4.33",
+      "ok": true,
+      "detail": "4.33u\n          FCFS 4.33"
+    },
+    {
+      "name": "teaching Priority mean waiting is 3.67",
+      "ok": true,
+      "detail": "3.67u\n          FCFS 4.33"
+    },
+    {
+      "name": "teaching FCFS mean waiting is 4.33",
+      "ok": true,
+      "detail": "4.33u\n          FCFS 4.33"
+    },
+    {
+      "name": "clicking a slice fills the inspector",
+      "ok": true,
+      "detail": "P2 FCFS Executedt=5 → t=8 (3 u) Switch before0 u Waiting addednot recorded for this dispat"
+    },
+    {
+      "name": "slices are focusable and respond to Enter",
+      "ok": true,
+      "detail": "P1 FCFS Executedt=0 → t=5 (5 u) Switch before0 u Waiting addednot recorded for t"
+    },
+    {
+      "name": "clicking a column sorts ascending and exposes aria-sort",
+      "ok": true,
+      "detail": [
+        0,
+        5,
+        8
+      ]
+    },
+    {
+      "name": "back returns to the previous page",
+      "ok": true,
+      "detail": {
+        "hash": "#/studio",
+        "h1": "Simulation Studio"
+      }
+    },
+    {
+      "name": "second back reaches Overview",
+      "ok": true,
+      "detail": {
+        "hash": "#/overview",
+        "h1": "A self-healing CPU scheduler, observed end to end"
+      }
+    },
+    {
+      "name": "forward replays the visited pages",
+      "ok": true,
+      "detail": [
+        {
+          "hash": "#/studio",
+          "h1": "Simulation Studio"
+        },
+        {
+          "hash": "#/about",
+          "h1": "About the system"
+        }
+      ]
+    },
+    {
+      "name": "refresh keeps the current page",
+      "ok": true,
+      "detail": "http://127.0.0.1:8000/#/research"
+    },
+    {
+      "name": "comparison runs all four policies on seed 13",
+      "ok": true,
+      "detail": [
+        "FCFS 255.80 288 255.80 14 97.18% 497",
+        "SJF best 172.13 204.33 172.13 14 97.18% 497",
+        "Round Robin 405.53 437.73 33.13 124 79.57% 607",
+        "Priority 254.60 286.80 254.60 14 97.18% 497"
+      ]
+    },
+    {
+      "name": "a new run clears the previous comparison",
+      "ok": true,
+      "detail": true
+    },
+    {
+      "name": "restoring an older run announces it is not a new execution",
+      "ok": true,
+      "detail": "Restored a result from this session’s history. It is not a new execution. Dismiss"
+    },
+    {
+      "name": "the restored run is a different one",
+      "ok": true,
+      "detail": [
+        "Executed now",
+        "Restored from this session"
+      ]
+    },
+    {
+      "name": "export downloads the run shown on screen",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "run": "de54bf3f",
+        "id": "de54bf3f"
+      }
+    },
+    {
+      "name": "triple click sends a single run request",
+      "ok": true,
+      "detail": 1
+    },
+    {
+      "name": "controls are disabled while the run is in flight",
+      "ok": true,
+      "detail": {
+        "disabled": true,
+        "label": "Running…",
+        "scenarios": true
+      }
+    },
+    {
+      "name": "invalid burst is rejected in the browser with no request",
+      "ok": true,
+      "detail": {
+        "posts": 0,
+        "banner": "Check the workload. Process 1: burst must be at least 1 time unit. Dismiss"
+      }
+    },
+    {
+      "name": "custom workload executes through the API",
+      "ok": true,
+      "detail": {
+        "posts": 1,
+        "customMean": "Custom workload — mean waiting 9.20 u. Final policy FCFS."
+      }
+    },
+    {
+      "name": "no dead controls on any page",
+      "ok": true,
+      "detail": {
+        "overview": {
+          "badActions": [],
+          "badHrefs": [],
+          "emptyButtons": 0
+        },
+        "studio": {
+          "badActions": [],
+          "badHrefs": [],
+          "emptyButtons": 0
+        },
+        "workload": {
+          "badActions": [],
+          "badHrefs": [],
+          "emptyButtons": 0
+        },
+        "recovery": {
+          "badActions": [],
+          "badHrefs": [],
+          "emptyButtons": 0
+        },
+        "compare": {
+          "badActions": [],
+          "badHrefs": [],
+          "emptyButtons": 0
+        },
+        "research": {
+          "badActions": [],
+          "badHrefs": [],
+          "emptyButtons": 0
+        },
+        "about": {
+          "badActions": [],
+          "badHrefs": [],
+          "emptyButtons": 0
+        }
+      }
+    },
+    {
+      "name": "skip link moves focus without navigating",
+      "ok": true,
+      "detail": {
+        "hash": "#/about",
+        "focused": true,
+        "h1": "About the system"
+      }
+    },
+    {
+      "name": "no external network requests",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "name": "no console errors",
+      "ok": true,
+      "detail": []
+    }
+  ]
+}

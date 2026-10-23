@@ -160,16 +160,141 @@ checks all-page text/numbering/operators, seven source blocks and deterministic 
 that is not all-page visual certification. Earlier PDF/DOCX submissions were preserved,
 not rebuilt or visually recertified in this review.
 
+## Teacher dashboard review (visual layer added after the manual review)
+
+The classroom dashboard (`dashboard/`, `tools/build_teacher_dashboard.py`) is a consumer
+of recorded output, not a second simulator. Reviewed on the same environment E1:
+
+* `main.py demo --results-dir /tmp/dashbuild` then
+  `tools/build_teacher_dashboard.py --input /tmp/dashbuild/demo.json --output
+  /tmp/dashbuild/index.html` wrote a 213.0 KB single-file page (16 inline SVG charts).
+* The builder cross-checks the trace before drawing: per-process waits must sum to the
+  recorded totals, busy/idle/switch counts and the fingerprint must agree with the
+  intervals and both runs, every incident must sit on a recorded dispatch, and an incident
+  that records a rollback must match the policy the trace ends under. Deliberately broken
+  copies (edited metric, edited outcome, wrong verdict label, overlapping dispatch, wrong
+  fingerprint) are rejected with the field named; nothing is written.
+* Output handling observed: existing file refused without `--force`, non-HTML suffix
+  refused, input path refused, and any path inside `results/healing/`, `results/runtime/`,
+  `results/study/`, `results/drift/`, `figures/` or `docs/manual_evidence/` refused. A
+  failed build leaves the destination byte-identical and no temporary file behind.
+* Generated-page checks: no `http(s)://` URL, no `src=`, no `<link>`, unique element ids,
+  every `url(#id)` reference resolves, balanced tags, and the demo file's SHA-256 prefix on
+  the page matches the input `demo.json`. Page text reproduces the recorded values (130.47
+  vs 150.60 for seed 3, 220.53 vs 255.80 for seed 13; study means 130.84 / 94.66 / 122.39 /
+  122.56) and labels seed 3 *inconclusive* with rollback to FCFS and seed 13 *accepted*
+  with SJF kept — the two are never interchanged.
+* The research panel is generated from `results/healing/healing_summary.json` and
+  `healing_comparisons.csv`; its sentences are derived from the values, including that the
+  Q-minus-rule interval [−0.04, +0.48] includes zero. The three-process worked example is
+  executed with the real `scheduler/` classes at build time and fails the build if the
+  documented hand calculation stops matching.
+* New tests: 46 in `tests/test_teacher_dashboard.py`; full suite **582 passed**.
+* Visual review was performed on the SVG itself and on PNGs rasterised from the page's
+  embedded SVG ([dashboard/](manual_evidence/dashboard/), `render_chart_png.py`), because
+  this sandbox has no browser. **The page was not opened in a real browser here, and the
+  Windows PowerShell commands were not executed here**; both are marked unverified in
+  [TEACHER_LIVE_DEMO.md](TEACHER_LIVE_DEMO.md). Tracked research artifacts, figures and
+  submission documents were not modified (only `.gitignore`, README and teacher docs).
+
+## Live dashboard application (interactive layer, this pass)
+
+The static page above replays a saved `demo.json`. This pass adds a **running application**:
+`tools/serve_dashboard.py` starts a FastAPI service (`dashboard/api.py`) that executes the
+project's own engine on request, and `dashboard/web/` serves the console that drives it.
+`dashboard/service.py` is the only adapter: it validates a request, calls
+`experiments.demo.run_fixture` / `run_healing_workload` / `scheduler.POLICY_CLASSES`, validates
+the result through the existing `dashboard.model` schema and returns it. There is no second
+scheduler in Python or in JavaScript.
+
+### Environment E2 (manual browser session)
+
+* Linux x86-64 container, CPython 3.11.2, FastAPI 0.121.2, Uvicorn 0.40.0.
+* Browser: **HeadlessChrome 138.0.7204.0** (`@sparticuz/chromium` 138.0.2 through
+  `puppeteer-core` 24), driven by scripted keyboard/mouse interaction against
+  `http://127.0.0.1:8000`. The image ships without NSS/NSPR, so a local ABI shim
+  (`/tmp/nss-stub`, outside the repository) was linked by `LD_LIBRARY_PATH` to let the
+  browser start. This is a real rendering engine executing the real page and real requests,
+  but it is **not** a desktop Chrome/Edge-Firefox window on Windows: font fallbacks, native
+  scrollbars and OS widgets are those of the headless Linux shell.
+* Server command: `.venv/bin/python tools/serve_dashboard.py --host 0.0.0.0 --port 8000
+  --no-browser --log-level warning`.
+
+### Executed browser checks
+
+| ID | Procedure | Expected → actual observed | Result |
+|---|---|---|---|
+| W01 | Open `/`, wait for the scenario list | Page renders, engine pill reports the live probe → "Engine ready · 3.11.2"; `/api/health` reported `status ok`, probe 0.14 ms; four scenario cards | PASS |
+| W02 | Block all `/api/` requests, then press Run | Explicit failure, no substitute values → banner "The simulation did not run. The backend could not be reached…"; pill "Backend unavailable"; Retry button appears; the previous result stays labelled as previous | PASS |
+| W03 | Restore the backend, press Retry connection, run again | Recovery without reload → pill "Engine ready · 3.11.2"; new run id and new result rendered | PASS |
+| W04 | Load each example in turn | Scenario name, description, fixed parameters and expected behaviour match the catalogue; the previous result is cleared, not left on screen → teaching (processes 3, quantum 2, switch 0), seed 13 (`mixed`, waiting-time rule), seed 3, custom (editable table) | PASS |
+| W05 | Run **Successful recovery (seed 13)** | Accepted recovery from the engine → verdict `accepted`, badge "accepted → SJF", residual +0.4375 vs accept boundary +0.30, window t=243→319, mean wait 220.53 vs FCFS 255.80 (Δ −35.27), 14 switches, 97.18 % utilisation, elapsed 497 | PASS |
+| W06 | Run **Inconclusive verification and rollback (seed 3)** | Inconclusive rollback, not a success → verdict `inconclusive`, residual +0.2059 inside [−0.30, +0.30], "neither proven nor rejected", final policy FCFS, confirmed failure "no", mean wait 130.47 vs FCFS 150.60 (Δ −20.13) | PASS |
+| W07 | Run the teaching workload, switch policy tabs, click a block | Hand-checkable values from the real schedulers → 4.33 / 7.33 / 4.33 waiting / turnaround / response, 2 switches, 100 % utilisation, throughput 0.3333, elapsed 9; Priority tab shows P2 start 0 / completion 3 / wait 0; selected block read-out "P1 Priority, t=3 → t=8 (5 u), arrival 0, burst/priority 5/2, completion 8, total waiting 3 u" | PASS |
+| W08 | Custom workload: change P3 burst 9 → 12, policy SJF, run | The edited configuration reaches the backend → new fingerprint, mean waiting 8.40, 4 switches, workload subtitle shows the new burst | PASS |
+| W09 | Custom workload: burst 0, then duplicate pid | Client rejects with an actionable message and sends nothing → inline "Process 1: burst must be at least 1 time unit." + banner, **0 POSTs**, result panel still hidden; duplicate pid "Duplicate pid 1."; after correcting to 6 the same form ran (mean 9.20) | PASS |
+| W10 | Compare all four policies (teaching and seed 13) | Four separate executions on the identical processes → teaching: SJF 1.67 best vs FCFS 4.33; seed 13: FCFS 255.80, SJF 172.13, RR 405.53, Priority 254.60, best SJF highlighted, quantum/switch cost stated | PASS |
+| W11 | Trip the duplicate-submission guard, then change scenario mid-run | One request only → button disabled and labelled "Running…", three rapid clicks produced **1 POST**; scenario card clicks ignored while running (teaching stayed unselected); result belonged to the started scenario | PASS |
+| W12 | Delay a comparison, then start a newer run before it returns | The late response must not overwrite the newer result → comparison section stayed "No comparison executed for this run yet"; run provenance showed the newer rollback run | PASS |
+| W13 | Export the displayed result | Downloaded JSON equals the displayed run → `os-dashboard-recovery-rollback-32c07992.json`, `run_id` matches the displayed id, exported `avg_waiting_time` 130.466667, verdict `inconclusive`, final policy FCFS | PASS |
+| W14 | Keyboard-only flow | Skip link → nav → scenario cards → Run → policy select all reachable; Enter on a card selects it, Enter on Run executes ("Completed in 1.06 ms…"); ArrowRight in the policy tablist switches the trace; focus ring visible on cards, buttons and dispatch blocks | PASS |
+| W15 | Layouts at 1440×980, 900×900, 420×900 | No page-level horizontal overflow (`scrollWidth == innerWidth` at all three widths); charts scroll inside their own frame; tables scroll horizontally; text remains legible; sticky result nav and run button stay usable | PASS |
+| W16 | Research panel | Committed aggregates, clearly separated from the current run → badge "HISTORICAL · READ-ONLY", source `healing_summary.json`, split `final_test`, 210 workloads, seed 23819, 130.84 / 94.66 / 122.39 / 122.56, Q−rule +0.18 (95 % CI −0.04 to +0.48) with the "did not establish" caveat visible | PASS |
+| W17 | API error surface (through the UI and by HTTP) | Every rejection is explicit → 422 with field-named messages for unknown scenario, empty workload, burst 0, duplicate pid, quantum 0/65, unknown policy, unsupported option, malformed JSON; 404 for an unknown run; 500 with a message (no traceback) when the engine raises | PASS |
+
+Console output during the final pass contained **no** JavaScript errors, failed requests or
+warnings, other than the two `net::ERR_FAILED` entries produced deliberately by the
+backend-loss test (W02).
+
+### Defects found in the browser and fixed
+
+1. The empty `#banner` container rendered as a 1-px box because `.banner` overrode the
+   `hidden` attribute — fixed with a global `[hidden] { display: none !important; }`.
+2. The Run button was clipped behind the sticky sidebar block at 980 px height — the sidebar
+   now scrolls its scenario list while the run block stays visible.
+3. The custom-workload process editor stretched across the full panel with misaligned
+   columns — constrained to 640 px with right-aligned numeric cells.
+4. A tie against FCFS printed "0.0 % lower than FCFS"; it now reads "identical to the FCFS
+   baseline".
+5. The teaching scenario reported "Throughput n/a" because the adapter dropped two engine
+   metrics — `dashboard.teaching` now carries `throughput` and `cpu_utilization` from
+   `compute_metrics`.
+6. The research panel stacked a full-width chart above a half-empty column; it now shows the
+   chart, then primary arms and caveats side by side.
+
+### Automated checks added this pass
+
+* `tests/test_dashboard_api.py` — 46 tests: health (including a simulated engine failure),
+  catalogue, all four scenarios cross-checked against direct engine calls, hand-calculation
+  assertions, custom workloads (all four policies, healing on/off), validation matrix,
+  malformed JSON, engine-failure and schema-rejection paths, stored-run read/export,
+  comparison by run id and by explicit workload, per-run directory isolation, four
+  concurrent runs, bounded history with directory eviction, shutdown cleanup, "no writes
+  inside the repository", the 429 guard, frontend self-containment, and research fidelity
+  against `results/healing/healing_summary.json`.
+* Full suite **628 passed** (`pytest -q`, 61.3 s) after the change; `pip check` reports no
+  broken requirements; `tools/verify_final_delivery.py` exits 0.
+* The CLI demo is unchanged: `main.py demo` output and `demo.json` are byte-identical to the
+  pre-refactor baseline (`c3f4826d…`), because `experiments/demo.py` now calls the same
+  function the API uses.
+
+### Evidence
+
+Screenshots from those headless sessions and the machine-readable record are in
+[manual_evidence/web/](manual_evidence/web/) (`browser-checks.json` holds the captured
+values, `VERIFICATION.md` the procedure log). They are **headless-browser screenshots**, not
+desktop-window screenshots, and the Windows PowerShell commands were **not executed here**.
+
 ## Final disposition and remaining limitations
 
 Read [TEACHER_LIVE_DEMO.md](TEACHER_LIVE_DEMO.md) for the short executed sequence and
 optional study commands; [TEACHER_QA.md](TEACHER_QA.md) distinguishes the three learning
 workflows and directs implementation questions to source/runtime evidence.
 
-Only focused report/plot code and regression assertions changed; scheduling/learning
+Only focused report/plot/service code and regression assertions changed; scheduling/learning
 methodology and existing source assets/results/submissions are preserved. The full test
-count remains 536 because assertions strengthened existing tests rather than adding new
-collected cases. Final actual timing/results are in final_checks.txt and the handoff.
+count is 628 (536 at the time of the original review, +46 for the static dashboard, +46 for
+the live API). Final actual timing/results are in final_checks.txt and the handoff.
 The manual review itself did not authorize publication. A subsequent explicit user
 authorization permits the final delivery commit and push on `arena/c3d9429b-os-project`.
 Fresh pre-publication verification is captured in
