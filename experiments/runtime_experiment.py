@@ -830,7 +830,7 @@ def _render_report(summary: Dict[str, Any]) -> str:
         )
     lines.extend([
         "",
-        "Q-learning rows average across the five independently trained models and the same paired test workloads; fixed and heuristic rows contain one deterministic result per workload.",
+        f"Q-learning rows average across {len(summary['configuration']['training_seeds'])} independently trained model(s) and the same paired test workloads; fixed and heuristic rows contain one deterministic result per workload.",
         "",
         "## Paired uncertainty",
         "",

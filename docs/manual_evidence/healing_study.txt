@@ -1,0 +1,118 @@
+$ .venv/bin/python main.py healing-study --results-dir /tmp/os-teacher-healing --figures-dir /tmp/os-teacher-healing-figures
+Training learned recovery policies on the training split ...
+Deriving the declared thresholds from the training control ...
+  control incidents per trace 0.623, null closure p95 2.379, declared factor 2.40 (false-accept on control 0.046)
+Evaluating all arms on the validation split ...
+  fixed_fcfs: 140 traces
+  fixed_sjf: 140 traces
+  fixed_round_robin: 140 traces
+  fixed_priority: 140 traces
+  detector_only: 140 traces
+  rule_fairness: 140 traces
+  rule_wait: 140 traces
+  rule_wait_from_sjf: 140 traces
+  q_recovery: 140 traces
+  q_recovery: 140 traces
+  q_recovery: 140 traces
+  q_recovery: 140 traces
+  q_recovery: 140 traces
+  q_recovery_from_sjf: 140 traces
+  q_recovery_from_sjf: 140 traces
+  q_recovery_from_sjf: 140 traces
+  q_recovery_from_sjf: 140 traces
+  q_recovery_from_sjf: 140 traces
+Evaluating all arms on the final_test split ...
+  fixed_fcfs: 210 traces
+  fixed_sjf: 210 traces
+  fixed_round_robin: 210 traces
+  fixed_priority: 210 traces
+  detector_only: 210 traces
+  rule_fairness: 210 traces
+  rule_wait: 210 traces
+  rule_wait_from_sjf: 210 traces
+  q_recovery: 210 traces
+  q_recovery: 210 traces
+  q_recovery: 210 traces
+  q_recovery: 210 traces
+  q_recovery: 210 traces
+  q_recovery_from_sjf: 210 traces
+  q_recovery_from_sjf: 210 traces
+  q_recovery_from_sjf: 210 traces
+  q_recovery_from_sjf: 210 traces
+  q_recovery_from_sjf: 210 traces
+Comparing candidate phase baselines on the control and the audit ...
+Running controlled degradation scenarios on the validation split ...
+Running the validation action-effect probe ...
+  action probe: trace 1/28
+  action probe: trace 11/28
+  action probe: trace 21/28
+Self-healing CPU scheduling study
+--------------------------------
+  final-test workloads          : 210
+  independent training seeds    : 7101, 7102, 7103, 7104, 7105
+  held-out final-test seed      : 23819
+
+Final-test means
+----------------
+  arm                          wait      p95     resp   incid   intv
+  fixed_fcfs                 130.84   258.42   130.84    0.00   0.00
+  fixed_sjf                   94.66   249.20    94.66    0.00   0.00
+  fixed_round_robin          217.05   310.41    26.50    0.00   0.00
+  fixed_priority             128.32   262.75   128.32    0.00   0.00
+  detector_only              130.84   258.42   130.84    0.65   0.00
+  rule_fairness              136.78   263.72   110.40    0.71   0.71
+  rule_wait                  122.39   251.88   122.39    0.67   0.67
+  rule_wait_from_sjf          94.87   249.54    94.87    0.82   0.02
+  q_recovery                 122.56   251.98   122.54    0.67   0.65
+  q_recovery_from_sjf         94.66   249.20    94.66    0.82   0.00
+
+Verification verdicts on interventions
+--------------------------------------
+  rule_fairness            interventions=150   accepted=1.3%  rejected=20.7%  inconclusive=78.0%  episodes with fallback=1
+  rule_wait                interventions=141   accepted=8.5%  rejected=0.0%  inconclusive=91.5%  episodes with fallback=0
+  rule_wait_from_sjf       interventions=4     accepted=0.0%  rejected=25.0%  inconclusive=75.0%  episodes with fallback=0
+  q_recovery               interventions=678   accepted=7.5%  rejected=0.3%  inconclusive=92.2%  episodes with fallback=0
+
+Counterfactual audit of interventions (held-out split)
+------------------------------------------------------
+  matched replay: same controller, this one incident forced to hold
+  rule_fairness            n=150   matched gain  -130.84  never-heal gain  -138.65  helped 23.3%  | not certified 94.3% of the helpful ones
+  rule_wait                n=141   matched gain   188.79  never-heal gain   197.16  helped 94.3%  | not certified 91.0% of the helpful ones
+  rule_wait_from_sjf       n=4     matched gain  -169.25  never-heal gain  -169.25  helped 0.0%  | not certified n/a of the helpful ones
+  q_recovery               n=678   matched gain   192.07  never-heal gain   198.95  helped 95.0%  | not certified 92.1% of the helpful ones
+
+Detector on controlled degradations (validation split)
+------------------------------------------------------
+  stable         traces=140  detected=68.6%  median delay= 111.50  incidents/trace= 0.70
+  burst_shock    traces=140  detected=75.0%  median delay= 134.00  incidents/trace= 0.77
+  arrival_storm  traces=140  detected=56.4%  median delay=  81.00  incidents/trace= 0.57
+  recall on injected traces 65.7%  precision proxy 65.7%  median delay  6.00 decisions  false triggers/trace  0.70
+
+Artifacts
+---------
+  action_probe         /tmp/os-teacher-healing/healing_action_probe.csv
+  audit                /tmp/os-teacher-healing/healing_audit.csv
+  comparisons          /tmp/os-teacher-healing/healing_comparisons.csv
+  control_incidents    /tmp/os-teacher-healing/healing_control_incidents.csv
+  coverage             /tmp/os-teacher-healing/healing_coverage.csv
+  coverage_curve       /tmp/os-teacher-healing/healing_coverage_curve.csv
+  demo                 /tmp/os-teacher-healing/healing_demo.json
+  detection_scenarios  /tmp/os-teacher-healing/healing_detection_scenarios.csv
+  detection_summary    /tmp/os-teacher-healing/healing_detection_summary.csv
+  episodes_final_test  /tmp/os-teacher-healing/healing_episodes_final_test.csv
+  episodes_validation  /tmp/os-teacher-healing/healing_episodes_validation.csv
+  figure_action_effects /tmp/os-teacher-healing-figures/healing_action_effects.png
+  figure_recovery_outcomes /tmp/os-teacher-healing-figures/healing_recovery_outcomes.png
+  figure_waiting_time  /tmp/os-teacher-healing-figures/healing_waiting_time.png
+  incidents_final_test /tmp/os-teacher-healing/healing_incidents_final_test.csv
+  incidents_validation /tmp/os-teacher-healing/healing_incidents_validation.csv
+  metrics_final_test   /tmp/os-teacher-healing/healing_metrics_final_test.csv
+  metrics_validation   /tmp/os-teacher-healing/healing_metrics_validation.csv
+  q_seed_variability   /tmp/os-teacher-healing/healing_q_seed_variability.csv
+  report               /tmp/os-teacher-healing/healing_report.md
+  summary              /tmp/os-teacher-healing/healing_summary.json
+  threshold_derivation /tmp/os-teacher-healing/healing_threshold_derivation.csv
+  training_episodes    /tmp/os-teacher-healing/healing_training_episodes.csv
+  verification_models  /tmp/os-teacher-healing/healing_verification_models.csv
+
+EXIT CODE: 0

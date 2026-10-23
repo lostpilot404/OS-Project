@@ -1,0 +1,72 @@
+$ .venv/bin/python -m pytest -q
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 40%]
+........................................................................ [ 53%]
+........................................................................ [ 67%]
+........................................................................ [ 80%]
+........................................................................ [ 94%]
+................................                                         [100%]
+536 passed in 46.96s
+EXIT CODE: 0
+
+$ .venv/bin/python -m pytest -q tests/test_runtime_experiment.py tests/test_probe_schema.py
+.........                                                                [100%]
+9 passed in 3.26s
+EXIT CODE: 0
+
+$ .venv/bin/python tools/verify_final_delivery.py
+Verified 18 pages: text-only black/white, page numbers, seven Mermaid sources.
+Verified canonical/legacy probe counts, frozen means, exact demo transcript and reproducible PDF bytes.
+Visual inspection and WSL execution are separate from these automated checks.
+EXIT CODE: 0
+
+$ .venv/bin/python -m pip check
+No broken requirements found.
+EXIT CODE: 0
+
+$ .venv/bin/python -m compileall -q main.py config.py errors.py evaluation experiments healing rl scheduler tools visualization workload tests docs/manual_evidence
+EXIT CODE: 0
+
+$ .venv/bin/python main.py demo --results-dir /tmp/os-delivery-demo-a
+SUMMARY mean wait=130.467; FCFS same input=150.600; difference=-20.133
+SUMMARY mean wait=220.533; FCFS same input=255.800; difference=-35.267
+EXIT CODE: 0
+Display excerpt only; full stdout inspected in temporary delivery logs.
+
+$ .venv/bin/python main.py demo --results-dir /tmp/os-delivery-demo-b
+SUMMARY mean wait=130.467; FCFS same input=150.600; difference=-20.133
+SUMMARY mean wait=220.533; FCFS same input=255.800; difference=-35.267
+EXIT CODE: 0
+Display excerpt only; full stdout inspected in temporary delivery logs.
+
+PASS: repeated demo JSON bytes identical; fresh stdout matches captured demo after output-path normalization.
+
+$ env PYTHONPATH=. .venv/bin/python docs/manual_evidence/scenarios.py
+HAND CALCULATIONS MATCH all four algorithms
+NORMAL HEALING LOOP: decisions= 15 incidents= 0 mean waiting= 0.0
+EXIT CODE: 0
+Display excerpt only; full stdout inspected in temporary delivery logs.
+
+$ env PYTHONPATH=. .venv/bin/python docs/manual_evidence/runtime_learning.py
+Q-learning rows average across 1 independently trained model(s) and the same paired test workloads; fixed and heuristic rows contain one deterministic result per workload.
+RUNTIME TRAINING AND INFERENCE COMPLETE (no superiority claim)
+DIRECT CONTROLLER: nonzero trained Q entries= 68 ; inference decisions= 19 ; Q and visits unchanged=True
+Inference total reward= -97.0 ; -sum waiting / q= -97.0
+EXIT CODE: 0
+Display excerpt only; full stdout inspected in temporary delivery logs.
+
+$ env PYTHONPATH=. .venv/bin/python docs/manual_evidence/failure_checks.py
+FAILURE PROBES COMPLETE
+EXIT CODE: 0
+Display excerpt only; full stdout inspected in temporary delivery logs.
+
+$ git diff --check
+EXIT CODE: 0
+
+PASS: local Markdown links, teacher script paths and advertised CLI commands validated.
+
+$ git diff --exit-code HEAD -- results figures docs/OS_Project_Final_Report.md docs/OS_Project_Final_Report.pdf docs/OS_Project_Report_Plain.md docs/OS_Project_Report_Plain.pdf docs/Review_2_Report.docx docs/Review_2_Report.pdf
+EXIT CODE: 0
+
+PASS: intended tracked scope, no deletions, protected assets unchanged, reviewed files <1 MB, limited secret-pattern scan clear.

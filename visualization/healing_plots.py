@@ -179,6 +179,7 @@ def plot_healing_figures(
 
     # 3. Action-effect probe: measured reward against true effect.
     if not probe.empty:
+        fig, axes = plt.subplots(1, 2, figsize=FIGSIZE_WIDE)
         reward_col = "controller_reward"
         by_action = probe.groupby("action_name")[
             [reward_col, "true_effect_per_process"]
@@ -188,9 +189,11 @@ def plot_healing_figures(
         )
         for name, row in by_action.iterrows():
             axes[0].annotate(name, (row[reward_col], row["true_effect_per_process"]), fontsize=8)
-        axes[0].axvline(
-            float(probe[reward_col].mean()), color="#222222", linewidth=0.8, linestyle="--"
-        )
+        hold_rewards = probe.loc[probe["action_name"] == "hold", reward_col]
+        if not hold_rewards.empty:
+            axes[0].axvline(
+                float(hold_rewards.mean()), color="#222222", linewidth=0.8, linestyle="--"
+            )
         axes[0].set_xlabel("Controller reward (band units, hold level dashed)")
         axes[0].set_ylabel("True effect (per-process waiting-time reduction)")
         axes[0].set_title("Reward versus ground truth per action (validation)")

@@ -1,0 +1,43 @@
+$ env PYTHONPATH=. .venv/bin/python docs/manual_evidence/output_integrity.py
+healing_metrics_final_test.csv (3780, 32) matches committed table= True
+healing_incidents_final_test.csv (2171, 71) matches committed table= True
+healing_comparisons.csv (80, 7) matches committed table= True
+Recomputed mean waiting:
+arm
+detector_only          130.837778
+fixed_fcfs             130.837778
+fixed_priority         128.316825
+fixed_round_robin      217.054286
+fixed_sjf               94.657778
+q_recovery             122.564063
+q_recovery_from_sjf     94.657778
+rule_fairness          136.780000
+rule_wait              122.388254
+rule_wait_from_sjf      94.872698
+Preserved ledger verdicts:
+arm                  verdict
+detector_only        held            137
+q_recovery           accepted         51
+                     held             27
+                     inconclusive    625
+                     rejected          2
+q_recovery_from_sjf  held            865
+rule_fairness        accepted          2
+                     inconclusive    117
+                     rejected         31
+rule_wait            accepted         12
+                     inconclusive    129
+rule_wait_from_sjf   held            169
+                     inconclusive      3
+                     rejected          1
+FULL DEFAULT-THRESHOLD FALLBACK REPLAY (scenario found in study, not selected as performance evidence)
+family= poisson_arrivals rep= 21 fingerprint= c555eb898c254d71
+trigger 6 79 diagnosis= fairness_starvation: oldest ready job has waited at least 63 time units (recent completed-work wait 27.2 vs reference 13.2 (band 2.0, window 6 completions); also matched: priority_ordering_anomaly, fairness_starvation, queue_congestion) action= set_round_robin verdict= rejected residual= -0.31622466030247093 confirmed failures= 1 window end= 134 fallback= False rollback= SchedulerSettings(policy=0, quantum=4)
+trigger 20 142 diagnosis= fairness_starvation: oldest ready job has waited at least 126 time units (recent completed-work wait 78.4 vs reference 13.2 (band 2.0, window 8 completions); also matched: priority_ordering_anomaly, fairness_starvation) action= set_round_robin verdict= rejected residual= -0.3831148971473288 confirmed failures= 2 window end= 189 fallback= True rollback= SchedulerSettings(policy=0, quantum=4)
+Tail policy IDs after fallback: [0]
+DEMO seed= 3 process waiting sum= 1957 interval waiting sum= 1957 mean= 130.46666666666667 verdict= inconclusive
+DEMO seed= 13 process waiting sum= 3308 interval waiting sum= 3308 mean= 220.53333333333333 verdict= accepted
+DRIFT detail rows= 70 summary rows= 6 columns= ['arm', 'family', 'repetition', 'fingerprint', 'training_seed', 'mean_waiting', 'p95_waiting', 'max_waiting', 'starved', 'fairness', 'throughput', 'cpu_util', 'switches', 'switching_overhead', 'incidents', 'interventions', 'accepted', 'rejected', 'inconclusive', 'rollback_rate', 'recovery_delay_decisions', 'recovery_delay_time', 'false_intervention_rate', 'regression_vs_fcfs', 'fallback']
+All drift summary mean waits equal grouped detail CSV values
+
+EXIT CODE: 0

@@ -73,7 +73,7 @@ def test_healing_plots_rejects_legacy_schema(tmp_path):
     assert not (tmp_path / "invalid-output").exists()
 
 
-def test_healing_plots_accepts_canonical_schema(tmp_path):
+def test_healing_plots_accepts_canonical_schema(tmp_path, monkeypatch):
     from visualization.healing_plots import plot_healing_figures
 
     canonical = _canonical_frame()
@@ -101,12 +101,27 @@ def test_healing_plots_accepts_canonical_schema(tmp_path):
     )
     audit = pd.DataFrame({"split": [], "arm": [], "matched_gain": []})
     comparisons = pd.DataFrame()
+    # Inspect actual figure objects rather than assuming a saved PNG is correct.
+    from matplotlib.figure import Figure
+    saved = {}
+    original_savefig = Figure.savefig
+
+    def capture_figure(self, path, *args, **kwargs):
+        saved[pathlib.Path(path).name] = self
+        return original_savefig(self, path, *args, **kwargs)
+
+    monkeypatch.setattr(Figure, "savefig", capture_figure)
     # Should not raise
     paths = plot_healing_figures(tmp_path, metrics, comparisons, detection, audit, canonical)
     assert "figure_action_effects" in paths
     assert pathlib.Path(paths["figure_action_effects"]).exists()
-    # Verify label is controller reward, not legacy
-    # We cannot easily inspect PNG text, but we know reward_col used is controller_reward by code path
+    action_figure = saved["healing_action_effects.png"]
+    recovery_figure = saved["healing_recovery_outcomes.png"]
+    assert action_figure is not recovery_figure
+    assert not action_figure.axes[0].patches, "Recovery bars must not leak into reward scatter"
+    assert len(action_figure.axes[0].collections) == 1
+    assert list(action_figure.axes[0].lines[0].get_xdata()) == [-0.30, -0.30]
+    assert action_figure.axes[0].get_xlabel().startswith("Controller reward")
 
 
 def test_legacy_plot_labels_explicitly():

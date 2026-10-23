@@ -1,0 +1,10 @@
+$ env PYTHONPATH=. .venv/bin/python docs/manual_evidence/failure_checks.py
+SIMULATED missing matplotlib: real demo exit= 0
+SIMULATED plotting import: simulated missing optional plotting dependency: matplotlib
+Missing optional dependency was simulated before its first import; no packages removed.
+INVALID PLOT: ValidationError Probe CSV is legacy schema: missing 'controller_reward' column. The legacy reward_band_units column was the raw load proxy, not the phase-adjusted controller reward. Use the canonical results/healing/healing_action_probe.csv (31+ columns, includes controller_reward, raw_load_improvement_band_units, closure_residual, verdict) or regenerate it via experiments.healing_experiment.action_effect_probe(). Legacy file is preserved as results/healing/healing_action_probe.legacy_raw_proxy.csv for traceability only; it can be plotted with plot_healing_figures_legacy() which labels the axis as 'Legacy raw proxy'.
+Invalid plot output directory created: False
+Missing source report: no PDF was written
+FAILURE PROBES COMPLETE
+
+EXIT CODE: 0

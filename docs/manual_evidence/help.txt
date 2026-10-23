@@ -1,0 +1,36 @@
+$ .venv/bin/python main.py --help
+usage: main.py [-h] [--results-dir RESULTS_DIR] [--figures-dir FIGURES_DIR]
+               [--no-figures] [--no-probe]
+               [{healing-study,demo,study,experiment,train,runtime-experiment}]
+
+Adaptive CPU scheduling with a self-healing scheduler: monitor, detect,
+diagnose, recover with a rule or a tabular Q-learning controller, verify, roll
+back. Other commands expose the preserved historical workflows.
+
+positional arguments:
+  {healing-study,demo,study,experiment,train,runtime-experiment}
+                        'demo' runs two quick deterministic self-healing rule
+                        fixtures (no training); 'healing-study' (default) runs
+                        the self-healing scheduling study: training, held-out
+                        evaluation, recovery-ledger and counterfactual-
+                        recovery audit; 'study' runs the preserved offline
+                        policy-selection study; 'experiment' runs the
+                        preserved legacy offline pipeline; 'train' trains the
+                        legacy selector only; 'runtime-experiment' runs the
+                        preserved non-healing runtime appendix.
+
+options:
+  -h, --help            show this help message and exit
+  --results-dir RESULTS_DIR
+                        where result files are written (default: configured
+                        results directory)
+  --figures-dir FIGURES_DIR
+                        where figures are written (default: configured figures
+                        directory)
+  --no-figures          skip optional Matplotlib figures; result tables and
+                        report are still generated
+  --no-probe            skip the validation action-effect probe (the reward-
+                        versus-ground-truth analysis); the rest of the study
+                        is unaffected
+
+EXIT CODE: 0

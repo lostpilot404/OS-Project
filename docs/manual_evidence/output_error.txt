@@ -1,0 +1,4 @@
+$ .venv/bin/python main.py demo --results-dir /tmp/os-teacher-failures/not-directory
+Demo output could not be written: [Errno 17] File exists: '/tmp/os-teacher-failures/not-directory'. Use --results-dir with a writable directory.
+
+EXIT CODE: 1

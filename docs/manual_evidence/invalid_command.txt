@@ -1,0 +1,7 @@
+$ .venv/bin/python main.py not-a-command
+usage: main.py [-h] [--results-dir RESULTS_DIR] [--figures-dir FIGURES_DIR]
+               [--no-figures] [--no-probe]
+               [{healing-study,demo,study,experiment,train,runtime-experiment}]
+main.py: error: argument command: invalid choice: 'not-a-command' (choose from 'healing-study', 'demo', 'study', 'experiment', 'train', 'runtime-experiment')
+
+EXIT CODE: 2

@@ -1,0 +1,41 @@
+$ bash -c 'set -e
+.venv/bin/python -m pytest -q
+.venv/bin/python tools/verify_final_delivery.py
+.venv/bin/python -m pip check
+.venv/bin/python -m compileall -q main.py config.py errors.py evaluation experiments healing rl scheduler tools visualization workload tests docs/manual_evidence
+printf "Syntax compilation: PASS\n"
+git diff --check
+printf "Whitespace check: PASS\n"
+.venv/bin/python main.py demo > /tmp/os-teacher-default-demo.txt
+grep SUMMARY /tmp/os-teacher-default-demo.txt
+cmp results/demo/demo.json /tmp/os-teacher-demo/demo.json
+printf "Default demo JSON matches captured custom-path demo: PASS\n"
+.venv/bin/python main.py demo --results-dir /tmp/os-teacher-demo-repeat > /tmp/os-teacher-demo-repeat.txt
+cmp /tmp/os-teacher-demo/demo.json /tmp/os-teacher-demo-repeat/demo.json
+printf "Repeated demo JSON byte identity: PASS\n"
+.venv/bin/python -c "from pathlib import Path; import re,subprocess; names=subprocess.check_output([\"git\",\"ls-files\",\"--cached\",\"--others\",\"--exclude-standard\"],text=True).splitlines(); missing=[(f,t) for f in names if f.endswith(\".md\") for t in re.findall(r\"\\[[^\\]]*\\]\\(([^)]+)\\)\",Path(f).read_text()) if \"://\" not in t and not t.startswith(\"#\") and not (Path(f).parent/t.split(\"#\")[0]).exists()]; print(\"Missing Markdown links:\",missing); assert not missing"
+git diff --exit-code HEAD -- results figures docs/OS_Project_Final_Report.md docs/OS_Project_Final_Report.pdf docs/OS_Project_Report_Plain.md docs/OS_Project_Report_Plain.pdf docs/Review_2_Report.docx docs/Review_2_Report.pdf
+printf "Historical research and submission assets unchanged: PASS\n"'
+........................................................................ [ 13%]
+........................................................................ [ 26%]
+........................................................................ [ 40%]
+........................................................................ [ 53%]
+........................................................................ [ 67%]
+........................................................................ [ 80%]
+........................................................................ [ 94%]
+................................                                         [100%]
+536 passed in 46.08s
+Verified 18 pages: text-only black/white, page numbers, seven Mermaid sources.
+Verified canonical/legacy probe counts, frozen means, exact demo transcript and reproducible PDF bytes.
+Visual inspection and WSL execution are separate from these automated checks.
+No broken requirements found.
+Syntax compilation: PASS
+Whitespace check: PASS
+SUMMARY mean wait=130.467; FCFS same input=150.600; difference=-20.133
+SUMMARY mean wait=220.533; FCFS same input=255.800; difference=-35.267
+Default demo JSON matches captured custom-path demo: PASS
+Repeated demo JSON byte identity: PASS
+Missing Markdown links: []
+Historical research and submission assets unchanged: PASS
+
+EXIT CODE: 0

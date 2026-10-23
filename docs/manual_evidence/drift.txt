@@ -1,0 +1,74 @@
+$ env PYTHONPATH=. .venv/bin/python experiments/drift_uncertainty_experiment.py --reps 1 --train-episodes 2 --drift phase_transition --out /tmp/os-teacher-drift
+Drift experiment: seed=23819, reps=1, drift=phase_transition, estimator=True cv=0.3
+Training Q with 2 episodes/seed on stationary workloads (held-out drift at test)
+Trained 5 Q models (seeds [7101, 7102, 7103, 7104, 7105])
+
+Evaluating arm fixed_fcfs on 7 drifted workloads...
+  fixed_fcfs: mean_wait=100.50 p95=177.14 n=7
+
+Evaluating arm fixed_sjf on 7 drifted workloads...
+  fixed_sjf: mean_wait=49.45 p95=151.43 n=7
+
+Evaluating arm detector_only on 7 drifted workloads...
+  detector_only: mean_wait=100.50 p95=177.14 n=7
+
+Evaluating arm rule_wait on 7 drifted workloads...
+  rule_wait: mean_wait=92.08 p95=167.29 n=7
+
+Evaluating arm q_recovery on 7 drifted workloads...
+  q_recovery: mean_wait=99.58 p95=176.74 n=35
+
+Evaluating arm rule_fairness on 7 drifted workloads...
+  rule_fairness: mean_wait=97.76 p95=180.14 n=7
+
+# Drift & Uncertainty Evaluation — phase_transition drift, estimator=True cv=0.3
+
+**Workloads:** 7 traces (1 reps × 7 families: short_jobs, long_jobs, mixed, cpu_bursty, priority_skewed, staggered_interactive, poisson_arrivals), seed 23819, drift `phase_transition` via workload/drift.py at fraction 0.35 (deterministic per-workload seed, pre-injection prefix identical).
+**Workload families:** 7 synthetic families (arrival pattern × burst distribution × priority). Training uses 6 families cycling (all but poisson_arrivals, which is held out to test distribution shift); testing uses all 7. Each trace has 15 processes by default; burst_shock multiplies post-injection bursts by 4.0, arrival_storm compresses post-injection gaps by 0.35, etc. See config.py and workload/drift.py for exact generators.
+**Estimator:** enabled; when enabled EWMA per-bucket over completed totals (observable service sums, alpha=0.5), log-normal multiplicative noise `exp(N(bias, sigma²))` where `sigma = error_cv = 0.3` is the log-space standard deviation (parameter name `burst_estimator_error_cv` retained for backward compatibility; not mathematically identical to the multiplier's CV `sqrt(exp(sigma²)-1)` ≈ 0.307 for sigma=0.30) bias=0.0 via derive_seed; observable source = dispatched service history (no hidden burst/remaining used); ground truth retained only for evaluation via EstimationError (not used for decisions). When enabled=False, controller sees exact remaining_burst (simulator assumption, same as frozen study). SJF baseline `fixed_sjf` always uses exact burst_time (oracle, not equal-information) even when estimator is enabled for adaptive arms; no estimated-burst SJF variant is included in this run. Sampling behavior unchanged (parameter name and value retained).
+**Training:** 5 Q tables, 2 episodes/seed on stationary workloads (6 families, poisson_arrivals held out); test on drifted workloads never seen in training. Seeds: [7101, 7102, 7103, 7104, 7105].
+**Evaluation:** Each workload instance presented to every arm (paired by fingerprint); 7 traces for single-policy arms, 35 for q_recovery (5 seeds). Metrics via evaluation/reliability.py and evaluation/metrics.py. Bootstrap: family-stratified crossed bootstrap 1000 replicates seed 104729, same as frozen study.
+
+**Formulas & denominators (explicit):**
+- mean_waiting = sum(waiting_time)/n, waiting_time = completion−arrival−burst per process (includes preemptions); per-trace p95 = ceil(0.95n)th ordered waiting — with n=15 per trace, ceil(0.95*15)=15 so per-trace p95 is definitionally the max (not evidence about tail shape); max = max(waiting); pooled_p95_waiting = ceil(0.95*N)th over all process waits pooled across traces (N≈1050 for 70-trace arms, 5250 for q_recovery), interpretable tail; starved = count(waiting > 3×median); fairness = (sum w)²/(n sum w²) (Jain, 1=perfect); throughput = n/total_time; cpu_util = 100×busy/total_time; switches = count(pid changes); switching_overhead = switches×switching_cost.
+- incidents = detector events; interventions = action_changed (HOLD excluded); rollback_rate = (rejected+inconclusive)/interventions (per trace, mean over traces); recovery_delay_decisions = mean verification_decisions per incident (where incidents>0); fallback = any incident with fallback_triggered (safe fallback after 2 consecutive confirmed failures).
+- false_intervention_rate = share of interventions with matched_gain≤0 from counterfactual audit (requires audit; None in lightweight drift script — see frozen study's healing_audit.csv for full audit). regression_rate = share of traces where mean_waiting > baseline trace at same (family,rep) (for q_recovery: mean over 5 seeds per workload vs baseline).
+- Aggregation: per-arm means over traces (for q_recovery over all seed/workload records, not independent workload counts); comparisons are paired per-workload differences, family-stratified.
+
+| Arm | Mean wait | P95 (per-trace mean of max) | Pooled P95 (all waits) | Pooled max | Starved | Fairness | Throughput | CPU util | Switches | Incidents | Interv | Rollback | Recovery delay (dec) | Fallback | Regression vs FCFS |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| fixed_fcfs | 100.50 | 177.14 (=max, n=15) | 221.00 (N=105) | 269.00 | 0.29 | 0.773 | 0.0817 | 91.9 | 14.0 | 0.00 | 0.00 | n/a | n/a | 0.000 | n/a |
+| fixed_sjf | 49.45 | 151.43 (=max, n=15) | 160.00 (N=105) | 234.00 | 2.71 | 0.589 | 0.0817 | 91.9 | 14.0 | 0.00 | 0.00 | n/a | n/a | 0.000 | 0.00 |
+| detector_only | 100.50 | 177.14 (=max, n=15) | 221.00 (N=105) | 269.00 | 0.29 | 0.773 | 0.0817 | 91.9 | 14.0 | 1.00 | 0.00 | n/a | 5.0 | 0.000 | 0.00 |
+| rule_wait | 92.08 | 167.29 (=max, n=15) | 217.00 (N=105) | 269.00 | 0.14 | 0.780 | 0.0817 | 91.9 | 14.0 | 1.00 | 1.00 | 1.00 | 5.0 | 0.000 | 0.14 |
+| q_recovery | 99.58 | 176.74 (=max, n=15) | 221.00 (N=525) | 269.00 | 0.29 | 0.772 | 0.0817 | 91.9 | 14.0 | 1.00 | 0.26 | 1.00 | 5.0 | 0.000 | 0.14 |
+| rule_fairness | 97.76 | 180.14 (=max, n=15) | 215.00 (N=105) | 285.00 | 0.14 | 0.775 | 0.0807 | 91.0 | 15.7 | 1.00 | 1.00 | 1.00 | 5.3 | 0.000 | 0.29 |
+
+**Paired bootstrap mean-waiting differences (target − reference, 95% CI, family-stratified crossed over seeds×workloads; Q records share workload instances across training seeds and are not independent workloads; crossed bootstrap in evaluation/paired.py::paired_bootstrap_difference resamples seeds and workloads independently retaining pairing and stratification):**
+| Target | Reference | Mean diff | 95% CI |
+|---|---|---:|---|
+| rule_wait | fixed_fcfs | -8.43 | [-8.43, -8.43] |
+| q_recovery | fixed_fcfs | -0.92 | [-3.70, 0.75] |
+| q_recovery | rule_wait | 7.51 | [4.73, 9.18] |
+| rule_wait | detector_only | -8.43 | [-8.43, -8.43] |
+| q_recovery | fixed_sjf | 50.14 | [47.35, 51.81] |
+
+**Interpretation (evidence-limited, no overclaim):**
+- All arms measured on identical workload instances (same seeds, same drift injection), family-stratified; q_recovery reports mean over 5 seeds and per-seed traces in CSV.
+- rule_wait minus fixed_fcfs: -8.42857, 95% CI [-8.42857, -8.42857] (excludes zero, using unrounded bounds). Negative favors target for waiting time; statistical separation alone does not establish practical importance.
+- q_recovery minus fixed_fcfs: -0.92, 95% CI [-3.70286, 0.754286] (includes zero, using unrounded bounds). Negative favors target for waiting time; statistical separation alone does not establish practical importance.
+- q_recovery minus rule_wait: 7.50857, 95% CI [4.72571, 9.18286] (excludes zero, using unrounded bounds). Negative favors target for waiting time; statistical separation alone does not establish practical importance.
+- rule_wait minus detector_only: -8.42857, 95% CI [-8.42857, -8.42857] (excludes zero, using unrounded bounds). Negative favors target for waiting time; statistical separation alone does not establish practical importance.
+- q_recovery minus fixed_sjf: 50.1371, 95% CI [47.3543, 51.8114] (excludes zero, using unrounded bounds). Negative favors target for waiting time; statistical separation alone does not establish practical importance.
+- Fixed SJF receives exact bursts; when the estimator is enabled this is an oracle, not an equal-information comparison.
+- Recovery delays measure verification-window closure, not independently proven recovery. Audit-dependent false-intervention rates are unavailable in this lightweight run.
+- Phase transition uses short_jobs suffix bursts/priorities drawn with the base workload seed; original arrivals and process IDs are retained.
+- Limitations: single-CPU, fixed switch cost 1, no I/O/multicore/cache, synthetic families only, declared sample/episode budget, intervals conditional on declared design. Conclusions apply to simulator, not production kernel.
+
+**Traceability:** Every reported mean is sum(col)/n over per_trace CSV rows (fingerprint links to workload); comparisons are paired per-workload differences. Raw per-trace CSV is named in Artifacts below. Metric means use `reliability_summary_for_arms`; this script separately computes fingerprint-paired seed-averaged regression rates and pooled tails.
+**Reproduce:** `PYTHONPATH=. .venv/bin/python experiments/drift_uncertainty_experiment.py --reps 10 --train-episodes 200 --drift burst_shock --cv 0.30` (+ `--no-estimator`, `--drift arrival_storm`).
+**Artifacts:** drift_phase_transition_estTrue_cv0.3_summary.csv, drift_phase_transition_estTrue_cv0.3_per_trace.csv, drift_phase_transition_estTrue_cv0.3_comparisons.csv, drift_phase_transition_estTrue_cv0.3_report.md
+
+Artifacts: /tmp/os-teacher-drift/drift_phase_transition_estTrue_cv0.3_summary.csv, /tmp/os-teacher-drift/drift_phase_transition_estTrue_cv0.3_per_trace.csv, /tmp/os-teacher-drift/drift_phase_transition_estTrue_cv0.3_comparisons.csv, /tmp/os-teacher-drift/drift_phase_transition_estTrue_cv0.3_report.md
+
+EXIT CODE: 0

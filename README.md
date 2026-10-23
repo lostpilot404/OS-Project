@@ -42,6 +42,8 @@ saves `results/demo/demo.json`. It does **not** train Q-learning or rerun the st
 Do not omit `demo`: the no-command default launches the full research workflow.
 
 - [5–8 minute lecturer script](docs/DEMO_SCRIPT_FOR_LECTURER.md).
+- [Teacher live demo](docs/TEACHER_LIVE_DEMO.md), [teacher Q&A](docs/TEACHER_QA.md),
+  and [fresh manual verification evidence](docs/MANUAL_VERIFICATION_REPORT.md).
 - [New final academic report source](docs/OS_Project_Final_Report.md) and
   [plain black-and-white PDF](docs/OS_Project_Final_Report.pdf).
 - [Actual captured Linux output](docs/examples/demo_linux_output.txt).

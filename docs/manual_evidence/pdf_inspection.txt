@@ -1,0 +1,14 @@
+COMMAND: PYTHONPATH=/tmp/os-pdf-tools .venv/bin/python; PyMuPDF 1.26.6 installed with pip --target /tmp/os-pdf-tools
+Built PDF pages: 18 byte-identical to committed PDF: True
+Rendered/visually reviewed page 1 size= Rect(0.0, 0.0, 595.2755737304688, 841.8897705078125) characters= 2457
+Rendered/visually reviewed page 4 size= Rect(0.0, 0.0, 595.2755737304688, 841.8897705078125) characters= 3543
+Rendered/visually reviewed page 6 size= Rect(0.0, 0.0, 595.2755737304688, 841.8897705078125) characters= 3348
+Rendered/visually reviewed page 10 size= Rect(0.0, 0.0, 595.2755737304688, 841.8897705078125) characters= 3919
+Rendered/visually reviewed page 14 size= Rect(0.0, 0.0, 595.2755737304688, 841.8897705078125) characters= 3840
+Rendered/visually reviewed page 18 size= Rect(0.0, 0.0, 595.2755737304688, 841.8897705078125) characters= 746
+Observed: sampled pages readable, no clipped text noticed; page 18 intentionally sparse.
+Mermaid blocks are printed source, not rendered diagrams. Historical branch/test-count prose is historical, not current-run provenance.
+All 18 pages rendered; only pages 1,4,6,10,14,18 visually reviewed in this pass.
+Saved representative page renders: docs/manual_evidence/report_page_01.png and report_page_14.png
+PDF SHA256: 9eadd87419a38f9347c396633951725fda3455f19b8cd6ac303493db88e111c1
+EXIT CODE: 0

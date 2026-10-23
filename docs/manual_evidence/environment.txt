@@ -1,0 +1,12 @@
+$ bash -c 'git branch --show-current; git rev-parse HEAD; git status --short; uname -sm; cat /etc/os-release | head -3; .venv/bin/python --version; .venv/bin/python -m pip check'
+arena/c3d9429b-os-project
+d7f2efe3950f35aa577c24bc7031df103b096eb4
+?? docs/manual_evidence/
+Linux x86_64
+PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"
+NAME="Debian GNU/Linux"
+VERSION_ID="12"
+Python 3.11.2
+No broken requirements found.
+
+EXIT CODE: 0

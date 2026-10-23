@@ -1,0 +1,72 @@
+$ env PYTHONPATH=. .venv/bin/python docs/manual_evidence/scenarios.py
+HAND EXAMPLE: all arrivals 0; P1 burst 5 priority 2; P2 3/1; P3 1/3; q=2 switch cost=0
+FCFS
+  service: [(1, 0, 5), (2, 5, 8), (3, 8, 9)]
+  pid arrival burst first completion wait turnaround response
+  1 0 5 0 5 0 5 0
+  2 0 3 5 8 5 8 5
+  3 0 1 8 9 8 9 8
+  mean wait=4.333333, turnaround=7.333333
+SJF
+  service: [(3, 0, 1), (2, 1, 4), (1, 4, 9)]
+  pid arrival burst first completion wait turnaround response
+  1 0 5 4 9 4 9 4
+  2 0 3 1 4 1 4 1
+  3 0 1 0 1 0 1 0
+  mean wait=1.666667, turnaround=4.666667
+Round Robin
+  service: [(1, 0, 2), (2, 2, 4), (3, 4, 5), (1, 5, 7), (2, 7, 8), (1, 8, 9)]
+  pid arrival burst first completion wait turnaround response
+  1 0 5 0 9 4 9 0
+  2 0 3 2 8 5 8 2
+  3 0 1 4 5 4 5 4
+  mean wait=4.333333, turnaround=7.333333
+Priority
+  service: [(2, 0, 3), (1, 3, 8), (3, 8, 9)]
+  pid arrival burst first completion wait turnaround response
+  1 0 5 3 8 3 8 3
+  2 0 3 0 3 0 3 0
+  3 0 1 8 9 8 9 8
+  mean wait=3.666667, turnaround=6.666667
+HAND CALCULATIONS MATCH all four algorithms
+EDGE FCFS: late one-job completion=8 wait=0 idle=5; explicit empty elapsed=0
+EDGE SJF: late one-job completion=8 wait=0 idle=5; explicit empty elapsed=0
+EDGE Round Robin: late one-job completion=8 wait=0 idle=5; explicit empty elapsed=0
+EDGE Priority: late one-job completion=8 wait=0 idle=5; explicit empty elapsed=0
+RR arrival exactly at quantum end:
+  service: [(1, 0, 2), (2, 2, 3), (1, 3, 5)]
+  pid arrival burst first completion wait turnaround response
+  1 0 4 0 5 1 5 0
+  2 2 1 2 3 0 1 0
+  mean wait=0.500000, turnaround=3.000000
+NORMAL HEALING LOOP: decisions= 15 incidents= 0 mean waiting= 0.0
+PHASE TRANSITION mixed seed=42 -> short_jobs; boundary= 8
+  pid arrival base_burst phase_burst base_priority phase_priority
+  3 2 33 33 1 1
+  8 3 35 35 5 5
+  7 7 5 5 5 5
+  12 8 49 3 4 5
+  5 9 22 3 5 3
+  15 9 36 2 1 5
+  2 10 39 4 2 2
+  6 10 43 40 1 1
+  14 11 39 1 2 4
+  11 13 27 21 1 4
+  1 16 5 5 3 1
+  10 16 5 5 4 4
+  4 17 22 10 3 1
+  13 17 37 8 4 2
+  9 19 11 1 2 4
+EXPECTED REJECTION empty default workload: ValidationError: workload 'empty' must contain at least one process
+EXPECTED REJECTION malformed process: ValidationError: workload 'bad' contains a non-Process entry: 'not a Process'
+EXPECTED REJECTION duplicate pid: ValidationError: workload 'bad' has duplicate pids: [1]
+EXPECTED REJECTION negative arrival: ValidationError: arrival_time must be >= 0, got -1
+EXPECTED REJECTION zero burst: ValidationError: burst_time must be > 0, got 0
+EXPECTED REJECTION zero quantum: ConfigurationError: round_robin_quantum must be an integer >= 1, got 0
+EXPECTED REJECTION runtime action 99: ValidationError: runtime action must be an integer in 0..3, got 99
+EXPECTED REJECTION healing action 99: ValidationError: healing action must be an integer in 0..7, got 99
+EXPECTED REJECTION unknown family: ValidationError: unknown workload family 'unknown'; known families: ['short_jobs', 'long_jobs', 'mixed', 'cpu_bursty', 'priority_skewed', 'staggered_interactive', 'poisson_arrivals']
+EXPECTED REJECTION unknown phase target: ValidationError: unknown workload family 'unknown'; known families: ['short_jobs', 'long_jobs', 'mixed', 'cpu_bursty', 'priority_skewed', 'staggered_interactive', 'poisson_arrivals']
+ALL direct API scenarios completed
+
+EXIT CODE: 0

@@ -1,0 +1,7 @@
+$ env PYTHONPATH=. .venv/bin/python docs/manual_evidence/render_plots.py
+figure_waiting_time /tmp/os-teacher-healing-figures/healing_waiting_time.png bytes= 77575
+figure_recovery_outcomes /tmp/os-teacher-healing-figures/healing_recovery_outcomes.png bytes= 68813
+figure_action_effects /tmp/os-teacher-healing-figures/healing_action_effects.png bytes= 97078
+Rendered all three figures from fresh-run CSV data; historical figures unchanged.
+
+EXIT CODE: 0
