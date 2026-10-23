@@ -52,6 +52,8 @@ results/study/training_history.csv
 /figures/training_curve.png
 
 # Quick presentation output is separate from frozen study evidence.
+# The teacher dashboard (index.html) is generated from demo.json, so neither the trace nor
+# the page is tracked: rebuild both with 'main.py demo' and tools/build_teacher_dashboard.py.
 /results/demo/
 
 # Local secrets and machine-specific environment settings (never submission assets).

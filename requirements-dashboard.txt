@@ -1,0 +1,10 @@
+# Live dashboard (FastAPI service + browser console).
+# Install on top of the pinned project environment:
+#   python -m pip install -r requirements-dashboard.txt
+# The dashboard adds an HTTP layer only; scheduling, simulation, detection, recovery and
+# metrics still come from the repository's own modules, which require requirements.txt.
+-r requirements.txt
+fastapi==0.121.2
+uvicorn==0.40.0
+# httpx is required by fastapi.testclient for the API test-suite.
+httpx==0.28.1

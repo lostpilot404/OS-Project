@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adaptive CPU Scheduling — simulation console</title>
+<meta name="description" content="Simulation console for a self-healing CPU scheduler: configure workloads, run the real Python engine, inspect schedules, recovery decisions and policy comparisons.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<a class="skip-link" href="#view">Skip to content</a>
+
+<aside class="rail" aria-label="Application">
+  <div class="rail-brand">
+    <span class="mark" aria-hidden="true"></span>
+    <div>
+      <strong>Adaptive Scheduling</strong>
+      <span>Simulation console</span>
+    </div>
+  </div>
+
+  <nav class="rail-nav" aria-label="Main">
+    <p class="rail-group">Workspace</p>
+    <a href="#/overview" data-route="overview">Overview</a>
+    <a href="#/studio" data-route="studio">Simulation Studio</a>
+
+    <p class="rail-group">Analysis</p>
+    <a href="#/workload" data-route="workload">Workload Explorer</a>
+    <a href="#/recovery" data-route="recovery">Recovery Analysis</a>
+    <a href="#/compare" data-route="compare">Policy Comparison</a>
+
+    <p class="rail-group">Evidence</p>
+    <a href="#/research" data-route="research">Research Results</a>
+    <a href="#/about" data-route="about">About &amp; Method</a>
+  </nav>
+
+  <div class="rail-foot">
+    <p class="rail-status" id="engine-status" role="status" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span><span id="engine-status-text">Connecting…</span>
+    </p>
+    <p class="rail-note">Simulated time units. Not a kernel scheduler.</p>
+    <button id="health-retry" class="rail-btn" type="button" hidden>Retry connection</button>
+  </div>
+</aside>
+
+<div class="app">
+  <div id="banner" class="banner" role="alert" hidden></div>
+  <main id="view" tabindex="-1"></main>
+  <footer class="app-foot">
+    <span>Runs the repository’s own scheduler, healing controller and metrics.</span>
+    <span id="footer-engine"></span>
+  </footer>
+</div>
+
+<noscript>
+  <div class="noscript">
+    <h1>JavaScript is required for the console</h1>
+    <p>
+      This application calls the Python API to execute simulations and render their results, so it
+      needs JavaScript. A JavaScript-free, printable report of a recorded run is still available:
+      <code>python tools/build_teacher_dashboard.py --input &lt;demo.json&gt; --output &lt;index.html&gt;</code>.
+    </p>
+  </div>
+</noscript>
+
+<script>
+  // If the script cannot be fetched (offline, a stale cache, a proxy error) the page would
+  // otherwise sit on "Connecting…" forever with an empty main region. Say so instead.
+  window.addEventListener('load', function () {
+    window.setTimeout(function () {
+      var view = document.getElementById('view');
+      if (!view || view.children.length) return;
+      var note = document.createElement('div');
+      note.className = 'noscript';
+      note.setAttribute('role', 'alert');
+      note.innerHTML = '<h1>The console could not start</h1>' +
+        '<p>The page loaded but <code>/static/app.js</code> did not run. Reload with ' +
+        'Ctrl+Shift+R (Cmd+Shift+R on macOS); if it keeps happening, check that the server ' +
+        'is still running and that nothing between the browser and the server is caching the page.</p>';
+      view.appendChild(note);
+    }, 2500);
+  });
+</script>
+<script src="/static/app.js" defer></script>
+</body>
+</html>

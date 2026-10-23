@@ -1,0 +1,72 @@
+{
+  "health": "Engine ready · 3.11.2",
+  "scenarios": [
+    "Small teaching workload",
+    "Successful recovery (seed 13)",
+    "Inconclusive verification and rollback (seed 3)",
+    "Custom workload"
+  ],
+  "teaching": {
+    "numbers": {
+      "Mean waiting": "4.33",
+      "Waiting difference": "0",
+      "Mean turnaround": "7.33",
+      "Mean response": "4.33",
+      "Context switches": "2",
+      "CPU utilisation": "100.00 %",
+      "Throughput": "0.3333",
+      "Elapsed": "9"
+    },
+    "subtitle": "FCFS: mean waiting 4.33 u · service order P1 -> P2 -> P3 · quantum 2, switch cost 0 · hand-verified against the guide",
+    "inspection": "P1 Priority Executedt=3 → t=8 (5 u) Context switch before0 u Waiting added by this dispatchnot recorded for this dispatch Arrival0 Burst / priority5 / 2 Completion8 Process total waiting3 u",
+    "comparison": "On this identical 3-process workload, SJF recorded the lowest mean waiting time (1.67 u versus 4.33 u for FCFS). Quantum 2 · switch cost 0 u."
+  },
+  "accepted": {
+    "numbers": {
+      "Mean waiting": "220.53",
+      "Waiting difference": "-35.27",
+      "Mean turnaround": "252.73",
+      "Mean response": "220.53",
+      "Context switches": "14",
+      "CPU utilisation": "97.18 %",
+      "Throughput": "0.0302",
+      "Elapsed": "497"
+    },
+    "callout": "accepted FCFS → SJF verified_phase_residual Verification closed accepted (verified_phase_residual): the residual +0.4375 reached the accept boundary +0.30, so SJF stayed in force. SJF kept in force · window t=243 → t=319",
+    "provenance": "Executed now Successful recovery (seed 13) · Self-healing run run 683fc690 4.81 ms engine time 1 s ago accepted → SJF Export this result (JSON)"
+  },
+  "rollback": {
+    "numbers": {
+      "Mean waiting": "130.47",
+      "Waiting difference": "-20.13",
+      "Mean turnaround": "151",
+      "Mean response": "130.47",
+      "Context switches": "14",
+      "CPU utilisation": "95.65 %",
+      "Throughput": "0.0466",
+      "Elapsed": "322"
+    },
+    "callout": "inconclusive FCFS → SJF inconclusive_residual_within_null_range Verification closed inconclusive (inconclusive_residual_within_null_range): the residual +0.2059 stayed inside the null range between -0.30 and +0.30. The change is neither proven nor rejected, so the controller rolled back to FCFS. rolled back to FCFS · window t=141 → t=193",
+    "provenance": "Executed now Inconclusive verification and rollback (seed 3) · Self-healing run run c1333008 6.9 ms engine time 1 s ago inconclusive → FCFS Export this result (JSON)"
+  },
+  "custom": {
+    "numbers": {
+      "Mean waiting": "8.40",
+      "Mean turnaround": "14.80",
+      "Mean response": "8.40",
+      "Context switches": "4",
+      "CPU utilisation": "100.00 %",
+      "Throughput": "0.1563",
+      "Elapsed": "32"
+    },
+    "subtitle": "Initial policy SJF · 5 dispatch intervals · 0 unit(s) of switch time · 0 unit(s) of idle time",
+    "workload": "custom · fingerprint 787921e3b26cb23a",
+    "validation": "Process 1: burst must be at least 1 time unit.",
+    "banner": "Process 1: burst must be at least 1 time unit.Dismiss"
+  },
+  "narrow": {
+    "documentWidth": 420,
+    "viewport": 420
+  },
+  "console": []
+}

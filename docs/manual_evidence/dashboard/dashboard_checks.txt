@@ -1,0 +1,52 @@
+$ cd /home/user/OS-Project && .venv/bin/python main.py demo --results-dir /tmp/dashbuild
+$ .venv/bin/python tools/build_teacher_dashboard.py --input /tmp/dashbuild/demo.json --output /tmp/dashbuild/index.html
+Teacher dashboard written
+-------------------------
+  demo input        : demo.json
+  scenarios         : seeds 3, 13
+  teaching example  : 4 policies, hand calculation verified
+  research panel    : healing_summary.json (10 arms)
+  output            : /tmp/dashbuild/index.html
+  size              : 213.0 KB (self-contained HTML, inline SVG)
+  sha256            : 230a34caf560495e
+Open the file in a browser; no server or network connection is used.
+
+$ sha256sum /tmp/dashbuild/demo.json
+c3f4826d5ce935c9b0d2ac6962a81d8f7fb747958b28049ca25e2a1d079a7bc1  /tmp/dashbuild/demo.json
+
+$ .venv/bin/python tools/build_teacher_dashboard.py --input /tmp/dashbuild/demo.json --output /tmp/dashbuild/index.html
+error: output already exists: /tmp/dashbuild/index.html; pass --force to replace this dashboard (research artifacts are never written by this tool)
+exit code 1
+
+$ .venv/bin/python tools/build_teacher_dashboard.py --input /tmp/dashbuild/missing.json --output /tmp/dashbuild/x.html
+error: demo input not found: /tmp/dashbuild/missing.json
+exit code 1
+
+$ .venv/bin/python tools/build_teacher_dashboard.py --input /tmp/dashbuild/demo.json --output /tmp/dashbuild/index.txt
+error: output must be an .html file, got 'index.txt'; choose a path such as index.html
+exit code 1
+
+$ .venv/bin/python tools/build_teacher_dashboard.py --input /tmp/dashbuild/demo.json --output results/healing/index.html
+error: refusing to write into the research evidence directory /home/user/OS-Project/results/healing; write the dashboard next to the demo output instead (for example --output <demo-dir>/index.html)
+exit code 1
+
+$ .venv/bin/python -m pytest
+582 passed
+
+$ grep -c '<svg' /tmp/dashbuild/index.html
+16
+$ grep -o 'https\?://' /tmp/dashbuild/index.html | wc -l
+0
+
+Generated-page checks: 16 inline SVG charts, 47 unique element ids (no duplicates), every
+url(#id) reference resolves, no external src/href/link, no http(s) URL anywhere, balanced
+HTML tags (html.parser stack empty, zero mismatches), the demo SHA-256 above matches the
+provenance shown on the page, and the two scenario means printed on the page (130.47 /
+150.60 and 220.53 / 255.80) equal the values in demo.json.
+
+Rendering evidence: this sandbox has no browser and no libcairo, so the PNGs in this
+directory were rasterised from the SVG embedded in the generated index.html by
+render_chart_png.py (Pillow + the DejaVu fonts that ship with Matplotlib). They are not
+screenshots and no image was hand-drawn. Verified here on Debian 12 / CPython 3.11.2;
+Windows PowerShell commands are documented but were not executed in this environment.
+exit code 0

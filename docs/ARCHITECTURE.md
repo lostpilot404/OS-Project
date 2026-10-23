@@ -16,6 +16,10 @@ rl/               Q-learning agent, runtime controllers, offline selector and re
 experiments/      the studies that run the above and write artifacts
 evaluation/       metrics, comparison statistics and paired bootstrap
 visualization/    figures rendered from the study artifacts
+dashboard/        classroom presentation layer: validates a saved demo trace, reads the
+                  study artifacts and renders one self-contained HTML page (inline SVG);
+                  also hosts the live FastAPI service and browser console that execute the
+                  engine on request (presentation only - no scheduling logic)
 ```
 
 ### `workload/`
@@ -92,6 +96,50 @@ visualization/    figures rendered from the study artifacts
   regression rates, fallback rate) and `reliability_summary_for_arms` (per-arm aggregation
   against a baseline).  All definitions are on `ScheduleResult` + incident ledger and have
   no hidden parameters.
+
+### `dashboard/` (presentation consumer, not a simulator)
+
+`dashboard/` never schedules, never computes study statistics and never trains. It is a
+read-only view over artifacts that already exist:
+
+* `model.py` — parses `demo.json`, then cross-checks it: per-process waits must equal the
+  recorded totals and means, dispatch intervals must reproduce each process's start and
+  completion, busy/idle/switch counts and the fingerprint must agree, every incident must
+  sit on a recorded dispatch, and a recorded rollback must match the policy the trace ends
+  under. Violations raise `DashboardError` with the offending field, and nothing is drawn.
+* `teaching.py` — executes the documented three-process example with the real
+  `scheduler.POLICY_CLASSES` at build time and fails the build if it stops matching the
+  hand calculation in `docs/TEACHER_LIVE_DEMO.md`.
+* `research.py` — reads `results/healing/healing_summary.json` and
+  `healing_comparisons.csv`; the summary sentences are derived from the values.
+* `charts.py` / `render.py` — inline SVG and the HTML template, with all content rendered
+  before any script runs (so the page is complete without JavaScript).
+* `build.py` / `cli.py` — path safety (HTML only, never an input or research directory),
+  atomic write, `--force` to replace an existing page.
+
+### `dashboard/` live layer (HTTP service, no second engine)
+
+The interactive console adds a request path, not a simulation path:
+
+| Module | Responsibility |
+|---|---|
+| `scenarios.py` | the four loadable scenarios (id, kind, description, intent, editable options, bounds). Static metadata only — no results, no execution |
+| `service.py` | the single adapter: validates a request, calls `experiments.demo.run_fixture` / `run_healing_workload` / `scheduler.POLICY_CLASSES`, passes the output through `model.parse_fixture`, and shapes the payload (workload, schedule, metrics, outcomes, healing record, charts) |
+| `api.py` | FastAPI routes (`/api/health`, `/api/examples`, `/api/simulations`, `/api/simulations/{id}`, `.../export`, `/api/comparisons`, `/api/research`), the bounded run registry, the concurrency guard, and the single error envelope |
+| `web/` | `index.html`, `styles.css`, `app.js` — the console. It issues requests, renders returned values and the returned SVG, and contains no scheduling, detection or metric logic |
+
+Boundaries kept intact:
+
+* the engine modules (`scheduler/`, `healing/`, `workload/`, `evaluation/`) are unchanged; the
+  service imports them exactly as `main.py` does, and `experiments/demo.py` now exposes the
+  fixture function both entry points call, so CLI and API cannot drift;
+* the service never writes inside the repository: each run gets a `tempfile.mkdtemp`
+  directory, the history is bounded (32 runs), and research artifacts are opened read-only;
+* at most four simulations run at once (HTTP 429 beyond that), and the registry assigns each
+  run its own directory, so concurrent runs cannot share files;
+* requests carry no paths, so no client input can select a filesystem location;
+* charts are the same `charts.py` functions used by the static page, so a value that the
+  schema rejects cannot be drawn by either consumer.
 
 ## 2. Data flow of one trace
 
