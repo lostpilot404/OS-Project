@@ -167,7 +167,10 @@ class WorkloadGenerator:
         )
         return priorities
 
-    def generate_with_drift(self, family_name: str, seed: int, drift_kind: str) -> "Workload":
+    def generate_with_drift(
+        self, family_name: str, seed: int, drift_kind: str,
+        *, phase_target_family: str = "short_jobs",
+    ) -> "Workload":
         """Generate a workload with mid-trace drift injected.
 
         Convenience wrapper that first generates a stable workload and then
@@ -179,6 +182,8 @@ class WorkloadGenerator:
             family_name: Base family.
             seed: Seed for base workload.
             drift_kind: One of ``workload.drift.DRIFT_KINDS``.
+            phase_target_family: Distribution supplying suffix bursts/priorities
+                for phase_transition (default: short_jobs). Arrivals stay unchanged.
 
         Returns:
             Drifted workload.
@@ -186,8 +191,12 @@ class WorkloadGenerator:
         from workload.drift import DriftSpec, apply_drift  # local import to avoid cycles
 
         base = self.generate(family_name, seed)
-        spec = DriftSpec(kind=drift_kind, seed=seed)
-        return apply_drift(base, spec)
+        target = self.generate(phase_target_family, seed) if drift_kind == "phase_transition" else None
+        spec = DriftSpec(
+            kind=drift_kind, seed=seed,
+            phase_target_family=phase_target_family if target is not None else None,
+        )
+        return apply_drift(base, spec, target_workload=target)
 
     def __repr__(self) -> str:
         return f"WorkloadGenerator(families={list(self._families)})"

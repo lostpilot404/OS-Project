@@ -23,6 +23,9 @@ from workload shifts, and avoid harmful or unnecessary interventions under uncer
 > off by default so the frozen study stays byte-identical, but available for reliability
 > experiments.  In the estimator-enabled drift experiment, fixed SJF still receives exact burst lengths and therefore acts as an **oracle baseline, not an equal-information comparison**.  See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
+Current maintenance verification and limitations: [engineering audit](docs/FINALIZATION_AUDIT.md).
+New contributors: [teammate onboarding](docs/TEAMMATE_ONBOARDING.md).
+
 ## Quick lecturer demo and WSL2 setup
 
 Follow [the exact WSL2 Ubuntu setup](docs/WSL_SETUP.md), including selection of the
@@ -152,6 +155,7 @@ drifted = gen.generate_with_drift("mixed", seed=42, drift_kind="burst_shock")
 
 # 2. Burst uncertainty: modelled online EWMA estimator plus log-normal noise (not calibrated/validated against real traces)
 cfg = HealingConfig(burst_estimator_enabled=True, burst_estimator_error_cv=0.30)
+scheduler_config = build_default_config().scheduler
 ctrl = SelfHealingController(cfg, scheduler_config, HoldOnlyPolicy())
 # controller sees noisy bursts (modelled EWMA+log-normal cv=0.30, not a realistic predictor); engine and evaluation still measure against truth; fixed SJF in the same experiment still sees exact bursts (oracle, not equal-information)
 
@@ -167,7 +171,9 @@ Or enable via config and re-run the study on drifted traces:
 from healing import HealingConfig
 cfg = HealingConfig(drift_enabled=True, drift_kind="phase_transition",
                     burst_estimator_enabled=True, burst_estimator_error_cv=0.4)
-# passed to SelfHealingController — healing-study accepts a custom config
+# Use run_healing_experiment(config=HealingExperimentConfig(healing=cfg))
+# from experiments.healing_experiment / experiments.healing_config.
+# The CLI does not expose custom HealingConfig flags.
 ```
 
 Combined-branch verification: **529 passed, one existing plotting warning in 47.20 s**

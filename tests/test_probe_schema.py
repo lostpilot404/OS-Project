@@ -54,7 +54,7 @@ def test_canonical_probe_is_not_confused_with_legacy():
     assert canonical["raw_load_improvement_band_units"].iloc[1] == legacy["reward_band_units"].iloc[1]
 
 
-def test_healing_plots_rejects_legacy_schema():
+def test_healing_plots_rejects_legacy_schema(tmp_path):
     from visualization.healing_plots import plot_healing_figures
 
     legacy = _legacy_frame()
@@ -63,13 +63,14 @@ def test_healing_plots_rejects_legacy_schema():
     # Provide minimal probe-like frame missing controller_reward -> should raise ValidationError
     with pytest.raises(ValidationError, match="legacy schema.*missing 'controller_reward'"):
         plot_healing_figures(
-            figures_dir=pathlib.Path("/tmp"),
+            figures_dir=tmp_path / "invalid-output",
             metrics=pd.DataFrame({"arm": [], "family": [], "avg_waiting_time": [], "p95_waiting_time": []}),
             comparisons=empty,
             detection=pd.DataFrame({"split": [], "arm": [], "interventions": [], "accepted": [], "rejected": [], "inconclusive": [], "held": []}),
             audit=empty,
             probe=legacy,
         )
+    assert not (tmp_path / "invalid-output").exists()
 
 
 def test_healing_plots_accepts_canonical_schema(tmp_path):
