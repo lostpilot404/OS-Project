@@ -399,6 +399,7 @@ each item, including what is deliberately left unverified.
 | [`docs/Review_2_Report.docx`](docs/Review_2_Report.docx) | the same report as an editable document, including the Mermaid source of every diagram |
 | [`docs/OS_Project_Report_Plain.md`](docs/OS_Project_Report_Plain.md) | text-only academic report (Markdown source) |
 | [`docs/OS_Project_Report_Plain.pdf`](docs/OS_Project_Report_Plain.pdf) | the text-only report rendered as a black-and-white PDF by `tools/build_plain_report.py` |
+| [`docs/manual_evidence/README.md`](docs/manual_evidence/README.md) | index of the captured command output and real browser screenshots, folder by folder |
 
 ## Review 2 report
 
