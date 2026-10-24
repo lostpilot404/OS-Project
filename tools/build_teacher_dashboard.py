@@ -1,10 +1,9 @@
-"""Build the self-contained classroom dashboard from a saved demo trace.
+r"""Build the self-contained classroom dashboard from a saved demo trace.
 
 Usage (from the repository root, same interpreter that ran the demo)::
 
     python tools/build_teacher_dashboard.py \
-        --input results/demo/demo.json \
-        --output results/demo/index.html
+        --input results/demo/demo.json --output results/demo/index.html
 
 Windows PowerShell (one line, or continue with a backtick):
 

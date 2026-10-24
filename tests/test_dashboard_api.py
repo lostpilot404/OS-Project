@@ -615,7 +615,7 @@ def test_request_paths_cannot_reach_the_filesystem():
 
 def test_research_endpoint_returns_the_committed_values(client):
     body = client.get("/api/research").json()
-    summary = json.loads((REPO_ROOT / "results" / "healing" / "healing_summary.json").read_text())
+    summary = json.loads((REPO_ROOT / "results" / "healing" / "healing_summary.json").read_text(encoding="utf-8"))
     arms = {row["arm"]: row for row in body["arms"]}
     assert len(arms) == len(summary["means"])
     for raw in summary["means"]:
@@ -667,15 +667,15 @@ def test_static_assets_are_revalidated(client):
 
 
 def test_shell_stamp_follows_the_asset_bytes(client, monkeypatch, tmp_path):
-    shell = (REPO_ROOT / "dashboard" / "web" / "index.html").read_text()
-    (tmp_path / "index.html").write_text(shell)
-    (tmp_path / "app.js").write_text("// first\n")
-    (tmp_path / "styles.css").write_text("/* first */\n")
+    shell = (REPO_ROOT / "dashboard" / "web" / "index.html").read_text(encoding="utf-8")
+    (tmp_path / "index.html").write_text(shell, encoding="utf-8")
+    (tmp_path / "app.js").write_text("// first\n", encoding="utf-8")
+    (tmp_path / "styles.css").write_text("/* first */\n", encoding="utf-8")
     monkeypatch.setattr("dashboard.api.WEB_DIR", tmp_path)
     with TestClient(create_app()) as fresh:
         first = fresh.get("/").text
         assert "?v=" + hashlib.sha1(b"// first\n").hexdigest()[:10] in first
-        (tmp_path / "app.js").write_text("// second\n")
+        (tmp_path / "app.js").write_text("// second\n", encoding="utf-8")
         second = fresh.get("/").text
         assert "?v=" + hashlib.sha1(b"// first\n").hexdigest()[:10] not in second
         assert "?v=" + hashlib.sha1(b"// second\n").hexdigest()[:10] in second
@@ -689,7 +689,7 @@ def test_frontend_says_so_when_the_script_never_runs(client):
 
 
 def test_frontend_script_uses_only_relative_api_calls():
-    script = (Path(__file__).resolve().parent.parent / "dashboard" / "web" / "app.js").read_text()
+    script = (Path(__file__).resolve().parent.parent / "dashboard" / "web" / "app.js").read_text(encoding="utf-8")
     assert "http://" not in script and "https://" not in script
     for route in ("/api/health", "/api/examples", "/api/simulations", "/api/comparisons", "/api/research"):
         assert route in script

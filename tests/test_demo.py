@@ -61,7 +61,7 @@ def test_demo_output_failure_is_actionable(tmp_path):
     path.write_text("do not overwrite", encoding="utf-8")
     with pytest.raises(SystemExit, match="Use --results-dir with a writable directory"):
         main(["demo", "--results-dir", str(path)])
-    assert path.read_text() == "do not overwrite"
+    assert path.read_text(encoding="utf-8") == "do not overwrite"
 
 
 def test_cli_help_and_invalid_command():

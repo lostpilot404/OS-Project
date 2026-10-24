@@ -17,7 +17,7 @@ DOCS = [
 ]
 
 def _load(path):
-    return pathlib.Path(path).read_text()
+    return pathlib.Path(path).read_text(encoding="utf-8")
 
 def test_no_unlabeled_21_incident_canonical_claim():
     # Any mention of 21 incidents or 168 rows as if it were the current canonical probe is stale.

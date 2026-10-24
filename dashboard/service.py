@@ -25,6 +25,8 @@ registry in a per-run temporary directory; research artifacts are opened read-on
 
 from __future__ import annotations
 
+import json
+import math
 import platform
 import time
 from dataclasses import asdict
@@ -36,6 +38,7 @@ from config import SchedulerConfig
 from evaluation.metrics import compute_metrics
 from experiments.demo import run_fixture, run_healing_workload, with_scheduler
 from experiments.healing_config import HealingExperimentConfig
+from healing.policies import HealingContextEncoder
 from scheduler import POLICY_CLASSES, SchedulingPolicy
 from workload.models import Process, Workload
 
@@ -93,6 +96,10 @@ MAX_QUANTUM = 64
 MAX_SWITCH_COST = 10
 MAX_BURST = 10_000
 MAX_ARRIVAL = 100_000
+
+#: Number of cells in the healing controller's tabular state space. Derived from the
+#: encoder's own bin definition, so the interface cannot print a stale "/648".
+STATE_SPACE_SIZE: int = math.prod(HealingContextEncoder.RADICES)
 
 
 class SimulationError(ValueError):
@@ -330,7 +337,17 @@ def _healing_view(fixture: Fixture) -> Optional[Dict[str, Any]]:
         "triggered": True,
         "summary": _verdict_summary(incident),
         "stages": [
-            {"title": stage.title, "lines": list(stage.lines), "tone": stage.tone, "detail": stage.detail}
+            {
+                "title": stage.title,
+                "lines": list(stage.lines),
+                "tone": stage.tone,
+                # Semantic tone of the stage ("ok", "warn", "bad", "muted", "accent"). The
+                # interface colours each stage from this key rather than by re-reading a hex
+                # value or matching the title, so an inconclusive rollback can never be
+                # painted as a success.
+                "tone_key": stage.tone_key,
+                "detail": stage.detail,
+            }
             for stage in stages
         ],
         "final_text": final_text,
@@ -343,6 +360,15 @@ def _verdict_summary(incident: Incident) -> str:
     residual = (
         f"{incident.closure_residual:+.4f}" if incident.closure_residual is not None else "n/a"
     )
+    if incident.verdict == "held":
+        # The detector fired but the selected action left the configuration unchanged, so
+        # no window existed to judge. Calling this "inconclusive" would claim evidence that
+        # was never collected.
+        return (
+            f"No configuration change was made ({incident.verifier_reason}): the selected "
+            f"action {incident.action_name} left {incident.settings_before_policy} in force, "
+            "so there was nothing to verify and the trace continued unchanged."
+        )
     if incident.verdict == "accepted":
         return (
             f"Verification closed accepted ({incident.verifier_reason}): the residual {residual} "
@@ -389,6 +415,9 @@ def _incident_view(incident: Incident) -> Dict[str, Any]:
         "diagnosis_statement": incident.diagnosis_statement,
         "diagnosis_matched": incident.diagnosis_matched,
         "context_state_index": incident.context_state_index,
+        # Size of the tabular context space, read from the encoder that produced the index
+        # rather than typed into the interface.
+        "state_space_size": STATE_SPACE_SIZE,
         "feature_bins": list(incident.feature_bins),
         "offered_actions": incident.offered_actions,
         "action": incident.action,
@@ -660,13 +689,23 @@ def _run_teaching_scenario(scenario: Mapping[str, Any], options: Mapping[str, An
 
 
 def _teaching_metrics(policy: Any) -> Dict[str, Any]:
-    """Turn a TeachingPolicy record into the canonical metrics mapping."""
+    """Turn a TeachingPolicy record into the canonical metrics mapping.
+
+    Every aggregate the other scenarios serialise is filled here too (turnaround and
+    response totals, context switches per process), so a payload from this scenario carries
+    the same keys with the same meaning as a custom or a healing run.
+    """
+    count = len(policy.outcomes)
+    total_turnaround = sum(row.turnaround_time for row in policy.outcomes)
+    total_response = sum(row.response_time for row in policy.outcomes)
     return {
         "policy_name": policy.name,
         "workload_name": "teacher-hand-example",
         "workload_fingerprint": "",
-        "num_processes": len(policy.outcomes),
+        "num_processes": count,
         "total_waiting_time": sum(row.waiting_time for row in policy.outcomes),
+        "total_turnaround_time": total_turnaround,
+        "total_response_time": total_response,
         "avg_waiting_time": policy.mean_waiting_time,
         "avg_turnaround_time": policy.mean_turnaround_time,
         "avg_response_time": policy.mean_response_time,
@@ -675,6 +714,7 @@ def _teaching_metrics(policy: Any) -> Dict[str, Any]:
         "cpu_busy_time": policy.elapsed_time,
         "cpu_idle_time": 0,
         "context_switches": policy.context_switches,
+        "context_switches_per_process": policy.context_switches / count if count else 0.0,
         "total_elapsed_time": policy.elapsed_time,
     }
 
@@ -687,7 +727,29 @@ def _workload_fingerprint(panel: Any) -> str:
 
 
 def _teaching_fixtures(panel: Any) -> Dict[str, Fixture]:
-    """Wrap each executed teaching policy in the dashboard's validated fixture type."""
+    """Wrap each executed teaching policy in the dashboard's validated fixture type.
+
+    ``fcfs_metrics`` is the *executed* FCFS result on the same three processes, not a
+    placeholder: the type is shared with the healing fixtures, where the field really is a
+    baseline, so filling it with zeros would plant wrong data in every teaching payload.
+    """
+    fcfs_policy = next(policy for policy in panel.policies if policy.name == "FCFS")
+    fcfs_metrics = Metrics(
+        policy_name="FCFS",
+        workload_name="teacher-hand-example",
+        workload_fingerprint="",
+        num_processes=len(fcfs_policy.outcomes),
+        total_waiting_time=sum(row.waiting_time for row in fcfs_policy.outcomes),
+        avg_waiting_time=fcfs_policy.mean_waiting_time,
+        avg_turnaround_time=fcfs_policy.mean_turnaround_time,
+        avg_response_time=fcfs_policy.mean_response_time,
+        cpu_utilization=fcfs_policy.cpu_utilization,
+        context_switches=fcfs_policy.context_switches,
+        total_elapsed_time=fcfs_policy.elapsed_time,
+        cpu_busy_time=fcfs_policy.elapsed_time,
+        cpu_idle_time=0,
+        throughput=fcfs_policy.throughput,
+    )
     fixtures: Dict[str, Fixture] = {}
     for policy in panel.policies:
         fixture = Fixture(
@@ -721,19 +783,7 @@ def _teaching_fixtures(panel: Any) -> Dict[str, Fixture]:
                 cpu_idle_time=0,
                 throughput=policy.throughput,
             ),
-            fcfs_metrics=Metrics(
-                policy_name="FCFS",
-                workload_name="teacher-hand-example",
-                workload_fingerprint="",
-                num_processes=len(policy.outcomes),
-                total_waiting_time=0,
-                avg_waiting_time=0.0,
-                avg_turnaround_time=0.0,
-                avg_response_time=0.0,
-                cpu_utilization=100.0,
-                context_switches=0,
-                total_elapsed_time=policy.elapsed_time,
-            ),
+            fcfs_metrics=fcfs_metrics,
         )
         fixtures[policy.name] = fixture
     return fixtures
@@ -833,6 +883,16 @@ def _run_custom_scenario(scenario: Mapping[str, Any], options: Mapping[str, Any]
     if not isinstance(healing, bool):
         raise SimulationError("healing must be true or false", field="healing")
     policy_name, policy_class = _policy_from_options(options)
+    if healing and policy_name != "FCFS":
+        # The control loop always starts from FCFS and chooses the policy itself. Silently
+        # ignoring a requested policy made the Studio's selector look effective when it was
+        # not, so the mismatch is refused instead.
+        raise SimulationError(
+            f"the self-healing loop always starts from FCFS and chooses the policy itself; "
+            f"remove 'policy' (or set it to FCFS) to run this workload through the loop, or "
+            f"turn healing off to execute {policy_name} directly",
+            field="policy",
+        )
     model_config = SchedulerConfig(round_robin_quantum=quantum, switching_cost=switching_cost)
     workload = Workload("custom", processes)
 
@@ -1042,7 +1102,9 @@ def execute(scenario_id: str, options: Optional[Mapping[str, Any]] = None) -> Di
     try:
         scenario = scenario_catalogue.get_scenario(scenario_id)
     except KeyError as error:
-        raise SimulationError(str(error), field="scenario") from None
+        # ``str(KeyError(...))`` is the repr of the message, so it arrives wrapped in
+        # double quotes; the declared text is ``error.args[0]``.
+        raise SimulationError(str(error.args[0] if error.args else error), field="scenario") from None
     try:
         merged = scenario_catalogue.normalise_options(scenario, dict(options or {}))
     except ValueError as error:
@@ -1174,6 +1236,38 @@ def compare_policies(
     }
 
 
+def _measured_limits() -> Optional[Dict[str, Any]]:
+    """Read the study's own verification/detection measurements for the Research page.
+
+    The page states what the verifier and the detector actually did on the held-out split.
+    Those figures live in the committed ``healing_summary.json`` but are not part of the
+    arm table ``load_research`` validates, so they are read here, read-only, and omitted
+    (``None``) rather than guessed when the keys are absent.
+    """
+    try:
+        document = json.loads(RESEARCH_SUMMARY_PATH.read_text(encoding="utf-8"))
+        discrimination = document["verification_discrimination"]
+        derivation = document["threshold_derivation"]
+        return {
+            "split": discrimination.get("split"),
+            "interventions": discrimination.get("n_interventions"),
+            "accepted": discrimination.get("accepted_n"),
+            "accepted_helped_share": discrimination.get("accepted_helped_share"),
+            "certifiable_share": discrimination.get(
+                "certifiable_share_of_helpful_at_accept_residual_factor"
+            ),
+            "base_helped_share": discrimination.get("base_helped_share"),
+            "rejected": discrimination.get("rejected_n"),
+            "rejected_harmful_share": discrimination.get("rejected_harmful_share"),
+            "control_incidents_per_trace": derivation.get("control_incidents_per_trace"),
+            "declared_false_accept_rate": derivation.get(
+                "declared_false_accept_rate_on_control"
+            ),
+        }
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+
+
 def research_panel() -> Dict[str, Any]:
     """Read the committed study artifacts (read-only) and shape them for the browser."""
     summary = load_research(RESEARCH_SUMMARY_PATH)
@@ -1222,6 +1316,7 @@ def research_panel() -> Dict[str, Any]:
                 arms=summary.arms,
             )
         },
+        "measured_limits": _measured_limits(),
         "caveats": [
             "These are committed final-test aggregate means, not the output of the run shown "
             "above.",

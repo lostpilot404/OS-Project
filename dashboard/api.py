@@ -284,7 +284,16 @@ def create_app(registry: Optional[RunRegistry] = None) -> FastAPI:
     @application.exception_handler(RequestValidationError)
     async def _validation_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
         first = exc.errors()[0] if exc.errors() else {"msg": "invalid request"}
-        location = ".".join(str(part) for part in first.get("loc", ()) if part != "body")
+        # A JSON syntax error carries the character offset as its last location part. That
+        # number is not a field of the request, so report the body instead of "1: ...".
+        parts = [
+            str(part)
+            for part in first.get("loc", ())
+            if part != "body" and not isinstance(part, int)
+        ]
+        if first.get("type") == "json_invalid":
+            parts = ["body"]
+        location = ".".join(parts)
         message = first.get("msg", "invalid request")
         return _error(
             422,
@@ -295,9 +304,15 @@ def create_app(registry: Optional[RunRegistry] = None) -> FastAPI:
 
     @application.exception_handler(404)
     async def _not_found(_: Request, exc: HTTPException) -> JSONResponse:
+        # Starlette resolves a 404 status handler before the exception-class handler, so the
+        # routes' own SimulationHTTPError(404, "unknown_run") arrives here. Keep its declared
+        # type instead of flattening every 404 to "not_found": the error contract in
+        # docs/LIVE_DASHBOARD.md promises ``unknown_run`` for an aged-out run.
         detail = exc.detail
         message = detail if isinstance(detail, str) else "not found"
-        return _error(404, "not_found", message)
+        kind = getattr(exc, "kind", "not_found")
+        extra = getattr(exc, "extra", None) or {}
+        return _error(404, kind, message, **extra)
 
     @application.middleware("http")
     async def _no_store(request: Request, call_next):  # type: ignore[no-untyped-def]

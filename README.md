@@ -24,6 +24,8 @@ from workload shifts, and avoid harmful or unnecessary interventions under uncer
 > experiments.  In the estimator-enabled drift experiment, fixed SJF still receives exact burst lengths and therefore acts as an **oracle baseline, not an equal-information comparison**.  See [`docs/LIMITATIONS.md`](docs/LIMITATIONS.md).
 
 Current maintenance verification and limitations: [engineering audit](docs/FINALIZATION_AUDIT.md).
+The most recent end-to-end audit, including the browser-verification record and the list of
+defects fixed, is [docs/FINAL_AUDIT_AND_VERIFICATION.md](docs/FINAL_AUDIT_AND_VERIFICATION.md).
 New contributors: [teammate onboarding](docs/TEAMMATE_ONBOARDING.md).
 
 ## Quick lecturer demo and WSL2 setup

@@ -10,6 +10,7 @@ by hand. Each folder is self-contained and says which build of the interface it 
 | [`web-v2/`](web-v2/) | the redesigned interface: every page at three widths, empty states and 50 scripted browser checks; see [`VERIFICATION.md`](web-v2/VERIFICATION.md) and [`browser-checks.json`](web-v2/browser-checks.json) |
 | [`web-v3/`](web-v3/) | the capture that **found** three defects (comparison button left disabled, footer and sidebar counts disagreeing, 420 px layout); see [`README.md`](web-v3/README.md) |
 | [`web-v4/`](web-v4/) | the verification **after** those defects were fixed: 36 browser checks, including the button lifecycle, an injected API failure, run-count agreement and the 420 px reflow; see [`README.md`](web-v4/README.md) |
+| [`final-desktop/`](final-desktop/) | the final desktop pass on the current tree: 83 scripted checks and 22 screenshots at 1440 px, including the recovery lifecycle tones, a no-incident healing run, the comparison failure path, backend loss and a run that aged out of the history; see [`README.md`](final-desktop/README.md) |
 
 Nothing in an older folder is rewritten when a newer one is added: `web-v3/` is kept as the
 record of the defects, and `web-v4/` shows the same screens afterwards.

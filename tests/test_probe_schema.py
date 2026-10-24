@@ -124,12 +124,13 @@ def test_healing_plots_accepts_canonical_schema(tmp_path, monkeypatch):
     assert action_figure.axes[0].get_xlabel().startswith("Controller reward")
 
 
-def test_legacy_plot_labels_explicitly():
+def test_legacy_plot_labels_explicitly(tmp_path):
     from visualization.healing_plots import plot_healing_figures_legacy
 
     legacy = _legacy_frame()
-    # Must succeed with legacy data and label as legacy
-    out = plot_healing_figures_legacy(pathlib.Path("/tmp"), legacy)
+    # Must succeed with legacy data and label as legacy; the output directory is a real
+    # temporary directory rather than a hard-coded POSIX path, so this also runs on Windows.
+    out = plot_healing_figures_legacy(tmp_path, legacy)
     assert "figure_action_effects_legacy" in out
 
 
