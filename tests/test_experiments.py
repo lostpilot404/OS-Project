@@ -412,11 +412,11 @@ class TestEndToEnd:
                 assert artifacts.paths[name].exists(), name
         assert not (tmp_path / "figures" / "round_robin_quantum.png").exists()
 
-        summary = json.loads((tmp_path / "results" / "summary.json").read_text())
+        summary = json.loads((tmp_path / "results" / "summary.json").read_text(encoding="utf-8"))
         workloads = pd.read_csv(tmp_path / "results" / "workloads.csv")
         metrics = pd.read_csv(tmp_path / "results" / "metrics.csv")
         decisions = pd.read_csv(tmp_path / "results" / "decisions.csv")
-        report = (tmp_path / "results" / "report.md").read_text()
+        report = (tmp_path / "results" / "report.md").read_text(encoding="utf-8")
         assert summary["evaluation"]["observed_unique_workloads"] == len(workloads)
         assert summary["evaluation"]["selector_decision_rows"] == len(decisions)
         assert len(metrics) == summary["evaluation"]["metric_rows"]
@@ -477,7 +477,7 @@ class TestEndToEnd:
         artifacts = run_experiment(
             _small_config(), tmp_path / "results", tmp_path / "figures", make_figures=False
         )
-        report = Path(artifacts.paths["report"]).read_text()
+        report = Path(artifacts.paths["report"]).read_text(encoding="utf-8")
         summary = artifacts.summary
         assert str(summary["evaluation"]["observed_unique_workloads"]) in report
         for row in summary["tables"]["policy_selection"]:

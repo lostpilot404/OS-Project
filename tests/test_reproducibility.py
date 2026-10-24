@@ -78,7 +78,7 @@ class TestReproducibility:
 
     def test_summary_json_round_trips(self, tmp_path: Path) -> None:
         results = _run(tmp_path, "run1")
-        payload = json.loads((results / "summary.json").read_text())
+        payload = json.loads((results / "summary.json").read_text(encoding="utf-8"))
         assert payload["configuration"]["design"]["test_seed"] == build_study_design().test_seed
         assert set(payload["test"]["arms"]) == set(payload["configuration"]["design"]["q_arms"]) | {
             "best_fixed",

@@ -63,7 +63,7 @@ def test_pipeline_separates_splits_pairs_all_methods_and_records_validation_demo
         "target", "reference", "metric", "mean_difference", "ci95_low", "ci95_high"
     }
 
-    demo = json.loads(artifacts.paths["learned_switch_demo"].read_text())
+    demo = json.loads(artifacts.paths["learned_switch_demo"].read_text(encoding="utf-8"))
     assert demo["status"] == "verified_learned_runtime_policy_switch"
     assert demo["source_split"] == "validation"
     assert demo["illustrative_not_representative"] is True
@@ -77,10 +77,10 @@ def test_pipeline_separates_splits_pairs_all_methods_and_records_validation_demo
     assert artifacts.summary["demo"]["source_split"] == "validation"
     assert artifacts.summary["demo"]["selection_rule"]
 
-    coverage = artifacts.paths["state_action_coverage"].read_text()
+    coverage = artifacts.paths["state_action_coverage"].read_text(encoding="utf-8")
     assert "unvisited_state_actions" in coverage
     assert "unvisited_action_opportunities" in coverage
-    report = artifacts.paths["report"].read_text()
+    report = artifacts.paths["report"].read_text(encoding="utf-8")
     assert "untouched final test" in report.lower()
     assert "gamma" in report
     assert "across 1 independently trained model(s)" in report

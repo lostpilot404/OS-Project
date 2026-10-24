@@ -35,6 +35,7 @@ from dashboard.charts import (
     lifecycle_flow,
     research_bars,
     stage_colours,
+    verdict_tone_key,
     verification_band,
 )
 from dashboard.model import DemoDocument, Fixture
@@ -885,6 +886,7 @@ def lifecycle_stages(fixture: Fixture) -> Tuple[Tuple[LifecycleStage, ...], str]
         else f"{incident.settings_after_policy} kept in force"
     )
     verify_tone, decision_tone = stage_colours(incident.verdict)
+    verdict_key = verdict_tone_key(incident.verdict)
     pre_decisions = [
         interval for interval in fixture.intervals if interval.index < incident.decision_index
     ]
@@ -915,6 +917,7 @@ def lifecycle_stages(fixture: Fixture) -> Tuple[Tuple[LifecycleStage, ...], str]
                 f"band {format_number(incident.band_at_trigger)}",
             ),
             "#2b6f6a",
+            tone_key="muted",
             detail=(
                 f"Rolling statistic over {incident.window_size_at_trigger} completed processes: mean "
                 f"{format_number(incident.window_mean_at_trigger)}, median "
@@ -932,6 +935,7 @@ def lifecycle_stages(fixture: Fixture) -> Tuple[Tuple[LifecycleStage, ...], str]
                 f"{incident.suspicion_evaluations} evaluations",
             ),
             WARN,
+            tone_key="warn",
             detail=(
                 f"The window mean {format_number(incident.window_mean_at_trigger)} exceeded the threshold "
                 f"{format_number(incident.trigger_threshold)} = reference "
@@ -948,6 +952,7 @@ def lifecycle_stages(fixture: Fixture) -> Tuple[Tuple[LifecycleStage, ...], str]
                 f"{incident.ready_count_at_trigger} ready",
             ),
             "#5b5b8a",
+            tone_key="muted",
             detail=(
                 f"{incident.diagnosis_statement} Matched categories: "
                 f"{incident.diagnosis_matched or 'none'}. Visible remaining work at the trigger: "
@@ -962,6 +967,7 @@ def lifecycle_stages(fixture: Fixture) -> Tuple[Tuple[LifecycleStage, ...], str]
                 "changed" if incident.action_changed else "no change",
             ),
             LEARNED,
+            tone_key="accent",
             detail=(
                 f"Offered actions: {incident.offered_actions}. Chosen: {incident.action_name} "
                 f"({incident.request_note}). Action note: {incident.action_note or 'none'}. "
@@ -977,6 +983,7 @@ def lifecycle_stages(fixture: Fixture) -> Tuple[Tuple[LifecycleStage, ...], str]
                 f"{incident.verification_completions} completions",
             ),
             ACCENT,
+            tone_key="accent",
             detail=(
                 f"The window closed after {incident.verification_decisions} decisions and "
                 f"{incident.verification_completions} completions"
@@ -991,6 +998,7 @@ def lifecycle_stages(fixture: Fixture) -> Tuple[Tuple[LifecycleStage, ...], str]
                 f"bands {format_signed(reject)} / {format_signed(accept)}",
             ),
             verify_tone,
+            tone_key=verdict_key,
             detail=(
                 f"Verdict {incident.verdict}; reason {incident.verifier_reason}. Closure fraction "
                 f"{format_number(incident.closure_fraction, 3)} against the expected no-action closure "
@@ -1008,6 +1016,7 @@ def lifecycle_stages(fixture: Fixture) -> Tuple[Tuple[LifecycleStage, ...], str]
                 "confirmed failure" if incident.confirmed_failure else "no confirmed failure",
             ),
             decision_tone,
+            tone_key=verdict_key,
             detail=(
                 f"{final_text}. Confirmed failure: {incident.confirmed_failure}. Consecutive confirmed "
                 f"failures: {incident.consecutive_failures}. Safe fallback triggered: "

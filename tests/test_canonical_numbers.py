@@ -19,7 +19,7 @@ from healing.canonical_numbers import (
 
 
 def test_summary_discrimination_matches_canonical_counts() -> None:
-    summary = json.loads(pathlib.Path("results/healing/healing_summary.json").read_text())
+    summary = json.loads(pathlib.Path("results/healing/healing_summary.json").read_text(encoding="utf-8"))
     disc = summary["verification_discrimination"]
     assert disc["helped"] == HELPFUL
     assert disc["n_interventions"] == TOTAL_INTERVENTIONS
@@ -36,20 +36,20 @@ def test_summary_discrimination_matches_canonical_counts() -> None:
 def test_docs_do_not_contain_stale_83_9_percent() -> None:
     # Every remaining occurrence of the old 83.9% would be a drift.
     for path in pathlib.Path("docs").glob("*.md"):
-        text = path.read_text()
+        text = path.read_text(encoding="utf-8")
         assert "83.9" not in text, f"stale 83.9% in {path}"
-    assert "83.9" not in pathlib.Path("README.md").read_text()
+    assert "83.9" not in pathlib.Path("README.md").read_text(encoding="utf-8")
 
 
 def test_docs_use_correct_base_rate() -> None:
     # Spot-check that the three reconciled files now state 83.5% base rate.
     for fname in ["docs/EVALUATION_RESULTS.md", "docs/DESIGN_AND_CHOICES.md", "docs/LIMITATIONS.md", "README.md"]:
-        text = pathlib.Path(fname).read_text()
+        text = pathlib.Path(fname).read_text(encoding="utf-8")
         assert "83.5" in text, f"expected 83.5% in {fname}"
 
 
 def test_healing_config_comment_uses_canonical_spread() -> None:
-    text = pathlib.Path("healing/config.py").read_text()
+    text = pathlib.Path("healing/config.py").read_text(encoding="utf-8")
     assert "0.160" in text
     # Old value must be gone
     assert "0.34 and more than doubles" not in text

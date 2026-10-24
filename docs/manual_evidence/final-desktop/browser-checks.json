@@ -1,0 +1,594 @@
+{
+  "tool": "headless Chromium driven by puppeteer-core (scripted, not manual browser use)",
+  "build": "dashboard served by tools/serve_dashboard.py on 0.0.0.0:8000 from this working tree",
+  "viewport": "1440x900 (page.screenshot fullPage: true)",
+  "merged_at": "2026-10-24T08:28:45.871Z",
+  "summary": {
+    "checks": 83,
+    "passed": 83,
+    "failed": 0
+  },
+  "corrections": [
+    "Four checks in earlier drafts were wrong in the script, not in the application, and were corrected before this log was merged: the custom-workload mean was expected to be 10.4 u (the typed four-process FCFS workload is 4.25 u, and the rows were verified by hand); the footer selector was `.status-bar` instead of `.app-foot`; the restore notice was looked for inside `#view` although it is the `#banner` element; and a check for an aged-out run was applied after the run had already been replaced by a fresh one, so it was replaced by a dedicated restart flow (part 3b).",
+    "The Gantt inspector check first failed because the click landed on a legend swatch; the block-level click and the keyboard path both pass in the merged run."
+  ],
+  "sessions": [
+    {
+      "session": "part 1 — startup, routes, teaching, recovery, comparison",
+      "checks": 36,
+      "passed": 36,
+      "results": [
+        {
+          "ok": true,
+          "name": "seven navigation destinations",
+          "detail": "overview,studio,workload,recovery,compare,research,about"
+        },
+        {
+          "ok": true,
+          "name": "no horizontal overflow at 1440 px",
+          "detail": "0"
+        },
+        {
+          "ok": true,
+          "name": "no page errors on first load",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "no failed requests on first load",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "captured 01-overview-1440.png",
+          "detail": "176604 bytes"
+        },
+        {
+          "ok": true,
+          "name": "captured 02-studio-1440.png",
+          "detail": "174329 bytes"
+        },
+        {
+          "ok": true,
+          "name": "Studio note reports the executed FCFS mean 4.33 u",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "teaching table reports SJF 1.67 u",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "teaching table reports Priority 3.67 and Round Robin 4.33",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "captured 03-teaching-studio-1440.png",
+          "detail": "190501 bytes"
+        },
+        {
+          "ok": true,
+          "name": "selecting SJF changes the displayed trace in the Studio",
+          "detail": "Simulation Studio | Choose what to execute, review the settings the engine will receive, then run it. Results open in the Workload Explorer; the recovery decisi"
+        },
+        {
+          "ok": true,
+          "name": "the workload table follows the selected policy (SJF row P1 starts at t=4)",
+          "detail": "\"P1 0 5 2 4 9 4 9 4\""
+        },
+        {
+          "ok": true,
+          "name": "clicking a dispatch block fills the inspector",
+          "detail": "P3 | SJF | EXECUTED | t=0 → t=1 (1 u) | SWITCH BEFORE | 0 u | WAITING ADDED | not recorded for this dispatch | ARRIVAL | 0 | BURST / PRIORITY | 1 / 3 "
+        },
+        {
+          "ok": true,
+          "name": "the inspector says when a waiting increment was not recorded",
+          "detail": "P3 | SJF | EXECUTED | t=0 → t=1 (1 u) | SWITCH BEFORE | 0 u | WAITING ADDED | not recorded for this dispatch | ARRIVAL | 0 | BURST / PRIORITY | 1 / 3 "
+        },
+        {
+          "ok": true,
+          "name": "captured 04-teaching-workload-inspector-1440.png",
+          "detail": "153125 bytes"
+        },
+        {
+          "ok": true,
+          "name": "accepted page states the residual +0.4375",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "accepted: both judgment stages are green",
+          "detail": "[{\"tone\":\"ok\",\"title\":\"Verification\"},{\"tone\":\"ok\",\"title\":\"Final decision\"}]"
+        },
+        {
+          "ok": true,
+          "name": "accepted: the page says SJF stayed in force",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "captured 05-recovery-accepted-1440.png",
+          "detail": "372467 bytes"
+        },
+        {
+          "ok": true,
+          "name": "rollback page states the residual +0.2059 and the inconclusive verdict",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "rollback page says the controller rolled back to FCFS",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "rollback page never calls the rollback a success",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "rollback: verification and final decision are warn-toned",
+          "detail": "[{\"tone\":\"warn\",\"title\":\"Verification\"},{\"tone\":\"warn\",\"title\":\"Final decision\"}]"
+        },
+        {
+          "ok": true,
+          "name": "captured 06-recovery-rollback-1440.png",
+          "detail": "376357 bytes"
+        },
+        {
+          "ok": true,
+          "name": "comparison button shows the running state and is disabled",
+          "detail": "{\"label\":\"Running four policies…\",\"disabled\":true}"
+        },
+        {
+          "ok": true,
+          "name": "captured 07-comparison-running-1440.png",
+          "detail": "103608 bytes"
+        },
+        {
+          "ok": true,
+          "name": "two extra clicks while running produced no extra request",
+          "detail": "1 POST(s)"
+        },
+        {
+          "ok": true,
+          "name": "comparison table shows the hand-checked FCFS 150.60 and SJF 85.13",
+          "detail": "Policy Comparison | FCFS, SJF, Round Robin and Priority executed separately on the same process list, so the difference between them belongs to the policy rather than to the workload. | Executed now |"
+        },
+        {
+          "ok": true,
+          "name": "button returns to a ready label after success",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "captured 08-comparison-complete-1440.png",
+          "detail": "198276 bytes"
+        },
+        {
+          "ok": true,
+          "name": "a failed comparison explains itself in a banner",
+          "detail": "{\"text\":\"The comparison could not run. injected failure for the audit | Dismiss\",\"dismiss\":true}"
+        },
+        {
+          "ok": true,
+          "name": "the stale comparison table is cleared when the new request fails",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "captured 09-comparison-error-1440.png",
+          "detail": "108888 bytes"
+        },
+        {
+          "ok": true,
+          "name": "the dismiss control removes the banner",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "a retry after the failure produces the comparison table",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "a new run clears the previous comparison",
+          "detail": "Policy Comparison | FCFS, SJF, Round Robin and Priority executed separately on the same process list, so the difference between them belongs"
+        }
+      ]
+    },
+    {
+      "session": "part 2 — custom workloads, no-incident recovery, history, export, restore, research",
+      "checks": 32,
+      "passed": 32,
+      "results": [
+        {
+          "ok": true,
+          "name": "a valid typed workload produces no client-side error",
+          "detail": "\"\""
+        },
+        {
+          "ok": true,
+          "name": "custom run reports the hand-computed mean waiting 4.25 u",
+          "detail": "Simulation Studio | Choose what to execute, review the settings the engine will receive, then run it. The trace is read in the Workload Explorer and the recovery decision in Recovery Analysis; the run itself stays on thi"
+        },
+        {
+          "ok": true,
+          "name": "captured 10-custom-workload-1440.png",
+          "detail": "188468 bytes"
+        },
+        {
+          "ok": true,
+          "name": "the workload table lists exactly the four typed processes",
+          "detail": "[\"P1 0 6 3 0 6 0 6 0\",\"P2 1 2 1 6 8 5 7 5\",\"P3 2 8 2 8 16 6 14 6\",\"P4 10 4 0 16 20 6 10 6\"]"
+        },
+        {
+          "ok": true,
+          "name": "captured 11-custom-workload-trace-1440.png",
+          "detail": "138374 bytes"
+        },
+        {
+          "ok": true,
+          "name": "a burst of 0 is rejected in the form before any request",
+          "detail": "Process 1: burst must be at least 1 time unit."
+        },
+        {
+          "ok": true,
+          "name": "the blocked form sent no request",
+          "detail": "1 -> 1"
+        },
+        {
+          "ok": true,
+          "name": "captured 12-custom-invalid-1440.png",
+          "detail": "195059 bytes"
+        },
+        {
+          "ok": true,
+          "name": "with the loop on, the policy selector is disabled and says why",
+          "detail": "{\"disabled\":true,\"note\":false}"
+        },
+        {
+          "ok": true,
+          "name": "a healing run with no incident renders the Recovery page and says so",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "the no-incident Recovery page raises no page error",
+          "detail": "[]"
+        },
+        {
+          "ok": true,
+          "name": "captured 13-recovery-no-incident-1440.png",
+          "detail": "110319 bytes"
+        },
+        {
+          "ok": true,
+          "name": "captured 14-workload-healing-1440.png",
+          "detail": "143066 bytes"
+        },
+        {
+          "ok": true,
+          "name": "footer, overview fact and /api/runs report the same number of runs",
+          "detail": "{\"footer\":\"Runs the repository’s own scheduler, healing controller and metrics. | os-project-dashboard 1.0.0 · probe 0.1 ms · 18 runs kept in memory\",\"fact\":\"SESSION HISTORY 18 runs kept in memory\",\"api\":18}"
+        },
+        {
+          "ok": true,
+          "name": "the history list shows the runs the API returned, with the open run listed separately",
+          "detail": "9 rows of 10 returned, current=true"
+        },
+        {
+          "ok": true,
+          "name": "captured 15-overview-history-1440.png",
+          "detail": "193155 bytes"
+        },
+        {
+          "ok": true,
+          "name": "the export endpoint returns exactly the stored result",
+          "detail": "{\"run_id\":\"d5070c29418e457a9263a3d0352c996c\",\"exported_mean\":10.8,\"stored_mean\":10.8,\"same_keys\":true}"
+        },
+        {
+          "ok": true,
+          "name": "a reload keeps the server-side history list",
+          "detail": "{\"hash\":\"#/overview\",\"historyRows\":10,\"hasCurrent\":false}"
+        },
+        {
+          "ok": true,
+          "name": "a reload leaves no run open, and the page says so instead of inventing one",
+          "detail": "{\"hash\":\"#/overview\",\"historyRows\":10,\"hasCurrent\":false}"
+        },
+        {
+          "ok": true,
+          "name": "the empty state explains the reload behaviour",
+          "detail": "Workload Explorer | No simulation is open | The timeline and the process table describe the current run. Run a simulation in the Studio to produce a trace. Noth"
+        },
+        {
+          "ok": true,
+          "name": "captured 16-empty-state-1440.png",
+          "detail": "81760 bytes"
+        },
+        {
+          "ok": true,
+          "name": "opening a history entry marks the result as restored, not newly executed",
+          "detail": "Restored a result from this session’s history. It is not a new execution. | Dismiss"
+        },
+        {
+          "ok": true,
+          "name": "the Overview current-run card labels the restored run",
+          "detail": "A self-healing CPU scheduler, observed end to end | This console drives a single-CPU discrete-event simulator. A workload is generated, a scheduling policy dispatches it, a monitor watches the waiting"
+        },
+        {
+          "ok": true,
+          "name": "the restored run keeps that provenance on other pages",
+          "detail": "Recovery Analysis | The control loop ran for this workload but declared no incident. | Restored from this session | run d5070c29 | custom scenario | 1.27 ms eng"
+        },
+        {
+          "ok": true,
+          "name": "captured 17-restored-run-1440.png",
+          "detail": "117129 bytes"
+        },
+        {
+          "ok": true,
+          "name": "Research Results names its source file, split and seed",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "Research Results says the aggregates are not this session’s measurements",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "the verification audit numbers are read from the committed summary",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "the page repeats that the study did not establish Q-learning superiority",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "captured 18-research-1440.png",
+          "detail": "232148 bytes"
+        },
+        {
+          "ok": true,
+          "name": "About & Method states the simulator scope",
+          "detail": "About & Method | What is simulated, how a trace is produced, what the numbers mean, and what this project does not claim. | Purpose | The project studies a safety-aware self-healing scheduler on dynam"
+        },
+        {
+          "ok": true,
+          "name": "captured 19-about-1440.png",
+          "detail": "361339 bytes"
+        }
+      ]
+    },
+    {
+      "session": "part 3 — backend stopped, failure banner, restart and retry",
+      "checks": 10,
+      "passed": 10,
+      "results": [
+        {
+          "ok": true,
+          "name": "a run succeeds before the backend is taken away",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "a run against a dead backend explains that the simulation did not run",
+          "detail": "The simulation did not run. The backend could not be reached. Is `tools/serve_dashboard.py` running? The pages still show the previous successful run. | Dismiss"
+        },
+        {
+          "ok": true,
+          "name": "the engine pill reports the backend as unavailable",
+          "detail": "rail-status bad :: Backend unavailable"
+        },
+        {
+          "ok": true,
+          "name": "the run button is usable again after the failure",
+          "detail": "false"
+        },
+        {
+          "ok": true,
+          "name": "captured 20-backend-down-1440.png",
+          "detail": "202198 bytes"
+        },
+        {
+          "ok": true,
+          "name": "the failure banner can be dismissed",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "the backend was restarted for the retry",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "the retry control restores the engine status",
+          "detail": "{\"pill\":\"Engine ready · 3.11.2\",\"className\":\"rail-status ok\",\"bannerHidden\":true}"
+        },
+        {
+          "ok": true,
+          "name": "captured 21-after-retry-1440.png",
+          "detail": "189520 bytes"
+        },
+        {
+          "ok": true,
+          "name": "a run succeeds again after the retry",
+          "detail": "Simulation Studio | Choose what to execute, review the settings the engine will receive, then run it. The trace is read in the Workload Expl"
+        }
+      ]
+    },
+    {
+      "session": "part 3b — a run that leaves the server history",
+      "checks": 5,
+      "passed": 5,
+      "results": [
+        {
+          "ok": true,
+          "name": "the backend restarted with an empty history",
+          "detail": null
+        },
+        {
+          "ok": true,
+          "name": "a run that left the server history is reported as unavailable",
+          "detail": "{\"banner\":\"The comparison could not run. that run is not in the server's history; run the scenario again | Dismiss\",\"disabled\":false,\"label\":\"Run comparison\",\"body\":\"Policy Comparison | FCFS, SJF, Round Robin and Priority executed separately on the same proces"
+        },
+        {
+          "ok": true,
+          "name": "the comparison control is usable again after the 404",
+          "detail": "{\"label\":\"Run comparison\",\"disabled\":false}"
+        },
+        {
+          "ok": true,
+          "name": "no fabricated comparison numbers appear for the unavailable run",
+          "detail": "Policy Comparison | FCFS, SJF, Round Robin and Priority executed separately on the same process list, so the difference between them belongs to the policy rathe"
+        },
+        {
+          "ok": true,
+          "name": "captured 22-stale-run-1440.png",
+          "detail": "110696 bytes"
+        }
+      ]
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "01-overview-1440.png",
+      "note": "Overview on a fresh load: engine ready, no run open, empty history",
+      "bytes": 176604,
+      "captured": "2026-10-24T08:25:11.847Z"
+    },
+    {
+      "file": "02-studio-1440.png",
+      "note": "Simulation Studio with the four scenarios and the shared parameter form",
+      "bytes": 174329,
+      "captured": "2026-10-24T08:25:12.811Z"
+    },
+    {
+      "file": "03-teaching-studio-1440.png",
+      "note": "Teaching example executed: four policies, hand-checked table",
+      "bytes": 190501,
+      "captured": "2026-10-24T08:25:14.367Z"
+    },
+    {
+      "file": "04-teaching-workload-inspector-1440.png",
+      "note": "Workload Explorer: SJF trace with a dispatch block selected",
+      "bytes": 153125,
+      "captured": "2026-10-24T08:25:16.339Z"
+    },
+    {
+      "file": "05-recovery-accepted-1440.png",
+      "note": "Recovery Analysis (seed 13): accepted verification, SJF kept",
+      "bytes": 372467,
+      "captured": "2026-10-24T08:25:19.243Z"
+    },
+    {
+      "file": "06-recovery-rollback-1440.png",
+      "note": "Recovery Analysis (seed 3): inconclusive verification, rollback to FCFS",
+      "bytes": 376357,
+      "captured": "2026-10-24T08:25:22.063Z"
+    },
+    {
+      "file": "07-comparison-running-1440.png",
+      "note": "Policy Comparison while the four-policy request is in flight",
+      "bytes": 103608,
+      "captured": "2026-10-24T08:25:23.243Z"
+    },
+    {
+      "file": "08-comparison-complete-1440.png",
+      "note": "Policy Comparison completed on the 15-process rollback workload",
+      "bytes": 198276,
+      "captured": "2026-10-24T08:25:25.879Z"
+    },
+    {
+      "file": "09-comparison-error-1440.png",
+      "note": "Policy Comparison after an injected HTTP 500: banner, dismiss, retry",
+      "bytes": 108888,
+      "captured": "2026-10-24T08:25:26.647Z"
+    },
+    {
+      "file": "10-custom-workload-1440.png",
+      "note": "Custom workload typed in the Studio and executed under FCFS",
+      "bytes": 188468,
+      "captured": "2026-10-24T08:27:03.080Z"
+    },
+    {
+      "file": "11-custom-workload-trace-1440.png",
+      "note": "Workload Explorer for the typed four-process workload",
+      "bytes": 138374,
+      "captured": "2026-10-24T08:27:04.100Z"
+    },
+    {
+      "file": "12-custom-invalid-1440.png",
+      "note": "Client-side validation stops a burst of 0 before it reaches the server",
+      "bytes": 195059,
+      "captured": "2026-10-24T08:27:06.500Z"
+    },
+    {
+      "file": "13-recovery-no-incident-1440.png",
+      "note": "Recovery Analysis for a healing-enabled run that declared no incident",
+      "bytes": 110436,
+      "captured": "2026-10-24T08:44:27.755Z"
+    },
+    {
+      "file": "14-workload-healing-1440.png",
+      "note": "Workload Explorer for the healing run that declared no incident",
+      "bytes": 143066,
+      "captured": "2026-10-24T08:27:11.152Z"
+    },
+    {
+      "file": "15-overview-history-1440.png",
+      "note": "Overview with the session history of executed runs",
+      "bytes": 193155,
+      "captured": "2026-10-24T08:27:12.212Z"
+    },
+    {
+      "file": "16-empty-state-1440.png",
+      "note": "A run page after reload: no run open, with the history explanation",
+      "bytes": 81760,
+      "captured": "2026-10-24T08:27:14.968Z"
+    },
+    {
+      "file": "17-restored-run-1440.png",
+      "note": "A result reopened from history, labelled as restored",
+      "bytes": 117129,
+      "captured": "2026-10-24T08:27:18.084Z"
+    },
+    {
+      "file": "18-research-1440.png",
+      "note": "Research Results: frozen held-out study, provenance and measured limits",
+      "bytes": 232148,
+      "captured": "2026-10-24T08:27:19.192Z"
+    },
+    {
+      "file": "19-about-1440.png",
+      "note": "About & Method: scope, method and claims",
+      "bytes": 361339,
+      "captured": "2026-10-24T08:27:20.192Z"
+    },
+    {
+      "file": "20-backend-down-1440.png",
+      "note": "A run while the backend is stopped: the console says the simulation did not run",
+      "bytes": 202198,
+      "captured": "2026-10-24T08:27:39.836Z"
+    },
+    {
+      "file": "21-after-retry-1440.png",
+      "note": "After the backend returns and the retry control is used",
+      "bytes": 189520,
+      "captured": "2026-10-24T08:27:43.080Z"
+    },
+    {
+      "file": "22-stale-run-1440.png",
+      "note": "Comparison requested for a run that no longer exists on the server",
+      "bytes": 110696,
+      "captured": "2026-10-24T08:28:34.628Z"
+    }
+  ]
+}

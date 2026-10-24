@@ -245,7 +245,7 @@ def run_drift_evaluation(
     # Write summary CSV
     summary_path = output_dir / f"drift_{drift_kind}_est{estimator_enabled}_cv{estimator_error_cv}_summary.csv"
     if summary_rows:
-        with open(summary_path, "w", newline="") as f:
+        with open(summary_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=list(summary_rows[0].keys()))
             writer.writeheader()
             for row in summary_rows:
@@ -253,7 +253,7 @@ def run_drift_evaluation(
 
     # Per-trace CSV with full metric set (denominators explicit)
     detail_path = output_dir / f"drift_{drift_kind}_est{estimator_enabled}_cv{estimator_error_cv}_per_trace.csv"
-    with open(detail_path, "w", newline="") as f:
+    with open(detail_path, "w", newline="", encoding="utf-8") as f:
         fieldnames = ["arm", "family", "repetition", "fingerprint", "training_seed", "mean_waiting", "p95_waiting", "max_waiting", "starved", "fairness", "throughput", "cpu_util", "switches", "switching_overhead", "incidents", "interventions", "accepted", "rejected", "inconclusive", "rollback_rate", "recovery_delay_decisions", "recovery_delay_time", "false_intervention_rate", "regression_vs_fcfs", "fallback"]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
@@ -305,7 +305,7 @@ def run_drift_evaluation(
 
     comp_path = output_dir / f"drift_{drift_kind}_est{estimator_enabled}_cv{estimator_error_cv}_comparisons.csv"
     if comparisons:
-        with open(comp_path, "w", newline="") as f:
+        with open(comp_path, "w", newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=list(comparisons[0].keys()))
             writer.writeheader()
             for row in comparisons:
@@ -367,7 +367,7 @@ def run_drift_evaluation(
     report_path = output_dir / f"drift_{drift_kind}_est{estimator_enabled}_cv{estimator_error_cv}_report.md"
     lines.append(f"**Artifacts:** {summary_path.name}, {detail_path.name}, {comp_path.name if comparisons else 'no comparisons'}, {report_path.name}")
 
-    report_path.write_text("\n".join(lines))
+    report_path.write_text("\n".join(lines), encoding="utf-8")
     print("\n" + "\n".join(lines))
     print(f"\nArtifacts: {summary_path}, {detail_path}, {comp_path if comparisons else ''}, {report_path}")
 

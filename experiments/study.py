@@ -800,7 +800,10 @@ def _write_artifacts(
 
     def write_json(name: str, payload: object) -> None:
         path = results_path / name
-        path.write_text(json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n")
+        path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n",
+            encoding="utf-8",
+        )
         paths[name] = path
 
     decisions_path = results_path / "decisions.csv"
@@ -830,7 +833,8 @@ def _write_artifacts(
 
     examples_path = results_path / "explanations_examples.json"
     examples_path.write_text(
-        json.dumps(_example_explanations(results_path), indent=2, sort_keys=True) + "\n"
+        json.dumps(_example_explanations(results_path), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
     )
     paths["explanations_examples"] = examples_path
     paths["explanations_dir"] = results_path / "explanations"

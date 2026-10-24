@@ -77,7 +77,7 @@ CANONICAL = VerificationDiscrimination(
 
 def load_summary_discrimination(path: pathlib.Path | str = SUMMARY_PATH) -> dict:
     """Load ``verification_discrimination`` from the on-disk summary."""
-    summary = json.loads(pathlib.Path(path).read_text())
+    summary = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
     return summary["verification_discrimination"]
 
 

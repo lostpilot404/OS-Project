@@ -97,7 +97,8 @@ comparison that belonged to the previous one.
    Round Robin 4.33 mean waiting units).
 2. Switch the **Policy view** tabs on the Workload Explorer to compare the same jobs under
    each policy, and click a block in the timeline (or focus it and press Enter) to read the
-   recorded dispatch interval.
+   recorded dispatch interval. The Studio's own **Policy view** selector shows the same trace,
+   so the two controls cannot disagree.
 3. **Simulation Studio → Successful recovery (seed 13) → Run simulation.** FCFS degrades,
    SJF is selected, the observation window closes **accepted** (+0.4375 ≥ +0.30) and SJF
    stays in force.
@@ -112,7 +113,10 @@ comparison that belonged to the previous one.
    exports the raw result JSON.
 
 A custom workload can be typed in on the Studio page (pid, arrival, burst, priority), run
-under any policy, and optionally passed through the healing loop.
+under any policy, and optionally passed through the healing loop. The loop always starts
+from FCFS and chooses the policy itself, so `healing: true` together with a non-FCFS
+`policy` is rejected (HTTP 422, `field: "policy"`) instead of silently executing FCFS; the
+Studio disables the policy selector while the loop is on for the same reason.
 
 ## 4. What each scenario runs
 
@@ -192,10 +196,12 @@ it truncates.
     "outcomes": [ { "pid", "arrival_time", "burst_time", "priority",
                     "start_time", "completion_time", "waiting_time",
                     "turnaround_time", "response_time" } ],
-    "healing": { "triggered": true, "summary", "stages": [ … 8 stages … ],
+    "healing": { "triggered": true, "summary",
+                 "stages": [ { "title", "lines", "tone", "tone_key", "detail" }, … 8 stages … ],
                  "incident": { "verdict", "verifier_reason", "closure_residual",
                                "settings_before_policy", "settings_after_policy",
-                               "rollback_target_policy", … } } | null,
+                               "rollback_target_policy", "context_state_index",
+                               "state_space_size", … } } | null,
     "charts": { "gantt": "<svg …>", "lifecycle": "<svg …>", … },
     "notes": [ … ]
   }
@@ -213,7 +219,7 @@ Every failure uses one shape, and the message is written for a person:
 
 | Status | `type` | When |
 |---|---|---|
-| 422 | `invalid_request` | unknown scenario/option/policy, invalid workload, malformed JSON |
+| 422 | `invalid_request` | unknown scenario/option/policy, invalid workload, malformed JSON, a non-FCFS policy requested with `healing: true` |
 | 404 | `unknown_run` | the run fell out of the bounded history |
 | 429 | `busy` | more than 4 simulations running at once |
 | 500 | `engine_failure` / `engine_output_rejected` | the engine raised, or its output failed schema validation |
@@ -233,11 +239,18 @@ Every failure uses one shape, and the message is written for a person:
 
 ## 7. Verification status
 
-**Verified on Linux** (Debian 12, CPython 3.11.2) with a real browser engine —
-HeadlessChrome 138.0.7204.0 driven by Puppeteer — against the running server: startup and
-health, all four scenarios, recovery/rollback, custom workloads and validation, policy
-comparisons, export, backend-loss and recovery, duplicate-submission and stale-response
-handling, keyboard operation, and 1440 / 900 / 420 px layouts.
+**Verified on Linux** (Debian 12, CPython 3.11.2) with a real browser engine driven by
+Puppeteer — an earlier pass on HeadlessChrome 138.0.7204.0, the final desktop pass on
+153.0.8010.0 — against the running server: startup and health, all four scenarios,
+recovery/rollback, custom workloads and validation, policy comparisons, export, backend-loss
+and recovery, duplicate-submission and stale-response handling, keyboard operation, and
+1440 / 900 / 420 px layouts.
+
+The final desktop pass on the current tree is recorded in
+[`manual_evidence/final-desktop/`](manual_evidence/final-desktop/README.md): 83 scripted
+checks and 22 screenshots at 1440 px, captured with HeadlessChrome 153.0.8010.0. It is
+scripted browser evidence — not a human click-through, and not evidence about Windows,
+other browser engines or physical devices.
 
 Screenshots and raw check results live in [docs/manual_evidence/](manual_evidence/), indexed by
 [its README](manual_evidence/README.md): [`web/`](manual_evidence/web/) for the first interface,
@@ -248,7 +261,11 @@ after they were fixed (36 checks: the comparison button lifecycle, an injected A
 counts agreeing with the registry, and the 420 px reflow).
 
 **Not verified here:** Windows PowerShell. The commands above are the Windows equivalents of
-the Linux commands that were executed; run them once before class. No desktop browser
+the Linux commands that were executed; run them once before class. The shipped modules were
+audited for portability (no POSIX-only calls, explicit UTF-8 everywhere, temporary directories
+from `tempfile`), and the suite passes under a forced non-UTF-8 locale as well, but that is a
+portability check, not a Windows run — see
+[FINAL_AUDIT_AND_VERIFICATION.md](FINAL_AUDIT_AND_VERIFICATION.md) §4. No desktop browser
 session was possible in this environment (the browser ran headless), so visual checks were
 made from headless screenshots at fixed viewports.
 

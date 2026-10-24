@@ -42,6 +42,8 @@ Presentation sequence (8 minutes):
 2. **Simulation Studio → Small teaching workload → Run simulation.** Three processes, four
    policies. Point at mean waiting 4.33 u (FCFS) and the table on the **Workload Explorer**
    (P1 0, P2 5, P3 8). Switch the **Policy view** tabs to SJF: 1.67 u, order P3 → P2 → P1.
+   (The Studio's own **Policy view** selector shows the same trace once the run exists; the
+   tab, the selector and the Overview all read one field.)
    The numbers are the hand calculation in §D because the page fails loudly if they ever
    stop matching.
 3. **Successful recovery (seed 13) → Run simulation.** Read the provenance line out loud

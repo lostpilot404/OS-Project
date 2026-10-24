@@ -98,7 +98,9 @@ class Artifacts:
         root = Path(self.root)
         self.healing_dir = root / "results" / "healing"
         read = pd.read_csv
-        self.summary = json.loads((self.healing_dir / "healing_summary.json").read_text())
+        self.summary = json.loads(
+            (self.healing_dir / "healing_summary.json").read_text(encoding="utf-8")
+        )
         self.final = read(self.healing_dir / "healing_metrics_final_test.csv")
         self.val = read(self.healing_dir / "healing_metrics_validation.csv")
         self.incidents_final = read(self.healing_dir / "healing_incidents_final_test.csv")
@@ -127,10 +129,16 @@ class Artifacts:
             )
         self.training = read(self.healing_dir / "healing_training_episodes.csv")
         self.thresholds = read(self.healing_dir / "healing_threshold_derivation.csv")
-        self.demo = json.loads((self.healing_dir / "healing_demo.json").read_text())
-        self.study = json.loads((root / "results" / "study" / "summary.json").read_text())
+        self.demo = json.loads(
+            (self.healing_dir / "healing_demo.json").read_text(encoding="utf-8")
+        )
+        self.study = json.loads(
+            (root / "results" / "study" / "summary.json").read_text(encoding="utf-8")
+        )
         self.runtime = json.loads(
-            (root / "results" / "runtime" / "runtime_summary.json").read_text()
+            (root / "results" / "runtime" / "runtime_summary.json").read_text(
+                encoding="utf-8"
+            )
         )
         if self.with_dataset:
             self.dataset = _dataset_statistics(root)

@@ -34,12 +34,14 @@ def test_phase_transition_experiment_outputs_measured_report(tmp_path):
     import csv
     result = run_drift_evaluation(repetitions=1, training_episodes_per_seed=2,
                                  drift_kind="phase_transition", output_dir=tmp_path)
-    report = (tmp_path / "drift_phase_transition_estTrue_cv0.3_report.md").read_text()
+    report = (tmp_path / "drift_phase_transition_estTrue_cv0.3_report.md").read_text(encoding="utf-8")
     assert "7 traces for single-policy arms, 35 for q_recovery" in report
     assert "short_jobs suffix" in report
     assert "~12%" not in report
     for row in result["summary_rows"]:
         if row["arm"] != "fixed_fcfs":
             assert row["regression_rate"] is not None
-    with (tmp_path / "drift_phase_transition_estTrue_cv0.3_summary.csv").open() as handle:
+    with (tmp_path / "drift_phase_transition_estTrue_cv0.3_summary.csv").open(
+        encoding="utf-8", newline=""
+    ) as handle:
         assert len(list(csv.DictReader(handle))) == 6

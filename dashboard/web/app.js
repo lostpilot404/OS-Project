@@ -218,6 +218,11 @@
         let value = field.type === 'checkbox' ? field.checked : field.value;
         if (field.type === 'number') value = Number(value);
         state.options[key] = value;
+        if (key === 'policy_view' && state.run && state.run.result.kind === 'teaching') {
+          applyTeachingPolicy(String(value));
+          return;
+        }
+        if (key === 'healing') syncHealingPolicyField();
         validateOptions();
         updateRunSummary();
       }
@@ -344,6 +349,15 @@
     }
   }
 
+  /** Enable or disable the custom policy selector to match the self-healing checkbox. */
+  function syncHealingPolicyField() {
+    const select = el('policy-select');
+    const note = el('policy-healing-note');
+    const healing = Boolean(state.options.healing);
+    if (select) select.disabled = healing;
+    if (note) note.hidden = !healing;
+  }
+
   function validateOptions() {
     const error = el('config-error');
     if (!error) return null;
@@ -444,9 +458,15 @@
     }, 100);
 
     try {
+      const options = { ...state.options };
+      if (scenario.kind === 'custom' && options.healing) {
+        // The loop starts from FCFS; sending a different policy would be a request the
+        // engine cannot honour (the API rejects it).
+        delete options.policy;
+      }
       const payload = await api('/api/simulations', {
         method: 'POST',
-        body: JSON.stringify({ scenario: state.scenarioId, options: state.options }),
+        body: JSON.stringify({ scenario: state.scenarioId, options }),
       });
       if (sequence !== state.sequence) return;         // superseded by a newer request
       state.run = { run_id: payload.run_id, result: payload.result, source: 'live' };
@@ -500,9 +520,6 @@
       card.disabled = busy;
       card.setAttribute('aria-disabled', String(busy));
     });
-    if (!busy && status && !busy) {
-      // leave the completion line that render() or the caller wrote
-    }
   }
 
   async function openRun(runId) {
@@ -581,7 +598,7 @@
     panel.classList.remove('is-empty');
     const d = node.dataset;
     const waiting = d.waiting === '' || d.waiting === undefined
-      ? '<span style="font-family:var(--sans);color:var(--muted)">not recorded for this dispatch</span>'
+      ? '<span class="not-recorded">not recorded for this dispatch</span>'
       : `${esc(d.waiting)} u`;
     panel.innerHTML = `
       <h3>P${esc(d.pid)} <span class="badge plain neutral">${esc(d.policy)}</span></h3>
@@ -599,21 +616,12 @@
   function applyTeachingPolicy(name) {
     if (!state.run || state.run.result.kind !== 'teaching') return;
     const teaching = state.run.result.teaching;
-    const policy = teaching.policies.find((p) => p.name === name);
-    if (!policy) return;
+    if (!teaching.policies.some((policy) => policy.name === name)) return;
+    // One source of truth for the displayed trace: the tab, the Studio selector and the
+    // next request all read the same field.
     state.teachingPolicy = name;
-    if (currentRoute() === 'workload') {
-      render();
-    } else {
-      state.run = {
-        ...state.run,
-        result: {
-          ...state.run.result,
-          teaching: { ...teaching, selected: name },
-        },
-      };
-      render();
-    }
+    state.options = { ...state.options, policy_view: name };
+    render();
   }
 
   // ---------------------------------------------------------------- shared markup
@@ -643,8 +651,8 @@
     return `
       ${pageHead({ title })}
       ${emptyState({
-        title: 'No simulation in this session yet',
-        body: `${what} The pages show nothing rather than placeholder values: choose a scenario in the Simulation Studio and run it, or restore one of this session’s runs from the Overview.`,
+        title: 'No simulation is open',
+        body: `${what} Nothing is shown rather than placeholder values: start a run in the Simulation Studio, or reopen one of this session’s results from the Overview. A page reload closes the open run but leaves the server’s history intact.`,
         primary: 'Open Simulation Studio',
         secondary: '<a class="btn btn-secondary" href="#/overview">See session activity</a>',
       })}`;
@@ -824,8 +832,11 @@
 
   function overviewCurrentRun(run) {
     const result = run.result;
+    const view = teachingPolicyView(result);
+    const metrics = view ? view.metrics : result.metrics;
+    const schedule = view ? view.schedule : result.schedule;
     const verdict = result.healing && result.healing.triggered ? result.healing.incident.verdict : null;
-    const diff = result.baseline ? result.metrics.avg_waiting_time - result.baseline.avg_waiting_time : null;
+    const diff = result.baseline ? metrics.avg_waiting_time - result.baseline.avg_waiting_time : null;
     return `
       <div class="current-run">
         <div>
@@ -835,7 +846,7 @@
             <span class="badge plain neutral">${run.source === 'live' ? 'this session' : 'restored'}</span>
           </div>
           <p class="panel-intro" style="margin-top:10px">
-            ${result.workload.process_count} processes under ${esc(result.schedule.initial_policy)}${result.schedule.final_policy !== result.schedule.initial_policy ? ` → ${esc(result.schedule.final_policy)}` : ''}.
+            ${result.workload.process_count} processes under ${esc(schedule.initial_policy)}${schedule.final_policy !== schedule.initial_policy ? ` → ${esc(schedule.final_policy)}` : ''}.
             All analysis pages read this trace until another run replaces it.
           </p>
           <div class="navigate" style="margin-top:14px">
@@ -845,10 +856,10 @@
           </div>
         </div>
         <dl class="facts facts-pairs">
-          <div><dt>Mean waiting</dt><dd>${fmt(result.metrics.avg_waiting_time)} u</dd></div>
-          <div><dt>Final policy</dt><dd>${esc(result.schedule.final_policy)}</dd></div>
+          <div><dt>Mean waiting</dt><dd>${fmt(metrics.avg_waiting_time)} u</dd></div>
+          <div><dt>Final policy</dt><dd>${esc(schedule.final_policy)}</dd></div>
           <div><dt>Against FCFS</dt><dd>${diff === null ? 'n/a' : `${signed(diff)} u`}</dd></div>
-          <div><dt>CPU busy</dt><dd>${pct(result.metrics.cpu_utilization)}</dd></div>
+          <div><dt>CPU busy</dt><dd>${pct(metrics.cpu_utilization)}</dd></div>
         </dl>
       </div>`;
   }
@@ -881,7 +892,7 @@
     return `
       ${pageHead({
         title: 'Simulation Studio',
-        lead: 'Choose what to execute, review the settings the engine will receive, then run it. Results open in the Workload Explorer; the recovery decision opens in Recovery Analysis.',
+        lead: 'Choose what to execute, review the settings the engine will receive, then run it. The trace is read in the Workload Explorer and the recovery decision in Recovery Analysis; the run itself stays on this page.',
       })}
       <section class="section">
         <div class="panel">
@@ -919,7 +930,9 @@
       ? [
           ['Scenario', 'Custom workload'],
           ['Processes', `${(state.options.processes || []).length}`],
-          ['Policy', esc(state.options.policy || 'FCFS')],
+          ['Policy', state.options.healing
+            ? 'FCFS, then the recovery rule'
+            : esc(state.options.policy || 'FCFS')],
           ['Quantum / switch', `${esc(state.options.quantum ?? 4)} / ${esc(state.options.switching_cost ?? 0)}`],
           ['Self-healing', state.options.healing ? 'on' : 'off'],
         ]
@@ -937,6 +950,9 @@
   function studioResult() {
     if (!state.run) return '';
     const result = state.run.result;
+    const view = teachingPolicyView(result);
+    const metrics = view ? view.metrics : result.metrics;
+    const schedule = view ? view.schedule : result.schedule;
     const healing = result.healing;
     const verdict = healing && healing.triggered ? healing.incident.verdict : null;
     return `
@@ -945,7 +961,7 @@
           <span class="badge plain neutral">${state.run.source === 'live' ? 'Executed' : 'Restored'}</span>
           ${verdict ? `<span class="badge ${esc(verdict)}">${esc(verdict)}</span>` : ''}
         </div>
-        <p><strong>${esc(result.scenario.name)}</strong> — mean waiting ${fmt(result.metrics.avg_waiting_time)} u${result.baseline ? `, FCFS ${fmt(result.baseline.avg_waiting_time)} u` : ''}. Final policy ${esc(result.schedule.final_policy)}.</p>
+        <p><strong>${esc(result.scenario.name)}</strong> — mean waiting ${fmt(metrics.avg_waiting_time)} u${result.baseline ? `, FCFS ${fmt(result.baseline.avg_waiting_time)} u` : ''}. ${view ? `Showing ${esc(view.name)}.` : `Final policy ${esc(schedule.final_policy)}.`}</p>
         <div class="navigate">
           <a href="#/workload">Workload Explorer →</a>
           ${result.healing ? '<a href="#/recovery">Recovery Analysis →</a>' : ''}
@@ -990,12 +1006,14 @@
       </tr>`).join('');
     const policies = ['FCFS', 'SJF', 'Priority', 'Round Robin'].map((name) => `
       <option value="${esc(name)}" ${(state.options.policy || 'FCFS') === name ? 'selected' : ''}>${esc(name)}</option>`).join('');
+    const healingOn = Boolean(state.options.healing);
     return `
       <p class="panel-intro" style="max-width:70ch">${esc(scenario.description)}</p>
       <div class="field-grid" style="margin-top:24px">
         <div class="field">
           <label for="policy-select">Scheduling policy</label>
-          <select id="policy-select" data-option="policy">${policies}</select>
+          <select id="policy-select" data-option="policy" ${healingOn ? 'disabled' : ''}>${policies}</select>
+          <span class="help" id="policy-healing-note" ${healingOn ? '' : 'hidden'}>The self-healing loop always starts from FCFS and chooses the policy itself, so this selector is used only when the loop is off.</span>
         </div>
         <div class="field">
           <label for="quantum-input">Round-robin quantum</label>
@@ -1121,7 +1139,17 @@
   function workloadRows(result) {
     const view = teachingPolicyView(result);
     if (view) return view.outcomes.map((row) => ({ ...row, policy: view.name }));
-    return (result.outcomes || []).map((row) => ({ ...row, policy: result.schedule.final_policy }));
+    // The chip colour names the policy that first dispatched each process, not the policy
+    // in force at the end of the trace: after a mid-trace recovery the two differ, and
+    // painting all fifteen chips with the final policy misreports where the work ran.
+    const firstDispatch = new Map();
+    (result.schedule.intervals || []).forEach((interval) => {
+      if (!firstDispatch.has(interval.pid)) firstDispatch.set(interval.pid, interval.policy);
+    });
+    return (result.outcomes || []).map((row) => ({
+      ...row,
+      policy: firstDispatch.get(row.pid) || result.schedule.final_policy,
+    }));
   }
 
   // ---------------------------------------------------------------- pages: recovery
@@ -1157,7 +1185,7 @@
         })}
         ${runProvenance(result, runId, source)}
         <section class="section" style="margin-top:28px">
-          <div class="verdict accepted" style="border-left-color:var(--line-strong)">
+          <div class="verdict held">
             <h2>No intervention was attempted <span class="badge neutral plain">not triggered</span></h2>
             <p>${esc(healing.summary)}</p>
             <p class="panel-intro" style="margin-top:10px">${esc(healing.final_text)}</p>
@@ -1166,7 +1194,7 @@
         <section class="section">
           <div class="panel">
             <div class="section-head"><h2>Timeline</h2><span class="hint">${esc(result.settings.policy || '')}</span></div>
-            ${ganttPanel(result, { schedule })}
+            ${ganttPanel(result, { schedule: result.schedule })}
           </div>
         </section>`;
     }
@@ -1174,7 +1202,7 @@
     const incident = healing.incident;
     const tone = incident.verdict;
     const stages = healing.stages.map((stage) => `
-      <li data-tone="${stageTone(stage)}">
+      <li data-tone="${esc(stage.tone_key || stageTone(stage))}">
         <span class="marker" aria-hidden="true"></span>
         <h3>${esc(stage.title)} ${stageMeta(stage)}</h3>
         <p>${esc(stage.detail || '')}</p>
@@ -1240,7 +1268,7 @@
               <dl>
                 <dt>Diagnosis</dt><dd>${esc(incident.diagnosis)}</dd>
                 <dt>Matched</dt><dd>${listText(incident.diagnosis_matched || 'none')}</dd>
-                <dt>Context state</dt><dd>${esc(incident.context_state_index)}/648</dd>
+                <dt>Context state</dt><dd>${esc(incident.context_state_index)}/${esc(incident.state_space_size ?? 648)}</dd>
                 <dt>Offered actions</dt><dd>${listText(incident.offered_actions)}</dd>
                 <dt>Selected</dt><dd>${esc(incident.action_name)}</dd>
                 <dt>Rule note</dt><dd>${esc(incident.request_note)}</dd>
@@ -1267,13 +1295,21 @@
         <a href="#/workload">Workload Explorer</a>.</p>`;
   };
 
+  /**
+   * Fallback tone for a stage record that predates ``tone_key``.
+   *
+   * The live payload always carries a semantic key; this only covers a result restored
+   * from an older server. "Final decision" is deliberately not hard-coded to the success
+   * colour: an inconclusive rollback must not be painted as a recovery.
+   */
   function stageTone(stage) {
     const title = stage.title.toLowerCase();
     if (title.includes('degradation')) return 'warn';
-    if (title.includes('verification')) return stage.tone === '#a8691b' ? 'warn' : stage.tone === '#a03d3d' ? 'bad' : stage.tone === '#2f6f4f' ? 'ok' : 'accent';
-    if (title.includes('final decision')) return 'ok';
-    if (title.includes('monitoring')) return 'muted';
-    if (title.includes('diagnosis')) return 'muted';
+    if (title.includes('verification') || title.includes('final decision')) {
+      if (stage.lines && /accepted/.test(stage.lines[0] || '')) return 'ok';
+      if (stage.lines && /rolled back|inconclusive/.test(stage.lines[0] || '')) return 'warn';
+    }
+    if (title.includes('monitoring') || title.includes('diagnosis')) return 'muted';
     return 'accent';
   }
 
@@ -1406,6 +1442,8 @@
     const learned = r.arms.find((a) => a.arm === 'q_recovery');
     const rule = r.arms.find((a) => a.arm === 'rule_wait');
     const comparison = r.comparisons.find((c) => c.target === 'q_recovery' && c.reference === 'rule_wait' && c.metric === 'avg_waiting_time');
+    const limits = r.measured_limits;
+    const share = (value) => (value === null || value === undefined ? 'n/a' : `${(Number(value) * 100).toFixed(1)}%`);
 
     return `
       ${head}
@@ -1450,6 +1488,28 @@
         </div>
       </section>
 
+      ${limits ? `
+      <section class="section">
+        <div class="panel">
+          <div class="section-head"><h2>What the verification measured</h2><span class="hint">counterfactual audit, same split</span></div>
+          <dl class="facts">
+            <div><dt>Interventions audited</dt><dd>${fmt(limits.interventions)}</dd></div>
+            <div><dt>Accepted windows</dt><dd>${fmt(limits.accepted)}${limits.accepted_helped_share === 1 ? ' · all helpful' : ` · ${share(limits.accepted_helped_share)} helpful`}</dd></div>
+            <div><dt>Helpful changes certified</dt><dd>${share(limits.certifiable_share)}</dd></div>
+            <div><dt>Incidents on the control</dt><dd>${fmt(limits.control_incidents_per_trace)} per trace</dd></div>
+          </dl>
+          <p class="table-note">
+            The verifier is a safety filter, not a benefit estimator. It accepted
+            ${fmt(limits.accepted)} of ${fmt(limits.interventions)} interventions; the audit found
+            ${share(limits.base_helped_share)} of all interventions helpful, and the ${share(limits.certifiable_share)}
+            figure is the share of those helpful changes the verifier could certify at its declared
+            false-accept budget of ${share(limits.declared_false_accept_rate)}. The detector also fires on
+            stable control traces (${fmt(limits.control_incidents_per_trace)} per trace), so it is not a
+            zero-false-alarm detector. Method, denominators and limitations are recorded in
+            <code>docs/EVALUATION_RESULTS.md</code> and <code>docs/LIMITATIONS.md</code>.
+          </p>
+        </div>
+      </section>` : ''}
     `;
   };
 
@@ -1459,7 +1519,7 @@
     PAGES.about.title = 'About & Method';
     return `
       ${pageHead({
-        title: 'About the system',
+        title: 'About & Method',
         lead: 'What is simulated, how a trace is produced, what the numbers mean, and what this project does not claim.',
       })}
       <div class="doc-layout">

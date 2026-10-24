@@ -29,6 +29,8 @@ __all__ = [
     "horizontal_bars",
     "verification_band",
     "lifecycle_flow",
+    "stage_colours",
+    "verdict_tone_key",
     "research_bars",
 ]
 
@@ -625,12 +627,18 @@ def verification_band(
 
 @dataclass(frozen=True)
 class LifecycleStage:
-    """One stage of the monitor -> ... -> decision loop."""
+    """One stage of the monitor -> ... -> decision loop.
+
+    ``tone`` is the display colour used by the inline SVG. ``tone_key`` names the state in
+    words (``accent``, ``muted``, ``warn``, ``ok``, ``bad``) so a consumer that colours DOM
+    elements never has to reverse-engineer a hex value or guess from the stage title.
+    """
 
     title: str
     lines: Tuple[str, ...]
     tone: str
     detail: str = ""
+    tone_key: str = "accent"
 
 
 def lifecycle_flow(
@@ -702,4 +710,22 @@ def stage_colours(verdict: str) -> Tuple[str, str]:
         return BAD, BAD
     if verdict == "inconclusive":
         return WARN, WARN
+    if verdict == "held":
+        return MUTED, MUTED
     return ACCENT, ACCENT
+
+
+def verdict_tone_key(verdict: str) -> str:
+    """Return the semantic tone of a verdict: ``ok``, ``bad``, ``warn``, ``muted`` or ``accent``.
+
+    The live console colours the verification and final-decision stages from this key. It
+    used to compare the stage's hex colour against three hard-coded values, which painted
+    an inconclusive rollback with the "accent" colour and the final decision with the
+    success colour in every case.
+    """
+    return {
+        "accepted": "ok",
+        "rejected": "bad",
+        "inconclusive": "warn",
+        "held": "muted",
+    }.get(verdict, "accent")

@@ -46,7 +46,9 @@ def check() -> None:
             assert stringWidth(line, "ReportMono", 8) < 470, f"Code exceeds frame: {line}"
     assert not in_code
 
-    summary = json.loads((ROOT / "results/healing/healing_summary.json").read_text())
+    summary = json.loads(
+        (ROOT / "results/healing/healing_summary.json").read_text(encoding="utf-8")
+    )
     assert summary["final_test_seed"] == 23819
     for arm in ("fixed_fcfs", "fixed_sjf", "rule_wait", "q_recovery"):
         row = next(row for row in summary["means"] if row["arm"] == arm)

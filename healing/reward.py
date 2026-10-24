@@ -136,7 +136,7 @@ def controller_reward(
       certification threshold by more than its cost;
     * an intervention cost is charged only when the configuration actually
       changed, scaled into band units;
-    * the rollback penalty is added only when the verifier confirmed a failure
+    * the rollback penalty is subtracted only when the verifier confirmed a failure
       (rejected), never for inconclusive evidence.
 
     Args:

@@ -195,7 +195,7 @@ class TestExplanations:
         assert record["reasons"]
 
     def test_examples_file_carries_full_explanations(self, results_dir: Path) -> None:
-        payload = json.loads((results_dir / "explanations_examples.json").read_text())
+        payload = json.loads((results_dir / "explanations_examples.json").read_text(encoding="utf-8"))
         assert payload
         for item in payload:
             assert set(item) == {"criterion", "explanation"}
@@ -204,7 +204,7 @@ class TestExplanations:
 
 class TestSummaryAndReport:
     def test_rates_are_probabilities(self, results_dir: Path) -> None:
-        summary = json.loads((results_dir / "summary.json").read_text())
+        summary = json.loads((results_dir / "summary.json").read_text(encoding="utf-8"))
         for arm, values in summary["test"]["arms"].items():
             for key in (
                 "hindsight_best_rate",
@@ -214,15 +214,15 @@ class TestSummaryAndReport:
                 assert 0.0 <= values[key] <= 1.0, (arm, key)
 
     def test_report_contains_generated_values(self, results_dir: Path) -> None:
-        summary = json.loads((results_dir / "summary.json").read_text())
-        report = (results_dir / "report.md").read_text()
+        summary = json.loads((results_dir / "summary.json").read_text(encoding="utf-8"))
+        report = (results_dir / "report.md").read_text(encoding="utf-8")
         assert "offline policy-selection" in report.lower()
         values = summary["test"]["arms"]["ql_risk"]
         assert f"{values['mean_objective_cost']:.4f}" in report
         assert "not a runtime OS scheduler" in report
 
     def test_manifest_matches_written_files(self, results_dir: Path) -> None:
-        manifest = json.loads((results_dir / "manifest.json").read_text())
+        manifest = json.loads((results_dir / "manifest.json").read_text(encoding="utf-8"))
         assert manifest["decision_rows"] > 0
         assert manifest["counterfactual_rows"] > 0
         assert (results_dir / "decisions.csv").exists()
