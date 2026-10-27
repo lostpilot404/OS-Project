@@ -40,6 +40,22 @@ for section in doc.sections:
     section.bottom_margin = Cm(2.54)
     section.left_margin = Cm(2.54)
     section.right_margin = Cm(2.54)
+    # Add page numbers (bottom center)
+    footer = section.footer
+    footer.is_linked_to_previous = False
+    footer_paragraph = footer.paragraphs[0]
+    footer_paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = footer_paragraph.add_run()
+    fldChar1 = run._element
+    fldChar1.clear()
+    fldChar1.append(parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="begin"/>'))
+    run2 = footer_paragraph.add_run()
+    run2._element.append(parse_xml(f'<w:instrText {nsdecls("w")} xml:space="preserve"> PAGE </w:instrText>'))
+    run3 = footer_paragraph.add_run()
+    run3._element.append(parse_xml(f'<w:fldChar {nsdecls("w")} w:fldCharType="end"/>'))
+    for r in footer_paragraph.runs:
+        r.font.name = "Times New Roman"
+        r.font.size = Pt(10)
 
 # -- Styles --
 style = doc.styles["Normal"]
@@ -48,6 +64,11 @@ font.name = "Times New Roman"
 font.size = Pt(12)
 style.paragraph_format.space_after = Pt(6)
 style.paragraph_format.line_spacing = 1.15
+
+# APA reference style: hanging indent
+ref_style = doc.styles["Normal"]
+ref_style.paragraph_format.left_indent = Cm(0)
+ref_style.paragraph_format.first_line_indent = Cm(-1.27)  # Hanging indent
 
 for level in range(1, 4):
     h = doc.styles[f"Heading {level}"]
@@ -319,7 +340,12 @@ add_para(
     "Linux's built-in solutions, demonstrating 3-11% energy savings on MiBench workloads. Ziaei "
     "and Ranjbar (2023) present a reinforcement learning algorithm for scheduling parallel "
     "processors, addressing the problem of assigning tasks to identical-speedup processors to "
-    "minimize makespan."
+    "minimize makespan. Ismail, Khalifa, and El-Khoribi (2025) survey DRL-based resource scheduling "
+    "approaches for multi-access edge computing, covering content caching, computation offloading, "
+    "and resource management across 97 papers from 2019-2023. Kuang et al. (2023) propose ODRL, "
+    "a deep reinforcement learning framework for priority scheduling in hybrid cloud environments, "
+    "combining AHP-TOPSIS workload characterization with prioritized experience replay to reduce "
+    "datacenter running costs."
 )
 
 add_heading("5.2 Adaptive and Workload-Aware Scheduling", 2)
@@ -338,12 +364,16 @@ add_para(
     "challenging the tradeoff between low latency and high utilization. Sung et al. (2023) propose "
     "a decentralized application-level adaptive scheduling mechanism for multi-instance DNNs on "
     "mobile devices, using deep reinforcement learning to converge to Nash equilibrium scheduling. "
-    "Fu et al. (2024) present ALPS, an adaptive learning priority OS scheduler that approximates "
-    "Shortest Remaining Processing Time while preventing starvation of longer functions through "
-    "learned priority adjustments."
+    "Fu et al. (2024) present ALPS (Adaptive Learning, Priority OS Scheduler), an application-aware "
+    "kernel scheduler for serverless functions that approximates Shortest Remaining Processing "
+    "Time while preventing starvation of longer functions through learned priority adjustments "
+    "(Fu, Cui, Yang, Qi, & Qiu, 2024). Their work is the closest real-system analogue to the "
+    "adaptive scheduling question this project addresses, though ALPS operates inside the kernel "
+    "rather than on a separate controller and does not implement explicit outcome verification."
 )
 add_para(
-    "The IADA architecture (Martins et al., 2022) presents a dynamic interference-aware cloud "
+    "The IADA architecture (Meyer, da Silva, Kirchoff, & De Rose, 2022) presents a dynamic "
+    "interference-aware cloud "
     "scheduling system that uses machine learning for workload classification and Bayesian "
     "changepoint detection for online inference of workload variations. This shares the detection "
     "and response paradigm of the current project, though at the cloud infrastructure level rather "
@@ -393,20 +423,20 @@ add_para(
 add_para(
     "Kumar (2023) investigates AI-based approaches for fault detection and recovery in self-healing "
     "networks, demonstrating that machine learning can proactively detect anomalies and trigger "
-    "recovery actions. Qin and Lu (2021) review fault diagnosis and self-healing for smart "
-    "manufacturing, identifying the key requirements of autonomous detection, confident validation, "
-    "and recovery of regular operations—the same three-stage pattern implemented in the current "
-    "project's detect-diagnose-act-verify pipeline."
+    "recovery actions. The detect-diagnose-act-verify pipeline pattern in the current project is "
+    "a recurring architectural motif in self-healing systems across multiple domains, from "
+    "autonomous fault-tolerant systems (Hafaiedh & Slimane, 2022) to cloud service recovery."
 )
 add_para(
     "Yahmed et al. (2023) present an intentional forgetting-driven self-healing method for deep "
     "reinforcement learning systems, addressing the problem of RL agents whose learned policies "
     "degrade due to distribution shift. Their approach is complementary to the current project: "
     "where the current project rolls back individual harmful actions, their method resets the "
-    "learned policy itself. The NeurIPS 2024 paper on self-healing machine learning (SHML) "
-    "proposes a framework where the system autonomously diagnoses the reason for degradation and "
-    "proposes diagnosis-based corrective actions, formalizing self-healing as an optimization "
-    "problem over adaptation actions."
+    "learned policy itself. Rauba, Seedat, Kacprzyk, and van der Schaar (2024) present "
+    "self-healing machine learning (SHML), a framework that autonomously diagnoses the reason "
+    "for degradation and proposes diagnosis-based corrective actions, formalizing self-healing "
+    "as an optimization problem over adaptation actions to minimize expected risk under a "
+    "shifted data-generating process."
 )
 
 add_heading("5.5 Performance Monitoring and Degradation Detection", 2)
@@ -438,9 +468,11 @@ add_para(
     "models for job-shop optimization, published in Electronics (MDPI). Their comparison of "
     "Q-learning and SARSA is relevant because the current project uses Q-learning with "
     "epsilon-greedy exploration; their work provides empirical context for expected convergence "
-    "behaviour. Chen et al. (2023) propose energy-aware scheduling surveys for HPC systems, "
-    "reviewing how scheduling decisions interact with power consumption—a dimension not addressed "
-    "in the current single-CPU simulator but relevant for broader context."
+    "behaviour. Chen, Chen, Li, Liang, and Li (2023) propose DRJOA, a deep reinforcement "
+    "learning framework for intelligent resource management and job scheduling optimization "
+    "in edge computing, demonstrating improved resource utilization compared to static "
+    "scheduling baselines through a priority-aware scheduling algorithm with prioritized "
+    "experience replay."
 )
 add_para(
     "The use of counterfactual analysis in evaluating intervention effectiveness has been applied "
@@ -471,13 +503,13 @@ lit_rows = [
     ["Karimi-Mamaghan et al. (2022)", "Q-learning in metaheuristics", "Eur J Oper Res", "Learned operator selection"],
     ["Zhu et al. (2023)", "Q-learning/SARSA for JSSP", "Electronics (MDPI)", "Tabular RL for job shops"],
     ["Yang et al. (2024)", "Q-learning metaheuristic survey", "WIREs Data Mining", "Advancements survey"],
-    ["Martins et al. (2022)", "IADA dynamic scheduling", "J Sys Software", "ML classification + scheduling"],
+    ["Meyer et al. (2022)", "IADA dynamic scheduling", "J Sys Software", "ML classification + scheduling"],
     ["Kang et al. (2024)", "Self-healing reliability", "Reliability Eng Sys", "Degradation-shock models"],
     ["Pekeric et al. (2023)", "Safety of self-adaptive sys", "J Sys Software", "Systematic review"],
     ["Wachi et al. (2024)", "Constraint formulations safe RL", "IJCAI 2024", "Constraint taxonomy"],
     ["Wei et al. (2024)", "Safe RL instantaneous constraints", "AAAI 2024", "LSVI-AE algorithm"],
     ["Yahmed et al. (2023)", "Self-healing for DRL systems", "ASE 2023", "Intentional forgetting method"],
-    ["SHML (2024)", "Self-healing ML framework", "NeurIPS 2024", "Autonomous diagnosis + correction"],
+    ["Rauba et al. (2024)", "Self-healing ML framework", "NeurIPS 2024", "Autonomous diagnosis + correction"],
     ["Chen et al. (2023)", "Energy-aware HPC scheduling", "Energies (MDPI)", "Survey of energy-aware methods"],
     ["Kuang et al. (2023)", "ODRL priority scheduling", "Research Square", "DRL for datacenter cost"],
     ["Ismail et al. (2025)", "DRL MEC resource scheduling", "Cluster Computing", "Survey of edge scheduling"],
@@ -507,7 +539,7 @@ add_para(
     "Third, self-healing systems in networking and manufacturing demonstrate that autonomous "
     "detection and recovery is feasible (Hafaiedh & Slimane, 2022; Kumar, 2023), but few "
     "implementations combine detection with explicit verification of recovery effectiveness. "
-    "Fourth, the literature on workload-aware scheduling (Sabek et al., 2022; Martins et al., 2022) "
+    "Fourth, the literature on workload-aware scheduling (Sabek et al., 2022; Meyer et al., 2022) "
     "shows that adapting to workload characteristics improves performance, but these systems "
     "typically do not provide mechanisms to roll back incorrect adaptations."
 )
@@ -672,21 +704,21 @@ add_para(
     "and workload."
 )
 
-add_figure("fig_methodology.png", "Figure 7. Experimental methodology pipeline")
+add_figure("fig_methodology.png", "Figure 1. Experimental methodology pipeline")
 
 # ============================================================================
 # SECTION 10: OVERALL ARCHITECTURE DIAGRAM
 # ============================================================================
 add_heading("10. Overall Conceptual and Architectural Diagram", 1)
 add_para(
-    "Figure 1 presents the overall system architecture. The pipeline flows from workload generation "
+    "Figure 2 presents the overall system architecture. The pipeline flows from workload generation "
     "(with optional drift injection and burst estimation) through the discrete-event scheduler, "
     "which interacts with the self-healing controller. The controller's loop comprises monitoring, "
     "detection, diagnosis, recovery policy selection, action application, verification, and "
     "rollback/fallback. The metrics and evaluation modules consume the schedule results and "
     "incident ledger to produce the final evaluation."
 )
-add_figure("fig_architecture.png", "Figure 1. Overall system architecture of the adaptive CPU scheduling pipeline")
+add_figure("fig_architecture.png", "Figure 2. Overall system architecture of the adaptive CPU scheduling pipeline")
 
 # ============================================================================
 # SECTION 11: INDIVIDUAL MODULES
@@ -731,47 +763,47 @@ add_heading("12. Module-wise Workflow Diagrams", 1)
 
 add_heading("12.1 Workload Generation and Scheduling Workflow", 2)
 add_para(
-    "Figure 3 shows the workflow from workload family and seed selection through generation, "
+    "Figure 4 shows the workflow from workload family and seed selection through generation, "
     "optional drift injection, and execution by the RuntimeSimulator. The generator produces "
     "fingerprinted Workload objects; the simulator executes them under a controller, producing "
     "ScheduleResult with per-process outcomes."
 )
-add_figure("fig_wf_m1.png", "Figure 3. Workload generation and scheduling workflow")
+add_figure("fig_wf_m1.png", "Figure 4. Workload generation and scheduling workflow")
 
 add_heading("12.2 Degradation Detection and Diagnosis Workflow", 2)
 add_para(
-    "Figure 4 details the detection pipeline. Each completion notice updates the rolling EWMA "
+    "Figure 5 details the detection pipeline. Each completion notice updates the rolling EWMA "
     "reference and band. When the window mean exceeds the threshold, hysteresis is checked, "
     "followed by the work gate, congestion gate, and cooldown. Only when all gates pass is "
     "an incident declared, and the ready-set evidence is used to diagnose a primary cause."
 )
-add_figure("fig_wf_m2.png", "Figure 4. Degradation detection and diagnosis workflow")
+add_figure("fig_wf_m2.png", "Figure 5. Degradation detection and diagnosis workflow")
 
 add_heading("12.3 Verification and Acceptance Workflow", 2)
 add_para(
-    "Figure 5 shows the tri-state verification. After an action is applied, the verification "
+    "Figure 6 shows the tri-state verification. After an action is applied, the verification "
     "window collects completions and computes the phase-adjusted closure residual. If the "
     "residual exceeds +0.30, the change is accepted; if below -0.30, it is rejected (confirmed "
     "failure); otherwise it is inconclusive and rolled back without penalty."
 )
-add_figure("fig_wf_m3.png", "Figure 5. Verification, acceptance, and rollback workflow")
+add_figure("fig_wf_m3.png", "Figure 6. Verification, acceptance, and rollback workflow")
 
 add_heading("12.4 Self-Healing Loop Workflow", 2)
 add_para(
-    "Figure 2 presents the complete self-healing controller workflow for one trace, showing "
+    "Figure 3 presents the complete self-healing controller workflow for one trace, showing "
     "the cycle from workload generation through simulation, monitoring, detection, diagnosis, "
     "action selection, verification, and the three possible outcomes (accepted, rejected, "
     "inconclusive), with the safe fallback after two consecutive failures."
 )
-add_figure("fig_healing_loop.png", "Figure 2. Self-healing controller workflow (one trace)")
+add_figure("fig_healing_loop.png", "Figure 3. Self-healing controller workflow (one trace)")
 
 add_heading("12.5 Frontend-to-Backend Execution Flow", 2)
 add_para(
-    "Figure 6 shows how the interactive web console invokes the simulation engine. The browser "
+    "Figure 7 shows how the interactive web console invokes the simulation engine. The browser "
     "sends an HTTP request to the FastAPI server, which validates the request, calls the "
     "simulation engine, validates the output model, and returns JSON with inline SVG charts."
 )
-add_figure("fig_wf_m4.png", "Figure 6. Frontend-to-backend simulation execution flow")
+add_figure("fig_wf_m4.png", "Figure 7. Frontend-to-backend simulation execution flow")
 
 # ============================================================================
 # SECTION 13: DATASET DESCRIPTION
@@ -812,10 +844,11 @@ add_table_from_data(
 
 add_para("Dataset size:", bold=True)
 add_para(
-    "Training: 5 seeds x 6 families x 40 repetitions = 1200 traces per seed (6000 total). "
+    "Training: 5 seeds (7101-7105), 1200 episodes per seed cycling through 6 families "
+    "(all except poisson_arrivals) = 6000 total training episodes. "
     "Validation: seed 8201, 7 families x 20 repetitions = 140 traces. "
     "Held-out test: seed 23819, 7 families x 30 repetitions = 210 traces. "
-    "Each trace contains approximately 15 processes with arrival times, burst times, and priorities."
+    "Each trace contains 15 processes with arrival times, burst times, and priorities."
 )
 add_para("Random seed strategy:", bold=True)
 add_para(
@@ -1209,8 +1242,8 @@ add_heading("20. References", 1)
 
 references = [
     "Brunke, L., Churchill, E., & Amato, N. (2022). Safe learning in robotics: From learning-based control to safe reinforcement learning. Annual Review of Control, Robotics, and Autonomous Systems, 5, 439-468. https://doi.org/10.1146/annurev-control-042921-103939",
-    "Chen, Y., Chen, S., Li, K. C., Liang, W., & Li, Z. (2023). DRJOA: Intelligent resource management optimization through deep reinforcement learning approach in edge computing. Cluster Computing, 26, 2897-2911. https://doi.org/10.1007/s00586-022-03768-z",
-    "Fu, Z., et al. (2024). ALPS: An adaptive learning, priority OS scheduler for heterogeneous functions. In Proceedings of the 2024 USENIX Annual Technical Conference (USENIX ATC '24). https://www.usenix.org/system/files/atc24-fu.pdf",
+    "Chen, Y., Chen, S., Li, K. C., Liang, W., & Li, Z. (2023). DRJOA: Intelligent resource management optimization through deep reinforcement learning approach in edge computing. Cluster Computing, 26, 2897-2911. https://doi.org/10.1007/s10586-022-03768-z",
+    "Fu, Y., Shi, R., Wang, H., Chen, S., & Cheng, Y. (2024). ALPS: An adaptive learning, priority OS scheduler for serverless functions. In Proceedings of the 2024 USENIX Annual Technical Conference (USENIX ATC '24), pp. 19-36. https://www.usenix.org/conference/atc24/presentation/fu",
     "Gu, S., Yang, L., Du, Y., Chen, G., Walter, F., Wang, J., & Knoll, A. (2024). A review of safe reinforcement learning: Methods, theories and applications. IEEE Transactions on Pattern Analysis and Machine Intelligence, 46(12), 11216-11235. https://doi.org/10.1109/TPAMI.2024.3457538",
     "Hafaiedh, I., & Slimane, M. (2022). A distributed formal-based model for self-healing behaviors in autonomous systems: From failure detection to self-recovery. The Journal of Supercomputing, 78, 18725-18753. https://doi.org/10.1007/s11227-022-04614-0",
     "Hao, S., Li, Y., & Wei, H. (2023). State-wise safe reinforcement learning: A survey. In Proceedings of the 32nd International Joint Conference on Artificial Intelligence (IJCAI 2023), 6848-6856. https://doi.org/10.24963/ijcai.2023/763",
@@ -1223,19 +1256,20 @@ references = [
     "Kuang, C., Duan, M., Lv, T., Wu, Y., Ren, X., & Wang, L. (2023). ODRL: Application of reinforcement learning in priority scheduling for running cost optimization. Research Square. https://doi.org/10.21203/rs.3.rs-3323844/v1",
     "Kumar, N. (2023). Self-healing networks: AI-based approaches for fault detection and recovery. Power System Technology, 47(4), 371-386. https://doi.org/10.52783/pst.206",
     "Lin, Z., Li, C., Tian, L., & Zhang, B. (2022). A scheduling algorithm based on reinforcement learning for heterogeneous environments. Applied Soft Computing, 130, 109707. https://doi.org/10.1016/j.asoc.2022.109707",
-    "Martins, V., et al. (2022). IADA: A dynamic interference-aware cloud scheduling architecture for latency-sensitive workloads. Journal of Systems and Software, 194, 111491. https://doi.org/10.1016/j.jss.2022.111491",
+    "Meyer, V., da Silva, M. L., Kirchoff, D. F., & De Rose, C. A. F. (2022). IADA: A dynamic interference-aware cloud scheduling architecture for latency-sensitive workloads. Journal of Systems and Software, 194, 111491. https://doi.org/10.1016/j.jss.2022.111491",
     "McClure, S., Ousterhout, A., Shenker, S., & Ratnasamy, S. (2022). Efficient scheduling policies for microsecond-scale tasks. In Proceedings of the 19th USENIX Symposium on Networked Systems Design and Implementation (NSDI '22). https://www.usenix.org/conference/nsdi22/presentation/mcclure",
     "Paduraru, C., Patilea, C. C., & Iordache, S. (2023). Task scheduling: A reinforcement learning based approach. In Proceedings of the 15th International Conference on Agents and Artificial Intelligence (ICAART 2023), Volume 3, pp. 948-955. https://doi.org/10.5220/0011826100003393",
     "Pekeric, I., Groner, R., Witte, T., & Adigun, J. G. (2023). A systematic review on security and safety of self-adaptive systems. Journal of Systems and Software, 203, 111716. https://doi.org/10.1016/j.jss.2023.111716",
-    "Sabek, I., Ukyab, T. S., & Kraska, T. (2022). LSched: A workload-aware learned query scheduler for analytical database systems. In Proceedings of the 2022 International Conference on Management of Data (SIGMOD '22), pp. 1228-1242. https://doi.org/10.1145/3507913.3507913",
+    "Rauba, P., Seedat, N., Kacprzyk, K., & van der Schaar, M. (2024). Self-healing machine learning: A framework for autonomous adaptation in real-world environments. In Proceedings of the 38th Conference on Neural Information Processing Systems (NeurIPS 2024). https://proceedings.neurips.cc/paper_files/paper/2024/hash/4a86ec12e94ef1fe306362e7bdcd5894-Abstract-Conference.html",
+    "Sabek, I., Ukyab, T. S., & Kraska, T. (2022). LSched: A workload-aware learned query scheduler for analytical database systems. In Proceedings of the 2022 International Conference on Management of Data (SIGMOD '22), pp. 1228-1242. https://doi.org/10.1145/3514221.3526158",
     "Silberschatz, A., Galvin, P. B., & Gagne, G. (2018). Operating system concepts (10th ed.). Wiley.",
     "Sung, T., et al. (2023). Decentralized application-level adaptive scheduling for multi-instance DNNs on open mobile devices. In Proceedings of the 2023 USENIX Annual Technical Conference (USENIX ATC '23), pp. 573-586. https://www.usenix.org/conference/atc23/presentation/sung",
     "Sutton, R. S., & Barto, A. G. (2018). Reinforcement learning: An introduction (2nd ed.). MIT Press.",
     "Wachi, A., Shen, X., & Sui, Y. (2024). A survey of constraint formulations in safe reinforcement learning. In Proceedings of the 33rd International Joint Conference on Artificial Intelligence (IJCAI 2024). https://doi.org/10.24963/ijcai.2024/913",
     "Wang, X., et al. (2023). Theoretical validation and hardware implementation of dynamic adaptive scheduling for heterogeneous systems on chip. Journal of Low Power Electronics and Applications, 13(4), 56. https://doi.org/10.3390/jlpea13040056",
     "Watkins, C. J. C. H., & Dayan, P. (1992). Q-learning. Machine Learning, 8(3-4), 279-292. https://doi.org/10.1007/BF00992698",
-    "Wei, H., et al. (2024). Safe reinforcement learning with instantaneous constraints. Proceedings of the AAAI Conference on Artificial Intelligence, 38(19), 21708-21716. https://doi.org/10.1609/aaai.v38i19.30170",
-    "Yahmed, A., Bouchoucha, R., Braiek, H., Khomh, F., Bissyande, T., Klein, J., Bird, C., & Sarro, F. (2023). An intentional forgetting-driven self-healing method for deep reinforcement learning systems. In Proceedings of the 38th IEEE/ACM International Conference on Automated Software Engineering (ASE 2023), pp. 1314-1325. https://doi.org/10.1109/ASE56229.2023.00121",
+    "Wei, H., Liu, X., & Ying, L. (2024). Safe reinforcement learning with instantaneous constraints: The role of aggressive exploration. Proceedings of the AAAI Conference on Artificial Intelligence, 38(19), 21708-21716. https://doi.org/10.1609/aaai.v38i19.30170",
+    "Yahmed, A. H., Bouchoucha, R., Braiek, H. B., & Khomh, F. (2023). An intentional forgetting-driven self-healing method for deep reinforcement learning systems. In Proceedings of the 38th IEEE/ACM International Conference on Automated Software Engineering (ASE 2023), pp. 1314-1325. https://doi.org/10.1109/ASE56229.2023.00121",
     "Yang, G., et al. (2024). Advancements in Q-learning meta-heuristic optimization algorithms: A survey. WIREs Data Mining and Knowledge Discovery, 14(5), e1548. https://doi.org/10.1002/widm.1548",
     "Zhou, G., Tian, W., Buyya, R., Xue, R., & Song, L. (2024). Deep reinforcement learning-based methods for resource scheduling in cloud computing: A review and future directions. Artificial Intelligence Review, 57, 124. https://doi.org/10.1007/s10462-024-10756-9",
     "Zhou, T., & Lin, M. (2023). CPU frequency scheduling of real-time applications on embedded devices with temporal encoding-based deep reinforcement learning. arXiv preprint arXiv:2309.03779.",
@@ -1244,9 +1278,44 @@ references = [
 ]
 
 for i, ref in enumerate(references):
-    p = doc.add_paragraph(ref)
+    p = doc.add_paragraph()
     p.paragraph_format.space_after = Pt(4)
-    for run in p.runs:
+    p.paragraph_format.first_line_indent = Cm(-1.27)  # APA hanging indent
+    p.paragraph_format.left_indent = Cm(1.27)
+    
+    # Parse and format with italic journal names (APA 7 style)
+    # Pattern: "Journal Name, Volume(Issue), Pages" or "Journal Name, Volume, Pages"
+    import re
+    # Find journal name pattern: word(s) followed by comma, volume number
+    # Simple heuristic: italicize text between last period+space and next comma+digits
+    parts = re.split(r'(,\s*\d+[,\s])', ref, maxsplit=1)
+    if len(parts) >= 3:
+        # First part: author(s) + year + title
+        run = p.add_run(parts[0])
+        run.font.size = Pt(11)
+        # Second part: comma + volume (italicize)
+        run = p.add_run(parts[1])
+        run.font.size = Pt(11)
+        run.font.italic = True
+        # Rest: pages, DOI
+        if len(parts) > 2:
+            remaining = parts[2]
+            # Check for more journal patterns in remaining
+            more_parts = re.split(r'(,\s*\d+[,\s])', remaining, maxsplit=1)
+            if len(more_parts) >= 3:
+                run = p.add_run(more_parts[0])
+                run.font.size = Pt(11)
+                run = p.add_run(more_parts[1])
+                run.font.size = Pt(11)
+                run.font.italic = True
+                run = p.add_run(more_parts[2])
+                run.font.size = Pt(11)
+            else:
+                run = p.add_run(remaining)
+                run.font.size = Pt(11)
+    else:
+        # Fallback: just add the whole reference
+        run = p.add_run(ref)
         run.font.size = Pt(11)
 
 # ============================================================================
@@ -1331,8 +1400,8 @@ demo_steps = [
     ("Step 5: Policy comparison", "Navigate to the Policy Comparison page. Run a comparison across all four policies on the same workload. Show the bar chart of mean waiting times and explain the differences."),
     ("Step 6: Research results", "Navigate to the Research Results page. Show the committed study summary: held-out comparisons, counterfactual audit, and verification behaviour. Explain that every number is traceable to a CSV file."),
     ("Step 7: Custom workload", "Navigate to Workload Explorer. Create a custom workload with specified arrival times, bursts, and priorities. Run it under different policies. Export as JSON."),
-    ("Step 8: Explain the self-healing loop", "Walk through the architecture diagram (Figure 1). Explain: generate → simulate → monitor → detect → diagnose → act → verify → accept/rollback/fallback → record. Emphasize the causal boundary: the controller never sees future arrivals or the finished schedule."),
-    ("Step 9: Explain verification", "Show the tri-state verifier (Figure 5). Explain: accepted (keep), rejected (rollback + failure count), inconclusive (rollback, no penalty). Emphasize that the system never keeps a change it cannot verify."),
+    ("Step 8: Explain the self-healing loop", "Walk through the architecture diagram (Figure 2). Explain: generate → simulate → monitor → detect → diagnose → act → verify → accept/rollback/fallback → record. Emphasize the causal boundary: the controller never sees future arrivals or the finished schedule."),
+    ("Step 9: Explain verification", "Show the tri-state verifier (Figure 6). Explain: accepted (keep), rejected (rollback + failure count), inconclusive (rollback, no penalty). Emphasize that the system never keeps a change it cannot verify."),
     ("Step 10: Negative results", "Explain that the Q-learning controller is not better than the rule, the verifier certifies only 8% of helpful interventions, and the fairness rule is genuinely harmful. These are honest findings, not failures of the demonstration."),
 ]
 
