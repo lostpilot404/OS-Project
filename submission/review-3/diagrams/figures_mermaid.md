@@ -1,7 +1,6 @@
-# Mermaid Source for Review 3 Figures
+# Mermaid Source Code for All Figures
 
-Copy any of these diagrams into [mermaid.live](https://mermaid.live) or a Markdown viewer
-that supports Mermaid to render them. All diagrams use black-and-white styling.
+This file contains the Mermaid source code for all 7 figures in the paper. You can render these diagrams using any Mermaid-compatible tool (e.g., https://mermaid.live, VS Code Mermaid preview, or GitHub markdown).
 
 ---
 
@@ -22,114 +21,108 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph Workload Generation
-        WG["Workload<br/>Generator<br/>(workload/)"] --> WF["Workload<br/>Fingerprint<br/>(fingerprint.py)"]
+        WG["Workload Generator<br/>(workload/)"] --> WF["Workload Fingerprint<br/>(fingerprint.py)"]
         WF --> DI["Drift Injector<br/>(drift.py)"]
-        DI --> BE["Burst<br/>Estimator<br/>(burst_estimator.py)"]
+        DI --> BE["Burst Estimator<br/>(burst_estimator.py)"]
     end
-
     subgraph Scheduling
-        WF --> RS["Discrete-Event<br/>Scheduler<br/>(scheduler/runtime.py)"]
-        RS --> RO["Runtime<br/>Observation<br/>(RuntimeObservation)"]
+        WF --> RS["Discrete-Event Scheduler<br/>(scheduler/runtime.py)"]
+        RS --> RO["Runtime Observation<br/>(RuntimeObservation)"]
         DI --> RS
         RO --> PC["Policy Classes<br/>(FCFS/SJF/RR/Pri)"]
         BE --> RS
     end
-
     subgraph Self-Healing Controller
         RS --> CM["Causal Monitor<br/>(monitor.py)"]
-        CM --> DD["Degradation<br/>Detector<br/>(detector.py)"]
+        CM --> DD["Degradation Detector<br/>(detector.py)"]
         DD --> DX["Diagnosis<br/>(diagnosis.py)"]
-        DX --> RP["Recovery<br/>Policy<br/>(policies.py)"]
+        DX --> RP["Recovery Policy<br/>(policies.py)"]
     end
-
     subgraph Verification and Outcome
-        RP --> VW["Verification<br/>Window<br/>(verifier.py)"]
-        VW --> AR["Accept / Reject<br/>/ Inconclusive"]
-        AR --> RB["Rollback /<br/>Fallback<br/>(actions.py)"]
-        RB --> IL["Incident<br/>Ledger"]
+        RP --> VW["Verification Window<br/>(verifier.py)"]
+        VW --> AR["Accept / Reject / Inconclusive"]
+        AR --> RB["Rollback / Fallback<br/>(actions.py)"]
+        RB --> IL["Incident Ledger"]
     end
-
     subgraph Evaluation
         VW --> MT["Metrics<br/>(evaluation/metrics.py)"]
         AR --> RL["Reliability<br/>(evaluation/reliability.py)"]
         RB --> BP["Paired Comparison<br/>(evaluation/paired.py)"]
     end
-
-    RB -.->|"Feedback<br/>(action applied<br/>to scheduler)"| RS
+    RB -.->|"Feedback (action applied to scheduler)"| RS
 ```
 
 ---
 
-## Figure 3. Self-healing controller workflow (one trace)
-
-```mermaid
-flowchart TD
-    GW["Generate<br/>workload"] --> SM["Simulate<br/>(dispatch slice)"]
-    SM --> MN["Monitor<br/>(EWMA reference)"]
-    MN --> DD{"Degradation<br/>detected?"}
-    DD -- "no: continue<br/>simulating" --> SM
-    DD -- "yes" --> DC["Diagnose<br/>cause"]
-    DC --> SA["Select recovery<br/>action"]
-    SA --> AA["Apply action<br/>to scheduler"]
-    AA --> VW["Verification<br/>window"]
-    VW -->|"good"| AC["Accepted<br/>(keep change)"]
-    VW -->|"bad"| RJ["Rejected<br/>(rollback + failure)"]
-    VW -->|"unclear"| IN["Inconclusive<br/>(rollback, no penalty)"]
-    AC --> IL["Incident<br/>Ledger"]
-    RJ --> IL
-    IN --> IL
-    AC --> FQ{"2 consecutive<br/>failures?"}
-    FQ -- "yes" --> SF["Safe<br/>fallback"]
-    FQ -- "no" --> SM
-    VW -.->|"record every<br/>decision"| IL
-```
-
----
-
-## Figure 4. Workload generation and scheduling workflow
+## Figure 3. Workload generation and scheduling workflow
 
 ```mermaid
 flowchart TB
-    FS["Family + Seed<br/>selection"] --> WG["WorkloadGenerator<br/>.generate()"]
-    WG --> WO["Workload object<br/>(fingerprinted)"]
-    DS["Optional: drift<br/>spec (drift.py)"] --> GD["generate_with_<br/>drift()"]
-    GD --> DW["Drifted Workload<br/>(phase shift)"]
-    WO --> RS["RuntimeSimulator<br/>.run(workload, ctrl)"]
+    FS["Family + Seed selection"] --> WG["WorkloadGenerator.generate()"]
+    WG --> WO["Workload object (fingerprinted)"]
+    DS["Optional: drift spec (drift.py)"] --> GD["generate_with_drift()"]
+    GD --> DW["Drifted Workload (phase shift)"]
+    WO --> RS["RuntimeSimulator.run(workload, ctrl)"]
     DW --> RS
-    RS --> EL["Event loop:<br/>dispatch, switch, complete"]
-    EL --> SR["ScheduleResult<br/>(per-process outcomes)"]
+    RS --> EL["Event loop: dispatch, switch, complete"]
+    EL --> SR["ScheduleResult (per-process outcomes)"]
 ```
 
 ---
 
-## Figure 5. Degradation detection and diagnosis workflow
+## Figure 4. Degradation detection and diagnosis workflow
 
 ```mermaid
 flowchart TD
-    CN["Completion notice<br/>from scheduler"] --> RW["Update rolling window<br/>(EWMA ref + band)"]
-    RW --> TH{"window_mean > ref<br/>+ k * band ?"}
-    TH -- "yes" --> HY["Hysteresis check<br/>(h consecutive)"]
-    TH -- "no" --> SU["Suppress<br/>(reason logged)"]
-    HY --> GA{"Gates pass?<br/>(cooldown, load, work)"}
-    GA -- "yes" --> RE["Build ready<br/>evidence"]
+    CN["Completion notice from scheduler"] --> RW["Update rolling window (EWMA ref + band)"]
+    RW --> TH{"window_mean > ref + k * band ?"}
+    TH -- "yes" --> HY["Hysteresis check (h consecutive)"]
+    TH -- "no" --> SU["Suppress (reason logged)"]
+    HY --> GA{"Gates pass? (cooldown, load, work)"}
+    GA -- "yes" --> RE["Build ready evidence"]
     GA -- "no" --> SU
-    RE --> DG["Diagnose:<br/>primary cause"]
-    DG --> DI["Declare<br/>incident"]
+    RE --> DG["Diagnose: primary cause"]
+    DG --> DI["Declare incident"]
 ```
 
 ---
 
-## Figure 6. Verification, acceptance, and rollback workflow
+## Figure 5. Verification, acceptance, and rollback workflow
 
 ```mermaid
 flowchart TD
-    AA["Action applied;<br/>window opened"] --> CC["Collect completions<br/>over verify_decisions"]
-    CC --> PC["Compute phase-adjusted<br/>closure residual"]
-    PC --> AB{"residual >= accept<br/>boundary (+0.30)?"}
-    AB -- "yes" --> AC["ACCEPTED<br/>(keep, learn)"]
-    AB -- "no" --> RB{"residual <= reject<br/>boundary (-0.30)?"}
-    RB -- "yes" --> RJ["REJECTED<br/>(rollback, fail +1)"]
-    RB -- "no" --> IC["INCONCLUSIVE<br/>(rollback, no penalty)"]
+    AA["Action applied; window opened"] --> CC["Collect completions over verify_decisions"]
+    CC --> PC["Compute phase-adjusted closure residual"]
+    PC --> AB{"residual >= accept boundary (+0.30)?"}
+    AB -- "yes" --> AC["ACCEPTED (keep, learn)"]
+    AB -- "no" --> RB{"residual <= reject boundary (-0.30)?"}
+    RB -- "yes" --> RJ["REJECTED (rollback, fail +1)"]
+    RB -- "no" --> IC["INCONCLUSIVE (rollback, no penalty)"]
+```
+
+---
+
+## Figure 6. Self-healing controller workflow (one trace)
+
+```mermaid
+flowchart TD
+    GW["Generate workload"] --> SM["Simulate (dispatch slice)"]
+    SM --> MN["Monitor (EWMA reference)"]
+    MN --> DD{"Degradation detected?"}
+    DD -- "no: continue simulating" --> SM
+    DD -- "yes" --> DC["Diagnose cause"]
+    DC --> SA["Select recovery action"]
+    SA --> AA["Apply action to scheduler"]
+    AA --> VW["Verification window"]
+    VW -->|"good"| AC["Accepted (keep change)"]
+    VW -->|"bad"| RJ["Rejected (rollback + failure)"]
+    VW -->|"unclear"| IN["Inconclusive (rollback, no penalty)"]
+    AC --> IL["Incident Ledger"]
+    RJ --> IL
+    IN --> IL
+    AC --> FQ{"2 consecutive failures?"}
+    FQ -- "yes" --> SF["Safe fallback"]
+    FQ -- "no" --> SM
 ```
 
 ---
@@ -138,13 +131,29 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    UI["Browser UI<br/>(app.js)"] --> HR["HTTP Request<br/>POST /api/simulations"]
-    HR --> FR["FastAPI Route<br/>(api.py)"]
-    FR --> SL["Service Layer<br/>(service.py)"]
-    SL --> SE["Simulation Engine<br/>(demo.run_fixture)"]
-    SE --> MV["Model Validator<br/>(model.py)"]
-    MV --> JR["JSON Response<br/>(workload, metrics,<br/>incidents)"]
-    JR --> CH["Charts<br/>(inline SVG)"]
-    CH --> RU["Render in UI<br/>(index.html)"]
-    JR -.->|"JSON +<br/>SVG"| UI
+    UI["Browser UI (app.js)"] --> HR["HTTP Request POST /api/simulations"]
+    HR --> FR["FastAPI Route (api.py)"]
+    FR --> SL["Service Layer (service.py)"]
+    SL --> SE["Simulation Engine (demo.run_fixture)"]
+    SE --> MV["Model Validator (model.py)"]
+    MV --> JR["JSON Response (workload, metrics, incidents)"]
+    JR --> CH["Charts (inline SVG)"]
+    CH --> RU["Render in UI (index.html)"]
+    JR -.->|"JSON + SVG"| UI
 ```
+
+---
+
+## Notes
+
+- All 7 figures are now in correct sequential order (1-7)
+- Each figure appears in its corresponding section:
+  - Figure 1: §9.6 Experimental Design
+  - Figure 2: §10 Overall Conceptual and Architectural Diagram
+  - Figure 3: §12.1 Workload Generation
+  - Figure 4: §12.2 Degradation Detection
+  - Figure 5: §12.3 Verification and Acceptance
+  - Figure 6: §12.4 Self-Healing Loop
+  - Figure 7: §12.5 Frontend-to-Backend Execution Flow
+- To render: Copy the Mermaid code blocks into any Mermaid renderer
+- These diagrams replace the original PNG images in the DOCX and PDF

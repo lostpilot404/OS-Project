@@ -763,39 +763,39 @@ add_heading("12. Module-wise Workflow Diagrams", 1)
 
 add_heading("12.1 Workload Generation and Scheduling Workflow", 2)
 add_para(
-    "Figure 4 shows the workflow from workload family and seed selection through generation, "
+    "Figure 3 shows the workflow from workload family and seed selection through generation, "
     "optional drift injection, and execution by the RuntimeSimulator. The generator produces "
     "fingerprinted Workload objects; the simulator executes them under a controller, producing "
     "ScheduleResult with per-process outcomes."
 )
-add_figure("fig_wf_m1.png", "Figure 4. Workload generation and scheduling workflow")
+add_figure("fig_wf_m1.png", "Figure 3. Workload generation and scheduling workflow")
 
 add_heading("12.2 Degradation Detection and Diagnosis Workflow", 2)
 add_para(
-    "Figure 5 details the detection pipeline. Each completion notice updates the rolling EWMA "
+    "Figure 4 details the detection pipeline. Each completion notice updates the rolling EWMA "
     "reference and band. When the window mean exceeds the threshold, hysteresis is checked, "
     "followed by the work gate, congestion gate, and cooldown. Only when all gates pass is "
     "an incident declared, and the ready-set evidence is used to diagnose a primary cause."
 )
-add_figure("fig_wf_m2.png", "Figure 5. Degradation detection and diagnosis workflow")
+add_figure("fig_wf_m2.png", "Figure 4. Degradation detection and diagnosis workflow")
 
 add_heading("12.3 Verification and Acceptance Workflow", 2)
 add_para(
-    "Figure 6 shows the tri-state verification. After an action is applied, the verification "
+    "Figure 5 shows the tri-state verification. After an action is applied, the verification "
     "window collects completions and computes the phase-adjusted closure residual. If the "
     "residual exceeds +0.30, the change is accepted; if below -0.30, it is rejected (confirmed "
     "failure); otherwise it is inconclusive and rolled back without penalty."
 )
-add_figure("fig_wf_m3.png", "Figure 6. Verification, acceptance, and rollback workflow")
+add_figure("fig_wf_m3.png", "Figure 5. Verification, acceptance, and rollback workflow")
 
 add_heading("12.4 Self-Healing Loop Workflow", 2)
 add_para(
-    "Figure 3 presents the complete self-healing controller workflow for one trace, showing "
+    "Figure 6 presents the complete self-healing controller workflow for one trace, showing "
     "the cycle from workload generation through simulation, monitoring, detection, diagnosis, "
     "action selection, verification, and the three possible outcomes (accepted, rejected, "
     "inconclusive), with the safe fallback after two consecutive failures."
 )
-add_figure("fig_healing_loop.png", "Figure 3. Self-healing controller workflow (one trace)")
+add_figure("fig_healing_loop.png", "Figure 6. Self-healing controller workflow (one trace)")
 
 add_heading("12.5 Frontend-to-Backend Execution Flow", 2)
 add_para(
@@ -1401,7 +1401,7 @@ demo_steps = [
     ("Step 6: Research results", "Navigate to the Research Results page. Show the committed study summary: held-out comparisons, counterfactual audit, and verification behaviour. Explain that every number is traceable to a CSV file."),
     ("Step 7: Custom workload", "Navigate to Workload Explorer. Create a custom workload with specified arrival times, bursts, and priorities. Run it under different policies. Export as JSON."),
     ("Step 8: Explain the self-healing loop", "Walk through the architecture diagram (Figure 2). Explain: generate → simulate → monitor → detect → diagnose → act → verify → accept/rollback/fallback → record. Emphasize the causal boundary: the controller never sees future arrivals or the finished schedule."),
-    ("Step 9: Explain verification", "Show the tri-state verifier (Figure 6). Explain: accepted (keep), rejected (rollback + failure count), inconclusive (rollback, no penalty). Emphasize that the system never keeps a change it cannot verify."),
+    ("Step 9: Explain verification", "Show the tri-state verifier (Figure 5). Explain: accepted (keep), rejected (rollback + failure count), inconclusive (rollback, no penalty). Emphasize that the system never keeps a change it cannot verify."),
     ("Step 10: Negative results", "Explain that the Q-learning controller is not better than the rule, the verifier certifies only 8% of helpful interventions, and the fairness rule is genuinely harmful. These are honest findings, not failures of the demonstration."),
 ]
 

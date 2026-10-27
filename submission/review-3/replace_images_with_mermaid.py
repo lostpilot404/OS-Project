@@ -33,16 +33,16 @@ with open(MERMAID_PATH, 'r') as f:
     if current_id and current_code:
         mermaid_blocks[current_id] = "\n".join(current_code)
 
-# Map paragraph indices to figure IDs based on section structure
-# Para 90 = methodology (Fig 1), 94 = architecture (Fig 2), 101 = healing loop (Fig 3),
-# 105 = workflow m1 (Fig 4), 109 = workflow m2 (Fig 5), 113 = workflow m3 (Fig 6), 117 = workflow m4 (Fig 7)
+# Map paragraph indices to figure IDs based on CORRECT position-based numbering
+# Para 90 = methodology (Fig 1), 94 = architecture (Fig 2), 101 = workflow m1 (Fig 3),
+# 105 = workflow m2 (Fig 4), 109 = workflow m3 (Fig 5), 113 = healing loop (Fig 6), 117 = workflow m4 (Fig 7)
 figure_mapping = {
     90: "Figure 1. Experimental methodology pipeline",
     94: "Figure 2. Overall system architecture of the adaptive CPU scheduling pipeline",
-    101: "Figure 3. Self-healing controller workflow (one trace)",
-    105: "Figure 4. Workload generation and scheduling workflow",
-    109: "Figure 5. Degradation detection and diagnosis workflow",
-    113: "Figure 6. Verification, acceptance, and rollback workflow",
+    101: "Figure 3. Workload generation and scheduling workflow",
+    105: "Figure 4. Degradation detection and diagnosis workflow",
+    109: "Figure 5. Verification, acceptance, and rollback workflow",
+    113: "Figure 6. Self-healing controller workflow (one trace)",
     117: "Figure 7. Frontend-to-backend simulation execution flow",
 }
 
@@ -86,7 +86,37 @@ mermaid_code = {
     end
     RB -.->|"Feedback (action applied to scheduler)"| RS""",
 
-    "Figure 3. Self-healing controller workflow (one trace)": """flowchart TD
+    "Figure 3. Workload generation and scheduling workflow": """flowchart TB
+    FS["Family + Seed selection"] --> WG["WorkloadGenerator.generate()"]
+    WG --> WO["Workload object (fingerprinted)"]
+    DS["Optional: drift spec (drift.py)"] --> GD["generate_with_drift()"]
+    GD --> DW["Drifted Workload (phase shift)"]
+    WO --> RS["RuntimeSimulator.run(workload, ctrl)"]
+    DW --> RS
+    RS --> EL["Event loop: dispatch, switch, complete"]
+    EL --> SR["ScheduleResult (per-process outcomes)"]""",
+
+    "Figure 4. Degradation detection and diagnosis workflow": """flowchart TD
+    CN["Completion notice from scheduler"] --> RW["Update rolling window (EWMA ref + band)"]
+    RW --> TH{"window_mean > ref + k * band ?"}
+    TH -- "yes" --> HY["Hysteresis check (h consecutive)"]
+    TH -- "no" --> SU["Suppress (reason logged)"]
+    HY --> GA{"Gates pass? (cooldown, load, work)"}
+    GA -- "yes" --> RE["Build ready evidence"]
+    GA -- "no" --> SU
+    RE --> DG["Diagnose: primary cause"]
+    DG --> DI["Declare incident"]""",
+
+    "Figure 5. Verification, acceptance, and rollback workflow": """flowchart TD
+    AA["Action applied; window opened"] --> CC["Collect completions over verify_decisions"]
+    CC --> PC["Compute phase-adjusted closure residual"]
+    PC --> AB{"residual >= accept boundary (+0.30)?"}
+    AB -- "yes" --> AC["ACCEPTED (keep, learn)"]
+    AB -- "no" --> RB{"residual <= reject boundary (-0.30)?"}
+    RB -- "yes" --> RJ["REJECTED (rollback, fail +1)"]
+    RB -- "no" --> IC["INCONCLUSIVE (rollback, no penalty)"]""",
+
+    "Figure 6. Self-healing controller workflow (one trace)": """flowchart TD
     GW["Generate workload"] --> SM["Simulate (dispatch slice)"]
     SM --> MN["Monitor (EWMA reference)"]
     MN --> DD{"Degradation detected?"}
@@ -104,36 +134,6 @@ mermaid_code = {
     AC --> FQ{"2 consecutive failures?"}
     FQ -- "yes" --> SF["Safe fallback"]
     FQ -- "no" --> SM""",
-
-    "Figure 4. Workload generation and scheduling workflow": """flowchart TB
-    FS["Family + Seed selection"] --> WG["WorkloadGenerator.generate()"]
-    WG --> WO["Workload object (fingerprinted)"]
-    DS["Optional: drift spec (drift.py)"] --> GD["generate_with_drift()"]
-    GD --> DW["Drifted Workload (phase shift)"]
-    WO --> RS["RuntimeSimulator.run(workload, ctrl)"]
-    DW --> RS
-    RS --> EL["Event loop: dispatch, switch, complete"]
-    EL --> SR["ScheduleResult (per-process outcomes)"]""",
-
-    "Figure 5. Degradation detection and diagnosis workflow": """flowchart TD
-    CN["Completion notice from scheduler"] --> RW["Update rolling window (EWMA ref + band)"]
-    RW --> TH{"window_mean > ref + k * band ?"}
-    TH -- "yes" --> HY["Hysteresis check (h consecutive)"]
-    TH -- "no" --> SU["Suppress (reason logged)"]
-    HY --> GA{"Gates pass? (cooldown, load, work)"}
-    GA -- "yes" --> RE["Build ready evidence"]
-    GA -- "no" --> SU
-    RE --> DG["Diagnose: primary cause"]
-    DG --> DI["Declare incident"]""",
-
-    "Figure 6. Verification, acceptance, and rollback workflow": """flowchart TD
-    AA["Action applied; window opened"] --> CC["Collect completions over verify_decisions"]
-    CC --> PC["Compute phase-adjusted closure residual"]
-    PC --> AB{"residual >= accept boundary (+0.30)?"}
-    AB -- "yes" --> AC["ACCEPTED (keep, learn)"]
-    AB -- "no" --> RB{"residual <= reject boundary (-0.30)?"}
-    RB -- "yes" --> RJ["REJECTED (rollback, fail +1)"]
-    RB -- "no" --> IC["INCONCLUSIVE (rollback, no penalty)"]""",
 
     "Figure 7. Frontend-to-backend simulation execution flow": """flowchart LR
     UI["Browser UI (app.js)"] --> HR["HTTP Request POST /api/simulations"]
@@ -180,36 +180,28 @@ for para_idx, figure_label in figure_mapping.items():
     # Set paragraph style to monospace for code
     code_style = "Courier New"
 
-    # Add figure label
+    # Replace image paragraph with Mermaid code (keep the original caption paragraph intact)
     para.clear()
-    run = para.add_run(figure_label)
-    run.font.name = "Times New Roman"
-    run.font.size = Pt(10)
-    run.font.italic = True
-    run.bold = True
-    para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    para.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    
+    # Add separator at top
+    run = para.add_run("─" * 60 + "\n")
+    run.font.name = code_style
+    run.font.size = Pt(8)
 
     # Add Mermaid code block
-    code_para = doc.add_paragraph()
-    code_para.paragraph_format.space_before = Pt(4)
-    code_para.paragraph_format.space_after = Pt(4)
-    code_para.paragraph_format.left_indent = Cm(0.5)
-    code_para.paragraph_format.right_indent = Cm(0.5)
-
     for line in code.split("\n"):
         if line.strip():
-            run = code_para.add_run(line + "\n")
+            run = para.add_run(line + "\n")
         else:
-            run = code_para.add_run("\n")
+            run = para.add_run("\n")
         run.font.name = code_style
         run.font.size = Pt(8)
 
-    # Add separator
-    sep_para = doc.add_paragraph()
-    run = sep_para.add_run("─" * 60)
+    # Add separator at bottom
+    run = para.add_run("─" * 60)
     run.font.name = code_style
     run.font.size = Pt(8)
-    run.font.color.rgb = None  # default black
 
 print(f"Replaced {len(figure_mapping)} PNG diagrams with Mermaid source code")
 
