@@ -66,6 +66,8 @@
 | 8 | Yahmed et al. (2023) had 8 authors | Corrected to 4 authors per DOI |
 | 9 | Training count math error (`6 × 40 = 1200`) | Corrected to "1200 episodes per seed cycling through 6 families" |
 | 10 | Figure numbering out of order | Renumbered: methodology=Fig 1, architecture=Fig 2, ..., frontend=Fig 7 |
+| 11 | PNG diagrams took up space, hard to edit | Replaced all 7 PNG diagrams with Mermaid source code blocks (Courier New 8pt); PNG/SVG still in `diagrams/` for reference |
+| 12 | Table columns had equal widths, squishing long content | PDF builder now uses proportional column widths based on max content length, capped at 45% per column |
 
 ## Quality Gate
 

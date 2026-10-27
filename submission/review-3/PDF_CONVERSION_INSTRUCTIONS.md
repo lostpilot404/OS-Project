@@ -1,8 +1,19 @@
 # PDF Conversion Instructions
 
-The Final Research Paper has been generated as a DOCX file. The PDF must be generated 
-manually because automated conversion tools (LibreOffice, docx2pdf) are not available 
-in this environment.
+The Final Research Paper has been generated as both a DOCX and a PDF.
+
+## Diagrams
+
+All 7 technical diagrams are stored as **Mermaid source code blocks** (Courier New 8pt)
+inside the DOCX/PDF. The PNG and SVG versions are still available in `diagrams/` for reference.
+
+**To render the Mermaid diagrams** for a print-ready submission:
+1. Open `diagrams/figures_mermaid.md` in any Markdown viewer that supports Mermaid
+   (VS Code with Mermaid plugin, [mermaid.live](https://mermaid.live), Typora, Obsidian).
+2. Export each rendered diagram as PNG/SVG.
+3. Paste the rendered images back into the DOCX in place of the Mermaid code blocks.
+
+Or: leave the Mermaid code blocks in the paper — many institutions accept this format.
 
 ## Method 1: Microsoft Word (Recommended)
 

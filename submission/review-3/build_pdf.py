@@ -150,33 +150,59 @@ def build_flowables(doc, styles, shape_paragraph_map):
         )
         flowables.append(Paragraph(para_html, para_style))
 
-    # Handle tables
+    # Handle tables with PROPORTIONAL column widths based on content
     for table in doc.tables:
         table_data = []
-        for row in table.rows:
+        col_char_widths = []
+        for row_idx, row in enumerate(table.rows):
             row_data = []
-            for cell in row.cells:
+            if row_idx == 0:
+                col_char_widths = [0] * len(row.cells)
+            for c_idx, cell in enumerate(row.cells):
                 cell_text = cell.text.strip().replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 row_data.append(Paragraph(cell_text, styles["Normal"]))
+                if row_idx == 0:
+                    col_char_widths[c_idx] = max(col_char_widths[c_idx], len(cell.text))
             table_data.append(row_data)
 
         col_count = len(table_data[0]) if table_data else 1
         available_width = A4[0] - 2 * 2.54 * cm
-        col_width = available_width / col_count
-        col_widths = [col_width] * col_count
+
+        if col_char_widths and sum(col_char_widths) > 0:
+            # Proportional: each column gets width proportional to its max content length
+            # Cap any single column at 40% of available width
+            total_chars = sum(col_char_widths)
+            raw_widths = [available_width * (cw / total_chars) for cw in col_char_widths]
+            # Cap at 45% and redistribute
+            max_single = available_width * 0.45
+            adjusted = [min(w, max_single) for w in raw_widths]
+            shortfall = sum(raw_widths) - sum(adjusted)
+            if shortfall > 0:
+                # Add shortfall to columns that weren't capped
+                uncapped = [i for i, w in enumerate(raw_widths) if w <= max_single]
+                if uncapped:
+                    per_col = shortfall / len(uncapped)
+                    for i in uncapped:
+                        adjusted[i] += per_col
+            col_widths = adjusted
+        else:
+            col_width = available_width / col_count
+            col_widths = [col_width] * col_count
 
         t = Table(table_data, colWidths=col_widths, repeatRows=1)
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.Color(0.85, 0.85, 0.85)),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("LEADING", (0, 0), (-1, -1), 10),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
             ("ALIGN", (0, 0), (-1, 0), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LEFTPADDING", (0, 0), (-1, -1), 3),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 3),
+            ("WORDWRAP", (0, 0), (-1, -1), True),
         ]))
         flowables.append(Spacer(1, 6))
         flowables.append(t)
