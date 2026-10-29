@@ -1,0 +1,224 @@
+{
+  "run_id": "b5c455f957ed4d98ad63044e996b354f",
+  "status": "completed",
+  "result": {
+    "kind": "custom",
+    "scenario": {
+      "id": "custom",
+      "kind": "custom",
+      "name": "Custom workload",
+      "tagline": "Your own processes, your own policy, executed by the real scheduler",
+      "description": "Edit the process table (pid, arrival, burst, priority), choose FCFS, SJF, Priority or Round Robin, set the round-robin quantum and the per-switch cost, and optionally run the same workload through the self-healing control loop.",
+      "expectation": "No fixed expectation: the result is whatever the engine computes for your input."
+    },
+    "executed_at": "2026-10-29T04:40:46+00:00",
+    "duration_ms": 0.44,
+    "settings": {
+      "quantum": 4,
+      "switching_cost": 0,
+      "policy": "FCFS",
+      "healing": false
+    },
+    "workload": {
+      "name": "custom",
+      "family": "custom",
+      "seed": null,
+      "fingerprint": "05c614346d93d358",
+      "process_count": 5,
+      "processes": [
+        {
+          "pid": 1,
+          "arrival_time": 0,
+          "burst_time": 8,
+          "priority": 2
+        },
+        {
+          "pid": 2,
+          "arrival_time": 1,
+          "burst_time": 4,
+          "priority": 1
+        },
+        {
+          "pid": 3,
+          "arrival_time": 2,
+          "burst_time": 9,
+          "priority": 3
+        },
+        {
+          "pid": 4,
+          "arrival_time": 3,
+          "burst_time": 2,
+          "priority": 4
+        },
+        {
+          "pid": 5,
+          "arrival_time": 4,
+          "burst_time": 6,
+          "priority": 2
+        }
+      ]
+    },
+    "schedule": {
+      "intervals": [
+        {
+          "index": 0,
+          "pid": 1,
+          "policy": "FCFS",
+          "start": 0,
+          "end": 8,
+          "duration": 8,
+          "switch_before": 0,
+          "idle_before": 0,
+          "waiting_increment": null,
+          "completed_pids": []
+        },
+        {
+          "index": 1,
+          "pid": 2,
+          "policy": "FCFS",
+          "start": 8,
+          "end": 12,
+          "duration": 4,
+          "switch_before": 0,
+          "idle_before": 0,
+          "waiting_increment": null,
+          "completed_pids": []
+        },
+        {
+          "index": 2,
+          "pid": 3,
+          "policy": "FCFS",
+          "start": 12,
+          "end": 21,
+          "duration": 9,
+          "switch_before": 0,
+          "idle_before": 0,
+          "waiting_increment": null,
+          "completed_pids": []
+        },
+        {
+          "index": 3,
+          "pid": 4,
+          "policy": "FCFS",
+          "start": 21,
+          "end": 23,
+          "duration": 2,
+          "switch_before": 0,
+          "idle_before": 0,
+          "waiting_increment": null,
+          "completed_pids": []
+        },
+        {
+          "index": 4,
+          "pid": 5,
+          "policy": "FCFS",
+          "start": 23,
+          "end": 29,
+          "duration": 6,
+          "switch_before": 0,
+          "idle_before": 0,
+          "waiting_increment": null,
+          "completed_pids": []
+        }
+      ],
+      "segments": [
+        {
+          "policy": "FCFS",
+          "start": 0,
+          "end": 29,
+          "decisions": 5
+        }
+      ],
+      "domain_end": 29,
+      "initial_policy": "FCFS",
+      "final_policy": "FCFS",
+      "idle_units": 0,
+      "switch_units": 0
+    },
+    "metrics": {
+      "policy_name": "FCFS",
+      "workload_name": "custom",
+      "workload_fingerprint": "05c614346d93d358",
+      "num_processes": 5,
+      "total_waiting_time": 54,
+      "total_turnaround_time": 83,
+      "total_response_time": 54,
+      "avg_waiting_time": 10.8,
+      "avg_turnaround_time": 16.6,
+      "avg_response_time": 10.8,
+      "cpu_utilization": 100.0,
+      "throughput": 0.172414,
+      "context_switches": 4,
+      "context_switches_per_process": 0.8,
+      "cpu_busy_time": 29,
+      "cpu_idle_time": 0,
+      "total_elapsed_time": 29
+    },
+    "baseline": null,
+    "outcomes": [
+      {
+        "pid": 1,
+        "arrival_time": 0,
+        "burst_time": 8,
+        "priority": 2,
+        "start_time": 0,
+        "completion_time": 8,
+        "waiting_time": 0,
+        "turnaround_time": 8,
+        "response_time": 0
+      },
+      {
+        "pid": 2,
+        "arrival_time": 1,
+        "burst_time": 4,
+        "priority": 1,
+        "start_time": 8,
+        "completion_time": 12,
+        "waiting_time": 7,
+        "turnaround_time": 11,
+        "response_time": 7
+      },
+      {
+        "pid": 3,
+        "arrival_time": 2,
+        "burst_time": 9,
+        "priority": 3,
+        "start_time": 12,
+        "completion_time": 21,
+        "waiting_time": 10,
+        "turnaround_time": 19,
+        "response_time": 10
+      },
+      {
+        "pid": 4,
+        "arrival_time": 3,
+        "burst_time": 2,
+        "priority": 4,
+        "start_time": 21,
+        "completion_time": 23,
+        "waiting_time": 18,
+        "turnaround_time": 20,
+        "response_time": 18
+      },
+      {
+        "pid": 5,
+        "arrival_time": 4,
+        "burst_time": 6,
+        "priority": 2,
+        "start_time": 23,
+        "completion_time": 29,
+        "waiting_time": 19,
+        "turnaround_time": 25,
+        "response_time": 19
+      }
+    ],
+    "healing": null,
+    "charts": {
+      "gantt": "<svg class=\"chart\" role=\"img\" viewBox=\"0 0 1080 253\" preserveAspectRatio=\"xMinYMin meet\" aria-labelledby=\"custom-gantt-title\" aria-describedby=\"custom-gantt-desc\"><title id=\"custom-gantt-title\">CPU execution timeline (custom, seed 0)</title><desc id=\"custom-gantt-desc\">Recorded dispatch intervals: the CPU lane shows the exact service sequence, the lower lanes show each process&#x27;s own slices, and the colour identifies the policy in force.</desc><defs><pattern id=\"switch-hatch-custom-gantt\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(45)\"><rect width=\"6\" height=\"6\" fill=\"#eef1f4\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"6\" stroke=\"#b9c4d1\" stroke-width=\"2\"/></pattern></defs><line x1=\"78.0\" y1=\"12\" x2=\"78.0\" y2=\"217.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"78.0\" y=\"232.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">0</text><line x1=\"246.6\" y1=\"12\" x2=\"246.6\" y2=\"217.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"246.6\" y=\"232.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">5</text><line x1=\"415.2\" y1=\"12\" x2=\"415.2\" y2=\"217.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"415.2\" y=\"232.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">10</text><line x1=\"583.9\" y1=\"12\" x2=\"583.9\" y2=\"217.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"583.9\" y=\"232.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">15</text><line x1=\"752.5\" y1=\"12\" x2=\"752.5\" y2=\"217.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"752.5\" y=\"232.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">20</text><line x1=\"921.1\" y1=\"12\" x2=\"921.1\" y2=\"217.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"921.1\" y=\"232.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">25</text><line x1=\"78\" y1=\"217.0\" x2=\"1056\" y2=\"217.0\" stroke=\"#c9d3de\" stroke-width=\"1\"/><text x=\"567.0\" y=\"245\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">Simulated time (arbitrary time units)</text><text x=\"68\" y=\"36.0\" text-anchor=\"end\" font-size=\"11\" font-weight=\"600\" fill=\"#455666\">CPU</text><text x=\"68\" y=\"99.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P1</text><text x=\"68\" y=\"124.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P2</text><text x=\"68\" y=\"149.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P3</text><text x=\"68\" y=\"174.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P4</text><text x=\"68\" y=\"199.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P5</text><text x=\"68\" y=\"67.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">policy</text><g class=\"slice\" data-seed=\"0\" data-pid=\"1\" data-policy=\"FCFS\" data-start=\"0\" data-end=\"8\" data-switch=\"0\" data-waiting=\"\" data-duration=\"8\" data-arrival=\"0\" data-completion=\"8\" data-burst=\"8\" data-priority=\"2\" data-process-waiting=\"0\" tabindex=\"0\" role=\"button\" aria-label=\"P1 running FCFS from t=0 to t=8 (8 time units); process arrives at t=0, burst 8, priority 2, total waiting 0 time units\"><rect x=\"78.0\" y=\"18\" width=\"269.8\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P1 running FCFS from t=0 to t=8 (8 time units); process arrives at t=0, burst 8, priority 2, total waiting 0 time units</title></g><g class=\"slice\" data-seed=\"0\" data-pid=\"2\" data-policy=\"FCFS\" data-start=\"8\" data-end=\"12\" data-switch=\"0\" data-waiting=\"\" data-duration=\"4\" data-arrival=\"1\" data-completion=\"12\" data-burst=\"4\" data-priority=\"1\" data-process-waiting=\"7\" tabindex=\"0\" role=\"button\" aria-label=\"P2 running FCFS from t=8 to t=12 (4 time units); process arrives at t=1, burst 4, priority 1, total waiting 7 time units\"><rect x=\"347.8\" y=\"18\" width=\"134.9\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P2 running FCFS from t=8 to t=12 (4 time units); process arrives at t=1, burst 4, priority 1, total waiting 7 time units</title></g><g class=\"slice\" data-seed=\"0\" data-pid=\"3\" data-policy=\"FCFS\" data-start=\"12\" data-end=\"21\" data-switch=\"0\" data-waiting=\"\" data-duration=\"9\" data-arrival=\"2\" data-completion=\"21\" data-burst=\"9\" data-priority=\"3\" data-process-waiting=\"10\" tabindex=\"0\" role=\"button\" aria-label=\"P3 running FCFS from t=12 to t=21 (9 time units); process arrives at t=2, burst 9, priority 3, total waiting 10 time units\"><rect x=\"482.7\" y=\"18\" width=\"303.5\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P3 running FCFS from t=12 to t=21 (9 time units); process arrives at t=2, burst 9, priority 3, total waiting 10 time units</title></g><g class=\"slice\" data-seed=\"0\" data-pid=\"4\" data-policy=\"FCFS\" data-start=\"21\" data-end=\"23\" data-switch=\"0\" data-waiting=\"\" data-duration=\"2\" data-arrival=\"3\" data-completion=\"23\" data-burst=\"2\" data-priority=\"4\" data-process-waiting=\"18\" tabindex=\"0\" role=\"button\" aria-label=\"P4 running FCFS from t=21 to t=23 (2 time units); process arrives at t=3, burst 2, priority 4, total waiting 18 time units\"><rect x=\"786.2\" y=\"18\" width=\"67.4\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P4 running FCFS from t=21 to t=23 (2 time units); process arrives at t=3, burst 2, priority 4, total waiting 18 time units</title></g><g class=\"slice\" data-seed=\"0\" data-pid=\"5\" data-policy=\"FCFS\" data-start=\"23\" data-end=\"29\" data-switch=\"0\" data-waiting=\"\" data-duration=\"6\" data-arrival=\"4\" data-completion=\"29\" data-burst=\"6\" data-priority=\"2\" data-process-waiting=\"19\" tabindex=\"0\" role=\"button\" aria-label=\"P5 running FCFS from t=23 to t=29 (6 time units); process arrives at t=4, burst 6, priority 2, total waiting 19 time units\"><rect x=\"853.7\" y=\"18\" width=\"202.3\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P5 running FCFS from t=23 to t=29 (6 time units); process arrives at t=4, burst 6, priority 2, total waiting 19 time units</title></g><g class=\"slice\" data-seed=\"0\" data-pid=\"1\" data-policy=\"FCFS\" data-start=\"0\" data-end=\"8\" data-switch=\"0\" data-waiting=\"\" data-duration=\"8\" data-arrival=\"0\" data-completion=\"8\" data-burst=\"8\" data-priority=\"2\" data-process-waiting=\"0\" tabindex=\"0\" role=\"button\" aria-label=\"P1 running FCFS from t=0 to t=8 (8 time units); process arrives at t=0, burst 8, priority 2, total waiting 0 time units\"><rect x=\"78.0\" y=\"87\" width=\"269.8\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P1 running FCFS from t=0 to t=8 (8 time units); process arrives at t=0, burst 8, priority 2, total waiting 0 time units</title></g><circle cx=\"78.0\" cy=\"95.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P1 arrives at t=0</title></circle><line x1=\"347.8\" y1=\"90.0\" x2=\"347.8\" y2=\"100.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P1 completes at t=8</title></line><g class=\"slice\" data-seed=\"0\" data-pid=\"2\" data-policy=\"FCFS\" data-start=\"8\" data-end=\"12\" data-switch=\"0\" data-waiting=\"\" data-duration=\"4\" data-arrival=\"1\" data-completion=\"12\" data-burst=\"4\" data-priority=\"1\" data-process-waiting=\"7\" tabindex=\"0\" role=\"button\" aria-label=\"P2 running FCFS from t=8 to t=12 (4 time units); process arrives at t=1, burst 4, priority 1, total waiting 7 time units\"><rect x=\"347.8\" y=\"112\" width=\"134.9\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P2 running FCFS from t=8 to t=12 (4 time units); process arrives at t=1, burst 4, priority 1, total waiting 7 time units</title></g><circle cx=\"111.7\" cy=\"120.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P2 arrives at t=1</title></circle><line x1=\"482.7\" y1=\"115.0\" x2=\"482.7\" y2=\"125.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P2 completes at t=12</title></line><g class=\"slice\" data-seed=\"0\" data-pid=\"3\" data-policy=\"FCFS\" data-start=\"12\" data-end=\"21\" data-switch=\"0\" data-waiting=\"\" data-duration=\"9\" data-arrival=\"2\" data-completion=\"21\" data-burst=\"9\" data-priority=\"3\" data-process-waiting=\"10\" tabindex=\"0\" role=\"button\" aria-label=\"P3 running FCFS from t=12 to t=21 (9 time units); process arrives at t=2, burst 9, priority 3, total waiting 10 time units\"><rect x=\"482.7\" y=\"137\" width=\"303.5\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P3 running FCFS from t=12 to t=21 (9 time units); process arrives at t=2, burst 9, priority 3, total waiting 10 time units</title></g><circle cx=\"145.4\" cy=\"145.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P3 arrives at t=2</title></circle><line x1=\"786.2\" y1=\"140.0\" x2=\"786.2\" y2=\"150.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P3 completes at t=21</title></line><g class=\"slice\" data-seed=\"0\" data-pid=\"4\" data-policy=\"FCFS\" data-start=\"21\" data-end=\"23\" data-switch=\"0\" data-waiting=\"\" data-duration=\"2\" data-arrival=\"3\" data-completion=\"23\" data-burst=\"2\" data-priority=\"4\" data-process-waiting=\"18\" tabindex=\"0\" role=\"button\" aria-label=\"P4 running FCFS from t=21 to t=23 (2 time units); process arrives at t=3, burst 2, priority 4, total waiting 18 time units\"><rect x=\"786.2\" y=\"162\" width=\"67.4\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P4 running FCFS from t=21 to t=23 (2 time units); process arrives at t=3, burst 2, priority 4, total waiting 18 time units</title></g><circle cx=\"179.2\" cy=\"170.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P4 arrives at t=3</title></circle><line x1=\"853.7\" y1=\"165.0\" x2=\"853.7\" y2=\"175.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P4 completes at t=23</title></line><g class=\"slice\" data-seed=\"0\" data-pid=\"5\" data-policy=\"FCFS\" data-start=\"23\" data-end=\"29\" data-switch=\"0\" data-waiting=\"\" data-duration=\"6\" data-arrival=\"4\" data-completion=\"29\" data-burst=\"6\" data-priority=\"2\" data-process-waiting=\"19\" tabindex=\"0\" role=\"button\" aria-label=\"P5 running FCFS from t=23 to t=29 (6 time units); process arrives at t=4, burst 6, priority 2, total waiting 19 time units\"><rect x=\"853.7\" y=\"187\" width=\"202.3\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P5 running FCFS from t=23 to t=29 (6 time units); process arrives at t=4, burst 6, priority 2, total waiting 19 time units</title></g><circle cx=\"212.9\" cy=\"195.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P5 arrives at t=4</title></circle><line x1=\"1056.0\" y1=\"190.0\" x2=\"1056.0\" y2=\"200.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P5 completes at t=29</title></line><text x=\"212.9\" y=\"36.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P1</text><text x=\"415.2\" y=\"36.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P2</text><text x=\"634.4\" y=\"36.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P3</text><text x=\"819.9\" y=\"36.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P4</text><text x=\"954.8\" y=\"36.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P5</text></svg>"
+    },
+    "notes": [
+      "Executed now by scheduler.FCFS on the submitted workload; metrics come from evaluation.metrics.compute_metrics.",
+      "Switch and idle gaps are derived from the recorded slice boundaries and the configured switching cost."
+    ]
+  }
+}

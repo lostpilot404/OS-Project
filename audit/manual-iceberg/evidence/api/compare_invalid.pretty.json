@@ -1,0 +1,7 @@
+{
+  "error": {
+    "type": "invalid_request",
+    "message": "send either 'run_id' or a non-empty 'processes' list",
+    "field": "processes"
+  }
+}

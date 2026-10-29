@@ -1,0 +1,733 @@
+{
+  "run_id": "fa9eccb4ea8a4a57835468642d624461",
+  "status": "completed",
+  "server_ms": 5.17,
+  "result": {
+    "kind": "healing",
+    "scenario": {
+      "id": "recovery-rollback",
+      "kind": "healing",
+      "name": "Inconclusive verification and rollback (seed 3)",
+      "tagline": "The intervention is not proven, so the previous policy is restored",
+      "description": "The 'mixed' generator workload at seed 3 under the same waiting-time rule. Degradation is detected and SJF is selected, but the residual stays inside the declared null range, so the verdict is inconclusive and the controller rolls back to FCFS. Inconclusive is not the same as rejected.",
+      "expectation": "Verification closes inconclusive; the trace rolls back to FCFS with no confirmed failure."
+    },
+    "executed_at": "2026-10-29T04:40:51+00:00",
+    "duration_ms": 3.89,
+    "settings": {
+      "family": "mixed",
+      "seed": 3,
+      "quantum": 4,
+      "switching_cost": 1,
+      "healing": true,
+      "recovery_rule": "waiting-time rule"
+    },
+    "workload": {
+      "name": "mixed",
+      "family": "mixed",
+      "seed": 3,
+      "fingerprint": "9475e3b31f3fc1e0",
+      "process_count": 15,
+      "processes": [
+        {
+          "pid": 4,
+          "arrival_time": 0,
+          "burst_time": 12,
+          "priority": 2
+        },
+        {
+          "pid": 5,
+          "arrival_time": 2,
+          "burst_time": 10,
+          "priority": 2
+        },
+        {
+          "pid": 1,
+          "arrival_time": 3,
+          "burst_time": 41,
+          "priority": 4
+        },
+        {
+          "pid": 14,
+          "arrival_time": 3,
+          "burst_time": 24,
+          "priority": 5
+        },
+        {
+          "pid": 7,
+          "arrival_time": 8,
+          "burst_time": 44,
+          "priority": 4
+        },
+        {
+          "pid": 10,
+          "arrival_time": 8,
+          "burst_time": 5,
+          "priority": 2
+        },
+        {
+          "pid": 6,
+          "arrival_time": 9,
+          "burst_time": 41,
+          "priority": 4
+        },
+        {
+          "pid": 11,
+          "arrival_time": 9,
+          "burst_time": 17,
+          "priority": 5
+        },
+        {
+          "pid": 9,
+          "arrival_time": 10,
+          "burst_time": 2,
+          "priority": 5
+        },
+        {
+          "pid": 13,
+          "arrival_time": 12,
+          "burst_time": 32,
+          "priority": 1
+        },
+        {
+          "pid": 12,
+          "arrival_time": 13,
+          "burst_time": 22,
+          "priority": 1
+        },
+        {
+          "pid": 2,
+          "arrival_time": 14,
+          "burst_time": 5,
+          "priority": 5
+        },
+        {
+          "pid": 3,
+          "arrival_time": 15,
+          "burst_time": 9,
+          "priority": 4
+        },
+        {
+          "pid": 15,
+          "arrival_time": 15,
+          "burst_time": 14,
+          "priority": 5
+        },
+        {
+          "pid": 8,
+          "arrival_time": 18,
+          "burst_time": 30,
+          "priority": 4
+        }
+      ]
+    },
+    "schedule": {
+      "intervals": [
+        {
+          "index": 0,
+          "pid": 4,
+          "policy": "FCFS",
+          "start": 0,
+          "end": 12,
+          "duration": 12,
+          "switch_before": 0,
+          "idle_before": 0,
+          "waiting_increment": 44,
+          "completed_pids": [
+            4
+          ]
+        },
+        {
+          "index": 1,
+          "pid": 5,
+          "policy": "FCFS",
+          "start": 13,
+          "end": 23,
+          "duration": 10,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 129,
+          "completed_pids": [
+            5
+          ]
+        },
+        {
+          "index": 2,
+          "pid": 1,
+          "policy": "FCFS",
+          "start": 24,
+          "end": 65,
+          "duration": 41,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 505,
+          "completed_pids": [
+            1
+          ]
+        },
+        {
+          "index": 3,
+          "pid": 14,
+          "policy": "FCFS",
+          "start": 66,
+          "end": 90,
+          "duration": 24,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 276,
+          "completed_pids": [
+            14
+          ]
+        },
+        {
+          "index": 4,
+          "pid": 7,
+          "policy": "FCFS",
+          "start": 91,
+          "end": 135,
+          "duration": 44,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 451,
+          "completed_pids": [
+            7
+          ]
+        },
+        {
+          "index": 5,
+          "pid": 10,
+          "policy": "FCFS",
+          "start": 136,
+          "end": 141,
+          "duration": 5,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 55,
+          "completed_pids": [
+            10
+          ]
+        },
+        {
+          "index": 6,
+          "pid": 9,
+          "policy": "SJF",
+          "start": 142,
+          "end": 144,
+          "duration": 2,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 25,
+          "completed_pids": [
+            9
+          ]
+        },
+        {
+          "index": 7,
+          "pid": 2,
+          "policy": "SJF",
+          "start": 145,
+          "end": 150,
+          "duration": 5,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 43,
+          "completed_pids": [
+            2
+          ]
+        },
+        {
+          "index": 8,
+          "pid": 3,
+          "policy": "SJF",
+          "start": 151,
+          "end": 160,
+          "duration": 9,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 61,
+          "completed_pids": [
+            3
+          ]
+        },
+        {
+          "index": 9,
+          "pid": 15,
+          "policy": "SJF",
+          "start": 161,
+          "end": 175,
+          "duration": 14,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 76,
+          "completed_pids": [
+            15
+          ]
+        },
+        {
+          "index": 10,
+          "pid": 11,
+          "policy": "SJF",
+          "start": 176,
+          "end": 193,
+          "duration": 17,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 73,
+          "completed_pids": [
+            11
+          ]
+        },
+        {
+          "index": 11,
+          "pid": 6,
+          "policy": "FCFS",
+          "start": 194,
+          "end": 235,
+          "duration": 41,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 127,
+          "completed_pids": [
+            6
+          ]
+        },
+        {
+          "index": 12,
+          "pid": 13,
+          "policy": "FCFS",
+          "start": 236,
+          "end": 268,
+          "duration": 32,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 67,
+          "completed_pids": [
+            13
+          ]
+        },
+        {
+          "index": 13,
+          "pid": 12,
+          "policy": "FCFS",
+          "start": 269,
+          "end": 291,
+          "duration": 22,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 24,
+          "completed_pids": [
+            12
+          ]
+        },
+        {
+          "index": 14,
+          "pid": 8,
+          "policy": "FCFS",
+          "start": 292,
+          "end": 322,
+          "duration": 30,
+          "switch_before": 1,
+          "idle_before": 0,
+          "waiting_increment": 1,
+          "completed_pids": [
+            8
+          ]
+        }
+      ],
+      "segments": [
+        {
+          "policy": "FCFS",
+          "start": 0,
+          "end": 141,
+          "decisions": 6
+        },
+        {
+          "policy": "SJF",
+          "start": 142,
+          "end": 193,
+          "decisions": 5
+        },
+        {
+          "policy": "FCFS",
+          "start": 194,
+          "end": 322,
+          "decisions": 4
+        }
+      ],
+      "domain_end": 322,
+      "initial_policy": "FCFS",
+      "final_policy": "FCFS",
+      "idle_units": 0,
+      "switch_units": 14
+    },
+    "metrics": {
+      "policy_name": "demo_rule_wait",
+      "workload_name": "mixed",
+      "workload_fingerprint": "9475e3b31f3fc1e0",
+      "num_processes": 15,
+      "total_waiting_time": 1957,
+      "total_turnaround_time": 2265,
+      "total_response_time": 1957,
+      "avg_waiting_time": 130.466667,
+      "avg_turnaround_time": 151.0,
+      "avg_response_time": 130.466667,
+      "cpu_utilization": 95.652174,
+      "throughput": 0.046584,
+      "context_switches": 14,
+      "context_switches_per_process": null,
+      "cpu_busy_time": 308,
+      "cpu_idle_time": 0,
+      "total_elapsed_time": 322
+    },
+    "baseline": {
+      "policy_name": "FCFS",
+      "workload_name": "mixed",
+      "workload_fingerprint": "9475e3b31f3fc1e0",
+      "num_processes": 15,
+      "total_waiting_time": 2259,
+      "total_turnaround_time": 2567,
+      "total_response_time": 2259,
+      "avg_waiting_time": 150.6,
+      "avg_turnaround_time": 171.133333,
+      "avg_response_time": 150.6,
+      "cpu_utilization": 95.652174,
+      "throughput": 0.046584,
+      "context_switches": 14,
+      "context_switches_per_process": null,
+      "cpu_busy_time": 308,
+      "cpu_idle_time": 0,
+      "total_elapsed_time": 322
+    },
+    "outcomes": [
+      {
+        "pid": 1,
+        "arrival_time": 3,
+        "burst_time": 41,
+        "priority": 4,
+        "start_time": 24,
+        "completion_time": 65,
+        "waiting_time": 21,
+        "turnaround_time": 62,
+        "response_time": 21
+      },
+      {
+        "pid": 2,
+        "arrival_time": 14,
+        "burst_time": 5,
+        "priority": 5,
+        "start_time": 145,
+        "completion_time": 150,
+        "waiting_time": 131,
+        "turnaround_time": 136,
+        "response_time": 131
+      },
+      {
+        "pid": 3,
+        "arrival_time": 15,
+        "burst_time": 9,
+        "priority": 4,
+        "start_time": 151,
+        "completion_time": 160,
+        "waiting_time": 136,
+        "turnaround_time": 145,
+        "response_time": 136
+      },
+      {
+        "pid": 4,
+        "arrival_time": 0,
+        "burst_time": 12,
+        "priority": 2,
+        "start_time": 0,
+        "completion_time": 12,
+        "waiting_time": 0,
+        "turnaround_time": 12,
+        "response_time": 0
+      },
+      {
+        "pid": 5,
+        "arrival_time": 2,
+        "burst_time": 10,
+        "priority": 2,
+        "start_time": 13,
+        "completion_time": 23,
+        "waiting_time": 11,
+        "turnaround_time": 21,
+        "response_time": 11
+      },
+      {
+        "pid": 6,
+        "arrival_time": 9,
+        "burst_time": 41,
+        "priority": 4,
+        "start_time": 194,
+        "completion_time": 235,
+        "waiting_time": 185,
+        "turnaround_time": 226,
+        "response_time": 185
+      },
+      {
+        "pid": 7,
+        "arrival_time": 8,
+        "burst_time": 44,
+        "priority": 4,
+        "start_time": 91,
+        "completion_time": 135,
+        "waiting_time": 83,
+        "turnaround_time": 127,
+        "response_time": 83
+      },
+      {
+        "pid": 8,
+        "arrival_time": 18,
+        "burst_time": 30,
+        "priority": 4,
+        "start_time": 292,
+        "completion_time": 322,
+        "waiting_time": 274,
+        "turnaround_time": 304,
+        "response_time": 274
+      },
+      {
+        "pid": 9,
+        "arrival_time": 10,
+        "burst_time": 2,
+        "priority": 5,
+        "start_time": 142,
+        "completion_time": 144,
+        "waiting_time": 132,
+        "turnaround_time": 134,
+        "response_time": 132
+      },
+      {
+        "pid": 10,
+        "arrival_time": 8,
+        "burst_time": 5,
+        "priority": 2,
+        "start_time": 136,
+        "completion_time": 141,
+        "waiting_time": 128,
+        "turnaround_time": 133,
+        "response_time": 128
+      },
+      {
+        "pid": 11,
+        "arrival_time": 9,
+        "burst_time": 17,
+        "priority": 5,
+        "start_time": 176,
+        "completion_time": 193,
+        "waiting_time": 167,
+        "turnaround_time": 184,
+        "response_time": 167
+      },
+      {
+        "pid": 12,
+        "arrival_time": 13,
+        "burst_time": 22,
+        "priority": 1,
+        "start_time": 269,
+        "completion_time": 291,
+        "waiting_time": 256,
+        "turnaround_time": 278,
+        "response_time": 256
+      },
+      {
+        "pid": 13,
+        "arrival_time": 12,
+        "burst_time": 32,
+        "priority": 1,
+        "start_time": 236,
+        "completion_time": 268,
+        "waiting_time": 224,
+        "turnaround_time": 256,
+        "response_time": 224
+      },
+      {
+        "pid": 14,
+        "arrival_time": 3,
+        "burst_time": 24,
+        "priority": 5,
+        "start_time": 66,
+        "completion_time": 90,
+        "waiting_time": 63,
+        "turnaround_time": 87,
+        "response_time": 63
+      },
+      {
+        "pid": 15,
+        "arrival_time": 15,
+        "burst_time": 14,
+        "priority": 5,
+        "start_time": 161,
+        "completion_time": 175,
+        "waiting_time": 146,
+        "turnaround_time": 160,
+        "response_time": 146
+      }
+    ],
+    "healing": {
+      "triggered": true,
+      "summary": "Verification closed inconclusive (inconclusive_residual_within_null_range): the residual +0.2059 stayed inside the null range between -0.30 and +0.30. The change is neither proven nor rejected, so the controller rolled back to FCFS.",
+      "stages": [
+        {
+          "title": "Normal scheduling",
+          "lines": [
+            "FCFS in force",
+            "6 dispatches",
+            "to t=141"
+          ],
+          "tone": "#1f5f8b",
+          "tone_key": "accent",
+          "detail": "FCFS dispatches the trace until the incident at t=141: 6 recorded intervals before it."
+        },
+        {
+          "title": "Monitoring",
+          "lines": [
+            "window mean 51.00",
+            "reference 23.75",
+            "band 3.56"
+          ],
+          "tone": "#2b6f6a",
+          "tone_key": "muted",
+          "detail": "Rolling statistic over 6 completed processes: mean 51.00, median 42.00, maximum 128.00; stable reference 23.75 with dispersion band 3.56."
+        },
+        {
+          "title": "Degradation detected",
+          "lines": [
+            "t=141, decision 6",
+            "threshold 28.20",
+            "2 evaluations"
+          ],
+          "tone": "#a8691b",
+          "tone_key": "warn",
+          "detail": "The window mean 51.00 exceeded the threshold 28.20 = reference 23.75 + 3.56-unit band x the declared multiplier, for 2 consecutive evaluations. Detector reason: degradation_detected."
+        },
+        {
+          "title": "Diagnosis",
+          "lines": [
+            "fairness starvation",
+            "state 205/648",
+            "9 ready"
+          ],
+          "tone": "#5b5b8a",
+          "tone_key": "muted",
+          "detail": "fairness_starvation: oldest ready job has waited at least 132 time units (recent completed-work wait 51.0 vs reference 23.8 (band 3.6, window 6 completions); also matched: priority_ordering_anomaly, fairness_starvation, queue_congestion) Matched categories: priority_ordering_anomaly,fairness_starvation,queue_congestion. Visible remaining work at the trigger: 172 units."
+        },
+        {
+          "title": "Selected intervention",
+          "lines": [
+            "set_sjf",
+            "FCFS -> SJF",
+            "changed"
+          ],
+          "tone": "#6b4a86",
+          "tone_key": "accent",
+          "detail": "Offered actions: hold,set_sjf,set_round_robin,set_priority. Chosen: set_sjf (predeclared_waiting_time_rule: declared action for diagnosis fairness_starvation). Action note: policy changed. Configuration: FCFS q=4 -> SJF q=4."
+        },
+        {
+          "title": "Observation window",
+          "lines": [
+            "t=141 -> 193",
+            "5 decisions",
+            "5 completions"
+          ],
+          "tone": "#1f5f8b",
+          "tone_key": "accent",
+          "detail": "The window closed after 5 decisions and 5 completions."
+        },
+        {
+          "title": "Verification",
+          "lines": [
+            "inconclusive",
+            "residual +0.206",
+            "bands -0.30 / +0.30"
+          ],
+          "tone": "#a8691b",
+          "tone_key": "warn",
+          "detail": "Verdict inconclusive; reason inconclusive_residual_within_null_range. Closure fraction 1.224 against the expected no-action closure 1.018; residual +0.2059. Declared boundaries: accept at or above +0.30, reject at or below -0.30, otherwise inconclusive."
+        },
+        {
+          "title": "Final decision",
+          "lines": [
+            "rolled back to FCFS",
+            "final policy FCFS",
+            "no confirmed failure"
+          ],
+          "tone": "#a8691b",
+          "tone_key": "warn",
+          "detail": "rolled back to FCFS. Confirmed failure: False. Consecutive confirmed failures: 0. Safe fallback triggered: False. Post-window dispatches: 4; final policy FCFS. Reward -0.1607; charged cost 0.0667 band units."
+        }
+      ],
+      "final_text": "rolled back to FCFS",
+      "incident": {
+        "decision_index": 6,
+        "simulated_time": 141,
+        "window_end_time": 193,
+        "detector_reason": "degradation_detected",
+        "suspicion_evaluations": 2,
+        "trigger_threshold": 28.203125,
+        "reference_at_trigger": 23.75,
+        "band_at_trigger": 3.5625,
+        "window_mean_at_trigger": 51.0,
+        "window_size_at_trigger": 6,
+        "window_median_at_trigger": 42.0,
+        "window_max_at_trigger": 128.0,
+        "excess_band_units": 7.649122807017544,
+        "ready_count_at_trigger": 9,
+        "visible_remaining_work_at_trigger": 172,
+        "diagnosis": "fairness_starvation",
+        "diagnosis_statement": "fairness_starvation: oldest ready job has waited at least 132 time units (recent completed-work wait 51.0 vs reference 23.8 (band 3.6, window 6 completions); also matched: priority_ordering_anomaly, fairness_starvation, queue_congestion)",
+        "diagnosis_matched": "priority_ordering_anomaly,fairness_starvation,queue_congestion",
+        "context_state_index": 205,
+        "state_space_size": 648,
+        "feature_bins": [
+          1,
+          2,
+          2,
+          0,
+          1
+        ],
+        "offered_actions": "hold,set_sjf,set_round_robin,set_priority",
+        "action": 2,
+        "action_name": "set_sjf",
+        "action_changed": true,
+        "action_note": "policy changed",
+        "request_note": "predeclared_waiting_time_rule: declared action for diagnosis fairness_starvation",
+        "settings_before_policy": "FCFS",
+        "settings_before_quantum": 4,
+        "settings_after_policy": "SJF",
+        "settings_after_quantum": 4,
+        "verdict": "inconclusive",
+        "verifier_reason": "inconclusive_residual_within_null_range",
+        "confirmed_failure": false,
+        "consecutive_failures": 0,
+        "window_truncated": false,
+        "verification_decisions": 5,
+        "verification_completions": 5,
+        "closure_fraction": 1.2237680965240778,
+        "expected_closure": 1.017845719627312,
+        "closure_residual": 0.20592237689676574,
+        "accept_residual_factor": 0.3,
+        "reject_residual_factor": -0.3,
+        "post_window_mean": 142.4,
+        "improvement": -4.99578947368421,
+        "reward": -0.1607442897699009,
+        "rollback_target_policy": "FCFS",
+        "rollback_target_quantum": 4,
+        "switch_overhead_units": 5,
+        "fallback_triggered": false
+      }
+    },
+    "charts": {
+      "gantt": "<svg class=\"chart\" role=\"img\" viewBox=\"0 0 1080 547\" preserveAspectRatio=\"xMinYMin meet\" aria-labelledby=\"healing-gantt-title\" aria-describedby=\"healing-gantt-desc\"><title id=\"healing-gantt-title\">CPU execution timeline (mixed, seed 3)</title><desc id=\"healing-gantt-desc\">Recorded dispatch intervals: the CPU lane shows the exact service sequence, the lower lanes show each process&#x27;s own slices, and the colour identifies the policy in force.</desc><defs><pattern id=\"switch-hatch-healing-gantt\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(45)\"><rect width=\"6\" height=\"6\" fill=\"#eef1f4\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"6\" stroke=\"#b9c4d1\" stroke-width=\"2\"/></pattern></defs><line x1=\"78.0\" y1=\"56\" x2=\"78.0\" y2=\"511.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"78.0\" y=\"526.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">0</text><line x1=\"229.9\" y1=\"56\" x2=\"229.9\" y2=\"511.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"229.9\" y=\"526.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">50</text><line x1=\"381.7\" y1=\"56\" x2=\"381.7\" y2=\"511.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"381.7\" y=\"526.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">100</text><line x1=\"533.6\" y1=\"56\" x2=\"533.6\" y2=\"511.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"533.6\" y=\"526.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">150</text><line x1=\"685.5\" y1=\"56\" x2=\"685.5\" y2=\"511.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"685.5\" y=\"526.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">200</text><line x1=\"837.3\" y1=\"56\" x2=\"837.3\" y2=\"511.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"837.3\" y=\"526.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">250</text><line x1=\"989.2\" y1=\"56\" x2=\"989.2\" y2=\"511.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"989.2\" y=\"526.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">300</text><line x1=\"78\" y1=\"511.0\" x2=\"1056\" y2=\"511.0\" stroke=\"#c9d3de\" stroke-width=\"1\"/><text x=\"567.0\" y=\"539\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">Simulated time (arbitrary time units)</text><text x=\"68\" y=\"80.0\" text-anchor=\"end\" font-size=\"11\" font-weight=\"600\" fill=\"#455666\">CPU</text><text x=\"68\" y=\"143.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P1</text><text x=\"68\" y=\"168.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P2</text><text x=\"68\" y=\"193.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P3</text><text x=\"68\" y=\"218.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P4</text><text x=\"68\" y=\"243.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P5</text><text x=\"68\" y=\"268.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P6</text><text x=\"68\" y=\"293.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P7</text><text x=\"68\" y=\"318.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P8</text><text x=\"68\" y=\"343.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P9</text><text x=\"68\" y=\"368.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P10</text><text x=\"68\" y=\"393.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P11</text><text x=\"68\" y=\"418.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P12</text><text x=\"68\" y=\"443.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P13</text><text x=\"68\" y=\"468.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P14</text><text x=\"68\" y=\"493.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">P15</text><text x=\"68\" y=\"111.0\" text-anchor=\"end\" font-size=\"10.5\" fill=\"#455666\">policy</text><rect x=\"78.0\" y=\"98\" width=\"428.3\" height=\"18\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.22\" stroke=\"#3d5a80\" stroke-opacity=\"0.55\" stroke-width=\"1\"><title>FCFS in force from t=0 to t=141 (6 dispatches)</title></rect><text x=\"292.1\" y=\"111.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#3d5a80\">FCFS</text><rect x=\"509.3\" y=\"98\" width=\"154.9\" height=\"18\" rx=\"2\" fill=\"#2f6f4f\" fill-opacity=\"0.22\" stroke=\"#2f6f4f\" stroke-opacity=\"0.55\" stroke-width=\"1\"><title>SJF in force from t=142 to t=193 (5 dispatches)</title></rect><text x=\"586.7\" y=\"111.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#2f6f4f\">SJF</text><rect x=\"667.2\" y=\"98\" width=\"388.8\" height=\"18\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.22\" stroke=\"#3d5a80\" stroke-opacity=\"0.55\" stroke-width=\"1\"><title>FCFS in force from t=194 to t=322 (4 dispatches)</title></rect><text x=\"861.6\" y=\"111.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#3d5a80\">FCFS</text><g class=\"slice\" data-seed=\"3\" data-pid=\"4\" data-policy=\"FCFS\" data-start=\"0\" data-end=\"12\" data-switch=\"0\" data-waiting=\"44\" data-duration=\"12\" data-arrival=\"0\" data-completion=\"12\" data-burst=\"12\" data-priority=\"2\" data-process-waiting=\"0\" tabindex=\"0\" role=\"button\" aria-label=\"P4 running FCFS from t=0 to t=12 (12 time units); process arrives at t=0, burst 12, priority 2, total waiting 0 time units\"><rect x=\"78.0\" y=\"62\" width=\"36.4\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P4 running FCFS from t=0 to t=12 (12 time units); process arrives at t=0, burst 12, priority 2, total waiting 0 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"5\" data-policy=\"FCFS\" data-start=\"13\" data-end=\"23\" data-switch=\"1\" data-waiting=\"129\" data-duration=\"10\" data-arrival=\"2\" data-completion=\"23\" data-burst=\"10\" data-priority=\"2\" data-process-waiting=\"11\" tabindex=\"0\" role=\"button\" aria-label=\"P5 running FCFS from t=13 to t=23 (10 time units); process arrives at t=2, burst 10, priority 2, total waiting 11 time units\"><rect x=\"117.5\" y=\"62\" width=\"30.4\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P5 running FCFS from t=13 to t=23 (10 time units); process arrives at t=2, burst 10, priority 2, total waiting 11 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"1\" data-policy=\"FCFS\" data-start=\"24\" data-end=\"65\" data-switch=\"1\" data-waiting=\"505\" data-duration=\"41\" data-arrival=\"3\" data-completion=\"65\" data-burst=\"41\" data-priority=\"4\" data-process-waiting=\"21\" tabindex=\"0\" role=\"button\" aria-label=\"P1 running FCFS from t=24 to t=65 (41 time units); process arrives at t=3, burst 41, priority 4, total waiting 21 time units\"><rect x=\"150.9\" y=\"62\" width=\"124.5\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P1 running FCFS from t=24 to t=65 (41 time units); process arrives at t=3, burst 41, priority 4, total waiting 21 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"14\" data-policy=\"FCFS\" data-start=\"66\" data-end=\"90\" data-switch=\"1\" data-waiting=\"276\" data-duration=\"24\" data-arrival=\"3\" data-completion=\"90\" data-burst=\"24\" data-priority=\"5\" data-process-waiting=\"63\" tabindex=\"0\" role=\"button\" aria-label=\"P14 running FCFS from t=66 to t=90 (24 time units); process arrives at t=3, burst 24, priority 5, total waiting 63 time units\"><rect x=\"278.5\" y=\"62\" width=\"72.9\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P14 running FCFS from t=66 to t=90 (24 time units); process arrives at t=3, burst 24, priority 5, total waiting 63 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"7\" data-policy=\"FCFS\" data-start=\"91\" data-end=\"135\" data-switch=\"1\" data-waiting=\"451\" data-duration=\"44\" data-arrival=\"8\" data-completion=\"135\" data-burst=\"44\" data-priority=\"4\" data-process-waiting=\"83\" tabindex=\"0\" role=\"button\" aria-label=\"P7 running FCFS from t=91 to t=135 (44 time units); process arrives at t=8, burst 44, priority 4, total waiting 83 time units\"><rect x=\"354.4\" y=\"62\" width=\"133.6\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P7 running FCFS from t=91 to t=135 (44 time units); process arrives at t=8, burst 44, priority 4, total waiting 83 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"10\" data-policy=\"FCFS\" data-start=\"136\" data-end=\"141\" data-switch=\"1\" data-waiting=\"55\" data-duration=\"5\" data-arrival=\"8\" data-completion=\"141\" data-burst=\"5\" data-priority=\"2\" data-process-waiting=\"128\" tabindex=\"0\" role=\"button\" aria-label=\"P10 running FCFS from t=136 to t=141 (5 time units); process arrives at t=8, burst 5, priority 2, total waiting 128 time units\"><rect x=\"491.1\" y=\"62\" width=\"15.2\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P10 running FCFS from t=136 to t=141 (5 time units); process arrives at t=8, burst 5, priority 2, total waiting 128 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"9\" data-policy=\"SJF\" data-start=\"142\" data-end=\"144\" data-switch=\"1\" data-waiting=\"25\" data-duration=\"2\" data-arrival=\"10\" data-completion=\"144\" data-burst=\"2\" data-priority=\"5\" data-process-waiting=\"132\" tabindex=\"0\" role=\"button\" aria-label=\"P9 running SJF from t=142 to t=144 (2 time units); process arrives at t=10, burst 2, priority 5, total waiting 132 time units\"><rect x=\"509.3\" y=\"62\" width=\"6.1\" height=\"28\" rx=\"2.5\" fill=\"#2f6f4f\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P9 running SJF from t=142 to t=144 (2 time units); process arrives at t=10, burst 2, priority 5, total waiting 132 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"2\" data-policy=\"SJF\" data-start=\"145\" data-end=\"150\" data-switch=\"1\" data-waiting=\"43\" data-duration=\"5\" data-arrival=\"14\" data-completion=\"150\" data-burst=\"5\" data-priority=\"5\" data-process-waiting=\"131\" tabindex=\"0\" role=\"button\" aria-label=\"P2 running SJF from t=145 to t=150 (5 time units); process arrives at t=14, burst 5, priority 5, total waiting 131 time units\"><rect x=\"518.4\" y=\"62\" width=\"15.2\" height=\"28\" rx=\"2.5\" fill=\"#2f6f4f\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P2 running SJF from t=145 to t=150 (5 time units); process arrives at t=14, burst 5, priority 5, total waiting 131 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"3\" data-policy=\"SJF\" data-start=\"151\" data-end=\"160\" data-switch=\"1\" data-waiting=\"61\" data-duration=\"9\" data-arrival=\"15\" data-completion=\"160\" data-burst=\"9\" data-priority=\"4\" data-process-waiting=\"136\" tabindex=\"0\" role=\"button\" aria-label=\"P3 running SJF from t=151 to t=160 (9 time units); process arrives at t=15, burst 9, priority 4, total waiting 136 time units\"><rect x=\"536.6\" y=\"62\" width=\"27.3\" height=\"28\" rx=\"2.5\" fill=\"#2f6f4f\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P3 running SJF from t=151 to t=160 (9 time units); process arrives at t=15, burst 9, priority 4, total waiting 136 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"15\" data-policy=\"SJF\" data-start=\"161\" data-end=\"175\" data-switch=\"1\" data-waiting=\"76\" data-duration=\"14\" data-arrival=\"15\" data-completion=\"175\" data-burst=\"14\" data-priority=\"5\" data-process-waiting=\"146\" tabindex=\"0\" role=\"button\" aria-label=\"P15 running SJF from t=161 to t=175 (14 time units); process arrives at t=15, burst 14, priority 5, total waiting 146 time units\"><rect x=\"567.0\" y=\"62\" width=\"42.5\" height=\"28\" rx=\"2.5\" fill=\"#2f6f4f\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P15 running SJF from t=161 to t=175 (14 time units); process arrives at t=15, burst 14, priority 5, total waiting 146 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"11\" data-policy=\"SJF\" data-start=\"176\" data-end=\"193\" data-switch=\"1\" data-waiting=\"73\" data-duration=\"17\" data-arrival=\"9\" data-completion=\"193\" data-burst=\"17\" data-priority=\"5\" data-process-waiting=\"167\" tabindex=\"0\" role=\"button\" aria-label=\"P11 running SJF from t=176 to t=193 (17 time units); process arrives at t=9, burst 17, priority 5, total waiting 167 time units\"><rect x=\"612.6\" y=\"62\" width=\"51.6\" height=\"28\" rx=\"2.5\" fill=\"#2f6f4f\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P11 running SJF from t=176 to t=193 (17 time units); process arrives at t=9, burst 17, priority 5, total waiting 167 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"6\" data-policy=\"FCFS\" data-start=\"194\" data-end=\"235\" data-switch=\"1\" data-waiting=\"127\" data-duration=\"41\" data-arrival=\"9\" data-completion=\"235\" data-burst=\"41\" data-priority=\"4\" data-process-waiting=\"185\" tabindex=\"0\" role=\"button\" aria-label=\"P6 running FCFS from t=194 to t=235 (41 time units); process arrives at t=9, burst 41, priority 4, total waiting 185 time units\"><rect x=\"667.2\" y=\"62\" width=\"124.5\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P6 running FCFS from t=194 to t=235 (41 time units); process arrives at t=9, burst 41, priority 4, total waiting 185 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"13\" data-policy=\"FCFS\" data-start=\"236\" data-end=\"268\" data-switch=\"1\" data-waiting=\"67\" data-duration=\"32\" data-arrival=\"12\" data-completion=\"268\" data-burst=\"32\" data-priority=\"1\" data-process-waiting=\"224\" tabindex=\"0\" role=\"button\" aria-label=\"P13 running FCFS from t=236 to t=268 (32 time units); process arrives at t=12, burst 32, priority 1, total waiting 224 time units\"><rect x=\"794.8\" y=\"62\" width=\"97.2\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P13 running FCFS from t=236 to t=268 (32 time units); process arrives at t=12, burst 32, priority 1, total waiting 224 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"12\" data-policy=\"FCFS\" data-start=\"269\" data-end=\"291\" data-switch=\"1\" data-waiting=\"24\" data-duration=\"22\" data-arrival=\"13\" data-completion=\"291\" data-burst=\"22\" data-priority=\"1\" data-process-waiting=\"256\" tabindex=\"0\" role=\"button\" aria-label=\"P12 running FCFS from t=269 to t=291 (22 time units); process arrives at t=13, burst 22, priority 1, total waiting 256 time units\"><rect x=\"895.0\" y=\"62\" width=\"66.8\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P12 running FCFS from t=269 to t=291 (22 time units); process arrives at t=13, burst 22, priority 1, total waiting 256 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"8\" data-policy=\"FCFS\" data-start=\"292\" data-end=\"322\" data-switch=\"1\" data-waiting=\"1\" data-duration=\"30\" data-arrival=\"18\" data-completion=\"322\" data-burst=\"30\" data-priority=\"4\" data-process-waiting=\"274\" tabindex=\"0\" role=\"button\" aria-label=\"P8 running FCFS from t=292 to t=322 (30 time units); process arrives at t=18, burst 30, priority 4, total waiting 274 time units\"><rect x=\"964.9\" y=\"62\" width=\"91.1\" height=\"28\" rx=\"2.5\" fill=\"#3d5a80\" stroke=\"#ffffff\" stroke-width=\"1\"/><title>P8 running FCFS from t=292 to t=322 (30 time units); process arrives at t=18, burst 30, priority 4, total waiting 274 time units</title></g><g class=\"slice\" data-seed=\"3\" data-pid=\"1\" data-policy=\"FCFS\" data-start=\"24\" data-end=\"65\" data-switch=\"1\" data-waiting=\"505\" data-duration=\"41\" data-arrival=\"3\" data-completion=\"65\" data-burst=\"41\" data-priority=\"4\" data-process-waiting=\"21\" tabindex=\"0\" role=\"button\" aria-label=\"P1 running FCFS from t=24 to t=65 (41 time units); process arrives at t=3, burst 41, priority 4, total waiting 21 time units\"><rect x=\"150.9\" y=\"131\" width=\"124.5\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P1 running FCFS from t=24 to t=65 (41 time units); process arrives at t=3, burst 41, priority 4, total waiting 21 time units</title></g><circle cx=\"87.1\" cy=\"139.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P1 arrives at t=3</title></circle><line x1=\"275.4\" y1=\"134.0\" x2=\"275.4\" y2=\"144.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P1 completes at t=65</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"2\" data-policy=\"SJF\" data-start=\"145\" data-end=\"150\" data-switch=\"1\" data-waiting=\"43\" data-duration=\"5\" data-arrival=\"14\" data-completion=\"150\" data-burst=\"5\" data-priority=\"5\" data-process-waiting=\"131\" tabindex=\"0\" role=\"button\" aria-label=\"P2 running SJF from t=145 to t=150 (5 time units); process arrives at t=14, burst 5, priority 5, total waiting 131 time units\"><rect x=\"518.4\" y=\"156\" width=\"15.2\" height=\"16\" rx=\"2\" fill=\"#2f6f4f\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P2 running SJF from t=145 to t=150 (5 time units); process arrives at t=14, burst 5, priority 5, total waiting 131 time units</title></g><circle cx=\"120.5\" cy=\"164.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P2 arrives at t=14</title></circle><line x1=\"533.6\" y1=\"159.0\" x2=\"533.6\" y2=\"169.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P2 completes at t=150</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"3\" data-policy=\"SJF\" data-start=\"151\" data-end=\"160\" data-switch=\"1\" data-waiting=\"61\" data-duration=\"9\" data-arrival=\"15\" data-completion=\"160\" data-burst=\"9\" data-priority=\"4\" data-process-waiting=\"136\" tabindex=\"0\" role=\"button\" aria-label=\"P3 running SJF from t=151 to t=160 (9 time units); process arrives at t=15, burst 9, priority 4, total waiting 136 time units\"><rect x=\"536.6\" y=\"181\" width=\"27.3\" height=\"16\" rx=\"2\" fill=\"#2f6f4f\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P3 running SJF from t=151 to t=160 (9 time units); process arrives at t=15, burst 9, priority 4, total waiting 136 time units</title></g><circle cx=\"123.6\" cy=\"189.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P3 arrives at t=15</title></circle><line x1=\"564.0\" y1=\"184.0\" x2=\"564.0\" y2=\"194.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P3 completes at t=160</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"4\" data-policy=\"FCFS\" data-start=\"0\" data-end=\"12\" data-switch=\"0\" data-waiting=\"44\" data-duration=\"12\" data-arrival=\"0\" data-completion=\"12\" data-burst=\"12\" data-priority=\"2\" data-process-waiting=\"0\" tabindex=\"0\" role=\"button\" aria-label=\"P4 running FCFS from t=0 to t=12 (12 time units); process arrives at t=0, burst 12, priority 2, total waiting 0 time units\"><rect x=\"78.0\" y=\"206\" width=\"36.4\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P4 running FCFS from t=0 to t=12 (12 time units); process arrives at t=0, burst 12, priority 2, total waiting 0 time units</title></g><circle cx=\"78.0\" cy=\"214.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P4 arrives at t=0</title></circle><line x1=\"114.4\" y1=\"209.0\" x2=\"114.4\" y2=\"219.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P4 completes at t=12</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"5\" data-policy=\"FCFS\" data-start=\"13\" data-end=\"23\" data-switch=\"1\" data-waiting=\"129\" data-duration=\"10\" data-arrival=\"2\" data-completion=\"23\" data-burst=\"10\" data-priority=\"2\" data-process-waiting=\"11\" tabindex=\"0\" role=\"button\" aria-label=\"P5 running FCFS from t=13 to t=23 (10 time units); process arrives at t=2, burst 10, priority 2, total waiting 11 time units\"><rect x=\"117.5\" y=\"231\" width=\"30.4\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P5 running FCFS from t=13 to t=23 (10 time units); process arrives at t=2, burst 10, priority 2, total waiting 11 time units</title></g><circle cx=\"84.1\" cy=\"239.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P5 arrives at t=2</title></circle><line x1=\"147.9\" y1=\"234.0\" x2=\"147.9\" y2=\"244.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P5 completes at t=23</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"6\" data-policy=\"FCFS\" data-start=\"194\" data-end=\"235\" data-switch=\"1\" data-waiting=\"127\" data-duration=\"41\" data-arrival=\"9\" data-completion=\"235\" data-burst=\"41\" data-priority=\"4\" data-process-waiting=\"185\" tabindex=\"0\" role=\"button\" aria-label=\"P6 running FCFS from t=194 to t=235 (41 time units); process arrives at t=9, burst 41, priority 4, total waiting 185 time units\"><rect x=\"667.2\" y=\"256\" width=\"124.5\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P6 running FCFS from t=194 to t=235 (41 time units); process arrives at t=9, burst 41, priority 4, total waiting 185 time units</title></g><circle cx=\"105.3\" cy=\"264.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P6 arrives at t=9</title></circle><line x1=\"791.8\" y1=\"259.0\" x2=\"791.8\" y2=\"269.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P6 completes at t=235</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"7\" data-policy=\"FCFS\" data-start=\"91\" data-end=\"135\" data-switch=\"1\" data-waiting=\"451\" data-duration=\"44\" data-arrival=\"8\" data-completion=\"135\" data-burst=\"44\" data-priority=\"4\" data-process-waiting=\"83\" tabindex=\"0\" role=\"button\" aria-label=\"P7 running FCFS from t=91 to t=135 (44 time units); process arrives at t=8, burst 44, priority 4, total waiting 83 time units\"><rect x=\"354.4\" y=\"281\" width=\"133.6\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P7 running FCFS from t=91 to t=135 (44 time units); process arrives at t=8, burst 44, priority 4, total waiting 83 time units</title></g><circle cx=\"102.3\" cy=\"289.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P7 arrives at t=8</title></circle><line x1=\"488.0\" y1=\"284.0\" x2=\"488.0\" y2=\"294.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P7 completes at t=135</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"8\" data-policy=\"FCFS\" data-start=\"292\" data-end=\"322\" data-switch=\"1\" data-waiting=\"1\" data-duration=\"30\" data-arrival=\"18\" data-completion=\"322\" data-burst=\"30\" data-priority=\"4\" data-process-waiting=\"274\" tabindex=\"0\" role=\"button\" aria-label=\"P8 running FCFS from t=292 to t=322 (30 time units); process arrives at t=18, burst 30, priority 4, total waiting 274 time units\"><rect x=\"964.9\" y=\"306\" width=\"91.1\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P8 running FCFS from t=292 to t=322 (30 time units); process arrives at t=18, burst 30, priority 4, total waiting 274 time units</title></g><circle cx=\"132.7\" cy=\"314.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P8 arrives at t=18</title></circle><line x1=\"1056.0\" y1=\"309.0\" x2=\"1056.0\" y2=\"319.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P8 completes at t=322</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"9\" data-policy=\"SJF\" data-start=\"142\" data-end=\"144\" data-switch=\"1\" data-waiting=\"25\" data-duration=\"2\" data-arrival=\"10\" data-completion=\"144\" data-burst=\"2\" data-priority=\"5\" data-process-waiting=\"132\" tabindex=\"0\" role=\"button\" aria-label=\"P9 running SJF from t=142 to t=144 (2 time units); process arrives at t=10, burst 2, priority 5, total waiting 132 time units\"><rect x=\"509.3\" y=\"331\" width=\"6.1\" height=\"16\" rx=\"2\" fill=\"#2f6f4f\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P9 running SJF from t=142 to t=144 (2 time units); process arrives at t=10, burst 2, priority 5, total waiting 132 time units</title></g><circle cx=\"108.4\" cy=\"339.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P9 arrives at t=10</title></circle><line x1=\"515.4\" y1=\"334.0\" x2=\"515.4\" y2=\"344.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P9 completes at t=144</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"10\" data-policy=\"FCFS\" data-start=\"136\" data-end=\"141\" data-switch=\"1\" data-waiting=\"55\" data-duration=\"5\" data-arrival=\"8\" data-completion=\"141\" data-burst=\"5\" data-priority=\"2\" data-process-waiting=\"128\" tabindex=\"0\" role=\"button\" aria-label=\"P10 running FCFS from t=136 to t=141 (5 time units); process arrives at t=8, burst 5, priority 2, total waiting 128 time units\"><rect x=\"491.1\" y=\"356\" width=\"15.2\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P10 running FCFS from t=136 to t=141 (5 time units); process arrives at t=8, burst 5, priority 2, total waiting 128 time units</title></g><circle cx=\"102.3\" cy=\"364.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P10 arrives at t=8</title></circle><line x1=\"506.3\" y1=\"359.0\" x2=\"506.3\" y2=\"369.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P10 completes at t=141</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"11\" data-policy=\"SJF\" data-start=\"176\" data-end=\"193\" data-switch=\"1\" data-waiting=\"73\" data-duration=\"17\" data-arrival=\"9\" data-completion=\"193\" data-burst=\"17\" data-priority=\"5\" data-process-waiting=\"167\" tabindex=\"0\" role=\"button\" aria-label=\"P11 running SJF from t=176 to t=193 (17 time units); process arrives at t=9, burst 17, priority 5, total waiting 167 time units\"><rect x=\"612.6\" y=\"381\" width=\"51.6\" height=\"16\" rx=\"2\" fill=\"#2f6f4f\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P11 running SJF from t=176 to t=193 (17 time units); process arrives at t=9, burst 17, priority 5, total waiting 167 time units</title></g><circle cx=\"105.3\" cy=\"389.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P11 arrives at t=9</title></circle><line x1=\"664.2\" y1=\"384.0\" x2=\"664.2\" y2=\"394.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P11 completes at t=193</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"12\" data-policy=\"FCFS\" data-start=\"269\" data-end=\"291\" data-switch=\"1\" data-waiting=\"24\" data-duration=\"22\" data-arrival=\"13\" data-completion=\"291\" data-burst=\"22\" data-priority=\"1\" data-process-waiting=\"256\" tabindex=\"0\" role=\"button\" aria-label=\"P12 running FCFS from t=269 to t=291 (22 time units); process arrives at t=13, burst 22, priority 1, total waiting 256 time units\"><rect x=\"895.0\" y=\"406\" width=\"66.8\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P12 running FCFS from t=269 to t=291 (22 time units); process arrives at t=13, burst 22, priority 1, total waiting 256 time units</title></g><circle cx=\"117.5\" cy=\"414.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P12 arrives at t=13</title></circle><line x1=\"961.8\" y1=\"409.0\" x2=\"961.8\" y2=\"419.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P12 completes at t=291</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"13\" data-policy=\"FCFS\" data-start=\"236\" data-end=\"268\" data-switch=\"1\" data-waiting=\"67\" data-duration=\"32\" data-arrival=\"12\" data-completion=\"268\" data-burst=\"32\" data-priority=\"1\" data-process-waiting=\"224\" tabindex=\"0\" role=\"button\" aria-label=\"P13 running FCFS from t=236 to t=268 (32 time units); process arrives at t=12, burst 32, priority 1, total waiting 224 time units\"><rect x=\"794.8\" y=\"431\" width=\"97.2\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P13 running FCFS from t=236 to t=268 (32 time units); process arrives at t=12, burst 32, priority 1, total waiting 224 time units</title></g><circle cx=\"114.4\" cy=\"439.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P13 arrives at t=12</title></circle><line x1=\"892.0\" y1=\"434.0\" x2=\"892.0\" y2=\"444.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P13 completes at t=268</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"14\" data-policy=\"FCFS\" data-start=\"66\" data-end=\"90\" data-switch=\"1\" data-waiting=\"276\" data-duration=\"24\" data-arrival=\"3\" data-completion=\"90\" data-burst=\"24\" data-priority=\"5\" data-process-waiting=\"63\" tabindex=\"0\" role=\"button\" aria-label=\"P14 running FCFS from t=66 to t=90 (24 time units); process arrives at t=3, burst 24, priority 5, total waiting 63 time units\"><rect x=\"278.5\" y=\"456\" width=\"72.9\" height=\"16\" rx=\"2\" fill=\"#3d5a80\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P14 running FCFS from t=66 to t=90 (24 time units); process arrives at t=3, burst 24, priority 5, total waiting 63 time units</title></g><circle cx=\"87.1\" cy=\"464.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P14 arrives at t=3</title></circle><line x1=\"351.4\" y1=\"459.0\" x2=\"351.4\" y2=\"469.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P14 completes at t=90</title></line><g class=\"slice\" data-seed=\"3\" data-pid=\"15\" data-policy=\"SJF\" data-start=\"161\" data-end=\"175\" data-switch=\"1\" data-waiting=\"76\" data-duration=\"14\" data-arrival=\"15\" data-completion=\"175\" data-burst=\"14\" data-priority=\"5\" data-process-waiting=\"146\" tabindex=\"0\" role=\"button\" aria-label=\"P15 running SJF from t=161 to t=175 (14 time units); process arrives at t=15, burst 14, priority 5, total waiting 146 time units\"><rect x=\"567.0\" y=\"481\" width=\"42.5\" height=\"16\" rx=\"2\" fill=\"#2f6f4f\" fill-opacity=\"0.9\" stroke=\"#ffffff\" stroke-width=\"0.8\"/><title>P15 running SJF from t=161 to t=175 (14 time units); process arrives at t=15, burst 14, priority 5, total waiting 146 time units</title></g><circle cx=\"123.6\" cy=\"489.0\" r=\"2.4\" fill=\"#ffffff\" stroke=\"#64748b\" stroke-width=\"1.2\"><title>P15 arrives at t=15</title></circle><line x1=\"609.5\" y1=\"484.0\" x2=\"609.5\" y2=\"494.0\" stroke=\"#16212b\" stroke-width=\"1.6\"><title>P15 completes at t=175</title></line><text x=\"96.2\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P4</text><text x=\"132.7\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P5</text><text x=\"213.2\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P1</text><text x=\"314.9\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P14</text><text x=\"421.2\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P7</text><text x=\"526.0\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P2</text><text x=\"550.3\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P3</text><text x=\"588.3\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P15</text><text x=\"638.4\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P11</text><text x=\"729.5\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P6</text><text x=\"843.4\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P13</text><text x=\"928.4\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P12</text><text x=\"1010.4\" y=\"80.0\" text-anchor=\"middle\" font-size=\"10\" font-weight=\"600\" fill=\"#ffffff\" pointer-events=\"none\">P8</text><line x1=\"506.3\" y1=\"54\" x2=\"506.3\" y2=\"511.0\" stroke=\"#a8691b\" stroke-width=\"1.4\" stroke-dasharray=\"5 4\" stroke-opacity=\"0.9\"/><line x1=\"664.2\" y1=\"54\" x2=\"664.2\" y2=\"511.0\" stroke=\"#64748b\" stroke-width=\"1.4\" stroke-dasharray=\"5 4\" stroke-opacity=\"0.9\"/><text x=\"511.3\" y=\"36.0\" text-anchor=\"start\" font-size=\"10.5\" font-weight=\"600\" fill=\"#a8691b\">degradation detected at t=141</text><text x=\"659.2\" y=\"52.0\" text-anchor=\"end\" font-size=\"10.5\" font-weight=\"600\" fill=\"#64748b\">rollback at t=193</text></svg>",
+      "lifecycle": "<svg class=\"chart\" role=\"img\" viewBox=\"0 0 1080 154\" preserveAspectRatio=\"xMinYMin meet\" aria-labelledby=\"healing-lifecycle-title\" aria-describedby=\"healing-lifecycle-desc\"><title id=\"healing-lifecycle-title\">Self-healing lifecycle (seed 3)</title><desc id=\"healing-lifecycle-desc\">The recorded control-loop stages: normal scheduling, monitoring, degradation detection, diagnosis, selected intervention, observation, verification and the final decision.</desc><g><title>FCFS dispatches the trace until the incident at t=141: 6 recorded intervals before it.</title><rect x=\"9.0\" y=\"10\" width=\"123.8\" height=\"126\" rx=\"5\" fill=\"#ffffff\" stroke=\"#1f5f8b\" stroke-width=\"1.4\"/><rect x=\"9.0\" y=\"10\" width=\"123.8\" height=\"5\" rx=\"2.5\" fill=\"#1f5f8b\"/><text x=\"18.0\" y=\"34.0\" font-size=\"10\" font-weight=\"700\" fill=\"#1f5f8b\" letter-spacing=\"0.4\">STEP 1</text><text x=\"18.0\" y=\"51.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">Normal</text><text x=\"18.0\" y=\"65.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">scheduling</text><text x=\"18.0\" y=\"82.0\" font-size=\"10\" fill=\"#455666\">FCFS in force</text><text x=\"18.0\" y=\"95.0\" font-size=\"10\" fill=\"#455666\">6 dispatches</text><text x=\"18.0\" y=\"108.0\" font-size=\"10\" fill=\"#455666\">to t=141</text></g><path d=\"M 134.8 69.0 l 5 4 l -5 4\" fill=\"none\" stroke=\"#64748b\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><g><title>Rolling statistic over 6 completed processes: mean 51.00, median 42.00, maximum 128.00; stable reference 23.75 with dispersion band 3.56.</title><rect x=\"141.8\" y=\"10\" width=\"123.8\" height=\"126\" rx=\"5\" fill=\"#ffffff\" stroke=\"#2b6f6a\" stroke-width=\"1.4\"/><rect x=\"141.8\" y=\"10\" width=\"123.8\" height=\"5\" rx=\"2.5\" fill=\"#2b6f6a\"/><text x=\"150.8\" y=\"34.0\" font-size=\"10\" font-weight=\"700\" fill=\"#2b6f6a\" letter-spacing=\"0.4\">STEP 2</text><text x=\"150.8\" y=\"51.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">Monitoring</text><text x=\"150.8\" y=\"68.0\" font-size=\"10\" fill=\"#455666\">window mean 51.00</text><text x=\"150.8\" y=\"81.0\" font-size=\"10\" fill=\"#455666\">reference 23.75</text><text x=\"150.8\" y=\"94.0\" font-size=\"10\" fill=\"#455666\">band 3.56</text></g><path d=\"M 267.5 69.0 l 5 4 l -5 4\" fill=\"none\" stroke=\"#64748b\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><g><title>The window mean 51.00 exceeded the threshold 28.20 = reference 23.75 + 3.56-unit band x the declared multiplier, for 2 consecutive evaluations. Detector reason: degradation_detected.</title><rect x=\"274.5\" y=\"10\" width=\"123.8\" height=\"126\" rx=\"5\" fill=\"#ffffff\" stroke=\"#a8691b\" stroke-width=\"1.4\"/><rect x=\"274.5\" y=\"10\" width=\"123.8\" height=\"5\" rx=\"2.5\" fill=\"#a8691b\"/><text x=\"283.5\" y=\"34.0\" font-size=\"10\" font-weight=\"700\" fill=\"#a8691b\" letter-spacing=\"0.4\">STEP 3</text><text x=\"283.5\" y=\"51.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">Degradation</text><text x=\"283.5\" y=\"65.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">detected</text><text x=\"283.5\" y=\"82.0\" font-size=\"10\" fill=\"#455666\">t=141, decision 6</text><text x=\"283.5\" y=\"95.0\" font-size=\"10\" fill=\"#455666\">threshold 28.20</text><text x=\"283.5\" y=\"108.0\" font-size=\"10\" fill=\"#455666\">2 evaluations</text></g><path d=\"M 400.2 69.0 l 5 4 l -5 4\" fill=\"none\" stroke=\"#64748b\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><g><title>fairness_starvation: oldest ready job has waited at least 132 time units (recent completed-work wait 51.0 vs reference 23.8 (band 3.6, window 6 completions); also matched: priority_ordering_anomaly, fairness_starvation, queue_congestion) Matched categories: priority_ordering_anomaly,fairness_starvation,queue_congestion. Visible remaining work at the trigger: 172 units.</title><rect x=\"407.2\" y=\"10\" width=\"123.8\" height=\"126\" rx=\"5\" fill=\"#ffffff\" stroke=\"#5b5b8a\" stroke-width=\"1.4\"/><rect x=\"407.2\" y=\"10\" width=\"123.8\" height=\"5\" rx=\"2.5\" fill=\"#5b5b8a\"/><text x=\"416.2\" y=\"34.0\" font-size=\"10\" font-weight=\"700\" fill=\"#5b5b8a\" letter-spacing=\"0.4\">STEP 4</text><text x=\"416.2\" y=\"51.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">Diagnosis</text><text x=\"416.2\" y=\"68.0\" font-size=\"10\" fill=\"#455666\">fairness starvation</text><text x=\"416.2\" y=\"81.0\" font-size=\"10\" fill=\"#455666\">state 205/648</text><text x=\"416.2\" y=\"94.0\" font-size=\"10\" fill=\"#455666\">9 ready</text></g><path d=\"M 533.0 69.0 l 5 4 l -5 4\" fill=\"none\" stroke=\"#64748b\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><g><title>Offered actions: hold,set_sjf,set_round_robin,set_priority. Chosen: set_sjf (predeclared_waiting_time_rule: declared action for diagnosis fairness_starvation). Action note: policy changed. Configuration: FCFS q=4 -&gt; SJF q=4.</title><rect x=\"540.0\" y=\"10\" width=\"123.8\" height=\"126\" rx=\"5\" fill=\"#ffffff\" stroke=\"#6b4a86\" stroke-width=\"1.4\"/><rect x=\"540.0\" y=\"10\" width=\"123.8\" height=\"5\" rx=\"2.5\" fill=\"#6b4a86\"/><text x=\"549.0\" y=\"34.0\" font-size=\"10\" font-weight=\"700\" fill=\"#6b4a86\" letter-spacing=\"0.4\">STEP 5</text><text x=\"549.0\" y=\"51.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">Selected</text><text x=\"549.0\" y=\"65.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">intervention</text><text x=\"549.0\" y=\"82.0\" font-size=\"10\" fill=\"#455666\">set_sjf</text><text x=\"549.0\" y=\"95.0\" font-size=\"10\" fill=\"#455666\">FCFS -&gt; SJF</text><text x=\"549.0\" y=\"108.0\" font-size=\"10\" fill=\"#455666\">changed</text></g><path d=\"M 665.8 69.0 l 5 4 l -5 4\" fill=\"none\" stroke=\"#64748b\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><g><title>The window closed after 5 decisions and 5 completions.</title><rect x=\"672.8\" y=\"10\" width=\"123.8\" height=\"126\" rx=\"5\" fill=\"#ffffff\" stroke=\"#1f5f8b\" stroke-width=\"1.4\"/><rect x=\"672.8\" y=\"10\" width=\"123.8\" height=\"5\" rx=\"2.5\" fill=\"#1f5f8b\"/><text x=\"681.8\" y=\"34.0\" font-size=\"10\" font-weight=\"700\" fill=\"#1f5f8b\" letter-spacing=\"0.4\">STEP 6</text><text x=\"681.8\" y=\"51.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">Observation</text><text x=\"681.8\" y=\"65.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">window</text><text x=\"681.8\" y=\"82.0\" font-size=\"10\" fill=\"#455666\">t=141 -&gt; 193</text><text x=\"681.8\" y=\"95.0\" font-size=\"10\" fill=\"#455666\">5 decisions</text><text x=\"681.8\" y=\"108.0\" font-size=\"10\" fill=\"#455666\">5 completions</text></g><path d=\"M 798.5 69.0 l 5 4 l -5 4\" fill=\"none\" stroke=\"#64748b\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><g><title>Verdict inconclusive; reason inconclusive_residual_within_null_range. Closure fraction 1.224 against the expected no-action closure 1.018; residual +0.2059. Declared boundaries: accept at or above +0.30, reject at or below -0.30, otherwise inconclusive.</title><rect x=\"805.5\" y=\"10\" width=\"123.8\" height=\"126\" rx=\"5\" fill=\"#ffffff\" stroke=\"#a8691b\" stroke-width=\"1.4\"/><rect x=\"805.5\" y=\"10\" width=\"123.8\" height=\"5\" rx=\"2.5\" fill=\"#a8691b\"/><text x=\"814.5\" y=\"34.0\" font-size=\"10\" font-weight=\"700\" fill=\"#a8691b\" letter-spacing=\"0.4\">STEP 7</text><text x=\"814.5\" y=\"51.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">Verification</text><text x=\"814.5\" y=\"68.0\" font-size=\"10\" fill=\"#455666\">inconclusive</text><text x=\"814.5\" y=\"81.0\" font-size=\"10\" fill=\"#455666\">residual +0.206</text><text x=\"814.5\" y=\"94.0\" font-size=\"10\" fill=\"#455666\">bands -0.30 / +0.30</text></g><path d=\"M 931.2 69.0 l 5 4 l -5 4\" fill=\"none\" stroke=\"#64748b\" stroke-width=\"1.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><g><title>rolled back to FCFS. Confirmed failure: False. Consecutive confirmed failures: 0. Safe fallback triggered: False. Post-window dispatches: 4; final policy FCFS. Reward -0.1607; charged cost 0.0667 band units.</title><rect x=\"938.2\" y=\"10\" width=\"123.8\" height=\"126\" rx=\"5\" fill=\"#ffffff\" stroke=\"#a8691b\" stroke-width=\"1.4\"/><rect x=\"938.2\" y=\"10\" width=\"123.8\" height=\"5\" rx=\"2.5\" fill=\"#a8691b\"/><text x=\"947.2\" y=\"34.0\" font-size=\"10\" font-weight=\"700\" fill=\"#a8691b\" letter-spacing=\"0.4\">STEP 8</text><text x=\"947.2\" y=\"51.0\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">Final decision</text><text x=\"947.2\" y=\"68.0\" font-size=\"10\" fill=\"#455666\">rolled back to FCFS</text><text x=\"947.2\" y=\"81.0\" font-size=\"10\" fill=\"#455666\">final policy FCFS</text><text x=\"947.2\" y=\"94.0\" font-size=\"10\" fill=\"#455666\">no confirmed failure</text></g></svg>",
+      "verification": "<svg class=\"chart\" role=\"img\" viewBox=\"0 0 820 186\" preserveAspectRatio=\"xMinYMin meet\" aria-labelledby=\"healing-band-title\" aria-describedby=\"healing-band-desc\"><title id=\"healing-band-title\">Verification residual against the declared boundaries (seed 3)</title><desc id=\"healing-band-desc\">The accept and reject boundaries declared by the healing configuration; the marker is the residual recorded for this incident.</desc><rect x=\"26.0\" y=\"64\" width=\"144.0\" height=\"44\" fill=\"#a03d3d\" fill-opacity=\"0.16\" stroke=\"#a03d3d\" stroke-opacity=\"0.5\" stroke-width=\"0.8\"/><text x=\"98.0\" y=\"90.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#a03d3d\" font-weight=\"600\">reject</text><rect x=\"170.0\" y=\"64\" width=\"480.0\" height=\"44\" fill=\"#a8691b\" fill-opacity=\"0.16\" stroke=\"#a8691b\" stroke-opacity=\"0.5\" stroke-width=\"0.8\"/><text x=\"410.0\" y=\"90.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#a8691b\" font-weight=\"600\">inconclusive</text><rect x=\"650.0\" y=\"64\" width=\"144.0\" height=\"44\" fill=\"#2f6f4f\" fill-opacity=\"0.16\" stroke=\"#2f6f4f\" stroke-opacity=\"0.5\" stroke-width=\"0.8\"/><text x=\"722.0\" y=\"90.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#2f6f4f\" font-weight=\"600\">accept</text><line x1=\"26\" y1=\"112.0\" x2=\"794\" y2=\"112.0\" stroke=\"#c9d3de\" stroke-width=\"1\"/><line x1=\"26.0\" y1=\"112.0\" x2=\"26.0\" y2=\"117.0\" stroke=\"#64748b\" stroke-width=\"1\"/><text x=\"26.0\" y=\"130.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">-0.48</text><line x1=\"170.0\" y1=\"112.0\" x2=\"170.0\" y2=\"117.0\" stroke=\"#64748b\" stroke-width=\"1\"/><text x=\"170.0\" y=\"130.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">-0.30</text><line x1=\"410.0\" y1=\"112.0\" x2=\"410.0\" y2=\"117.0\" stroke=\"#64748b\" stroke-width=\"1\"/><text x=\"410.0\" y=\"130.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">0</text><line x1=\"650.0\" y1=\"112.0\" x2=\"650.0\" y2=\"117.0\" stroke=\"#64748b\" stroke-width=\"1\"/><text x=\"650.0\" y=\"130.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">+0.30</text><line x1=\"794.0\" y1=\"112.0\" x2=\"794.0\" y2=\"117.0\" stroke=\"#64748b\" stroke-width=\"1\"/><text x=\"794.0\" y=\"130.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">+0.48</text><text x=\"26.0\" y=\"160.0\" font-size=\"10.5\" fill=\"#64748b\">Phase-aware closure residual: at or below the reject boundary the change failed; between the boundaries it is inconclusive; at or</text><text x=\"26.0\" y=\"174.0\" font-size=\"10.5\" fill=\"#64748b\">above the accept boundary it is verified.</text><line x1=\"574.7\" y1=\"50.0\" x2=\"574.7\" y2=\"112.0\" stroke=\"#16212b\" stroke-width=\"1.6\"/><circle cx=\"574.7\" cy=\"50.0\" r=\"6\" fill=\"#16212b\" stroke=\"#ffffff\" stroke-width=\"1.6\"><title>Observed closure residual 0.2059</title></circle><text x=\"565.7\" y=\"42.0\" text-anchor=\"end\" font-size=\"11\" font-weight=\"700\" fill=\"#16212b\">observed residual 0.2059</text><text x=\"26.0\" y=\"22\" font-size=\"11.5\" fill=\"#455666\">Verdict: <tspan font-weight=\"700\" fill=\"#16212b\">inconclusive</tspan> &#183; reason: inconclusive_residual_within_null_range</text></svg>",
+      "waiting": "<svg class=\"chart\" role=\"img\" viewBox=\"0 0 720 120\" preserveAspectRatio=\"xMinYMin meet\" aria-labelledby=\"healing-waiting-title\" aria-describedby=\"healing-waiting-desc\"><title id=\"healing-waiting-title\">Mean waiting time: self-healing run versus FCFS on the same workload</title><desc id=\"healing-waiting-desc\">Mean waiting time per process of the self-healing trace and of a plain FCFS run on the identical workload.</desc><line x1=\"158.0\" y1=\"14\" x2=\"158.0\" y2=\"88.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"158.0\" y=\"103.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">0</text><line x1=\"306.8\" y1=\"14\" x2=\"306.8\" y2=\"88.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"306.8\" y=\"103.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">50</text><line x1=\"455.5\" y1=\"14\" x2=\"455.5\" y2=\"88.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"455.5\" y=\"103.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">100</text><line x1=\"604.3\" y1=\"14\" x2=\"604.3\" y2=\"88.0\" stroke=\"#e3e9f0\" stroke-width=\"1\"/><text x=\"604.3\" y=\"103.0\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">150</text><line x1=\"158\" y1=\"88.0\" x2=\"624\" y2=\"88.0\" stroke=\"#c9d3de\" stroke-width=\"1\"/><text x=\"391.0\" y=\"114\" text-anchor=\"middle\" font-size=\"10.5\" fill=\"#64748b\">Mean waiting time (simulated time units per process)</text><text x=\"146\" y=\"28.0\" text-anchor=\"end\" font-size=\"11.5\" font-weight=\"700\" fill=\"#16212b\">Self-healing trace</text><rect x=\"158\" y=\"15\" width=\"388.2\" height=\"20\" rx=\"3\" fill=\"#6b4a86\"><title>Self-healing trace: 130.47 Mean waiting time (simulated time units per process)</title></rect><text x=\"554.2\" y=\"28.0\" font-size=\"11.5\" font-weight=\"600\" fill=\"#455666\">130.47</text><text x=\"146\" y=\"62.0\" text-anchor=\"end\" font-size=\"11.5\" font-weight=\"500\" fill=\"#16212b\">FCFS (same workload)</text><rect x=\"158\" y=\"49\" width=\"448.1\" height=\"20\" rx=\"3\" fill=\"#3d5a80\"><title>FCFS (same workload): 150.60 Mean waiting time (simulated time units per process)</title></rect><text x=\"614.1\" y=\"62.0\" font-size=\"11.5\" font-weight=\"600\" fill=\"#455666\">150.60</text></svg>"
+    },
+    "notes": [
+      "Executed now by experiments.demo.run_fixture (controller, runtime simulator and metrics); the payload is validated against the dashboard schema before display.",
+      "Times are simulated time units, not seconds.",
+      "Illustrative fixture, not a held-out study result."
+    ]
+  }
+}

@@ -1,0 +1,117 @@
+{
+  "runs": [
+    {
+      "run_id": "5e2072ae72ae4dfaab3f993b78088eb6",
+      "scenario_id": "custom",
+      "scenario_name": "Custom workload",
+      "kind": "custom",
+      "executed_at": "2026-10-29T04:40:51+00:00",
+      "status": "completed",
+      "final_policy": "FCFS",
+      "mean_waiting_time": 5.666667,
+      "verdict": null
+    },
+    {
+      "run_id": "ca33820d9c8d44cabb6db4db3981ad3c",
+      "scenario_id": "custom",
+      "scenario_name": "Custom workload",
+      "kind": "custom",
+      "executed_at": "2026-10-29T04:40:51+00:00",
+      "status": "completed",
+      "final_policy": "FCFS",
+      "mean_waiting_time": 10.8,
+      "verdict": null
+    },
+    {
+      "run_id": "fa9eccb4ea8a4a57835468642d624461",
+      "scenario_id": "recovery-rollback",
+      "scenario_name": "Inconclusive verification and rollback (seed 3)",
+      "kind": "healing",
+      "executed_at": "2026-10-29T04:40:51+00:00",
+      "status": "completed",
+      "final_policy": "FCFS",
+      "mean_waiting_time": 130.466667,
+      "verdict": "inconclusive"
+    },
+    {
+      "run_id": "c254a47cc91f4e6686973a51838f8a6b",
+      "scenario_id": "recovery-accepted",
+      "scenario_name": "Successful recovery (seed 13)",
+      "kind": "healing",
+      "executed_at": "2026-10-29T04:40:51+00:00",
+      "status": "completed",
+      "final_policy": "SJF",
+      "mean_waiting_time": 220.533333,
+      "verdict": "accepted"
+    },
+    {
+      "run_id": "d894f1d2a5934938b4397ec1d414d4f1",
+      "scenario_id": "teaching",
+      "scenario_name": "Small teaching workload",
+      "kind": "teaching",
+      "executed_at": "2026-10-29T04:40:51+00:00",
+      "status": "completed",
+      "final_policy": "FCFS",
+      "mean_waiting_time": 4.333333,
+      "verdict": null
+    },
+    {
+      "run_id": "5207e41c81014a939051d1582f4f7040",
+      "scenario_id": "custom",
+      "scenario_name": "Custom workload",
+      "kind": "custom",
+      "executed_at": "2026-10-29T04:40:46+00:00",
+      "status": "completed",
+      "final_policy": "FCFS",
+      "mean_waiting_time": 5.666667,
+      "verdict": null
+    },
+    {
+      "run_id": "b5c455f957ed4d98ad63044e996b354f",
+      "scenario_id": "custom",
+      "scenario_name": "Custom workload",
+      "kind": "custom",
+      "executed_at": "2026-10-29T04:40:46+00:00",
+      "status": "completed",
+      "final_policy": "FCFS",
+      "mean_waiting_time": 10.8,
+      "verdict": null
+    },
+    {
+      "run_id": "4ac246e9321c41ef9702295a7dee8844",
+      "scenario_id": "recovery-rollback",
+      "scenario_name": "Inconclusive verification and rollback (seed 3)",
+      "kind": "healing",
+      "executed_at": "2026-10-29T04:40:46+00:00",
+      "status": "completed",
+      "final_policy": "FCFS",
+      "mean_waiting_time": 130.466667,
+      "verdict": "inconclusive"
+    },
+    {
+      "run_id": "6358dc243bb846ceb9da1802d38d792d",
+      "scenario_id": "recovery-accepted",
+      "scenario_name": "Successful recovery (seed 13)",
+      "kind": "healing",
+      "executed_at": "2026-10-29T04:40:46+00:00",
+      "status": "completed",
+      "final_policy": "SJF",
+      "mean_waiting_time": 220.533333,
+      "verdict": "accepted"
+    },
+    {
+      "run_id": "3084a5338c6246b4a97d942a92b8f286",
+      "scenario_id": "teaching",
+      "scenario_name": "Small teaching workload",
+      "kind": "teaching",
+      "executed_at": "2026-10-29T04:40:46+00:00",
+      "status": "completed",
+      "final_policy": "FCFS",
+      "mean_waiting_time": 4.333333,
+      "verdict": null
+    }
+  ],
+  "count": 10,
+  "returned": 10,
+  "history_limit": 32
+}
