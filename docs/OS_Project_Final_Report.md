@@ -515,3 +515,19 @@ Neither the full expensive study nor these probe artifacts was regenerated durin
 ## Source files and evidence
 
 The report's principal implementation references are `main.py`, `config.py`, `workload/generator.py`, `scheduler/runtime.py`, `healing/monitor.py`, `healing/detector.py`, `healing/diagnosis.py`, `healing/actions.py`, `healing/policies.py`, `healing/verifier.py`, `healing/controller.py`, `experiments/healing_config.py`, `experiments/healing_experiment.py`, `evaluation/metrics.py`, and `evaluation/paired.py`. Its numerical claims are based on `results/healing/healing_summary.json`, `results/healing/healing_metrics_final_test.csv`, `results/healing/healing_comparisons.csv`, `results/healing/healing_audit.csv`, and the related committed canonical artifacts.
+
+## References
+
+The four classical scheduling policies (FCFS, SJF, non-preemptive Priority, Round Robin) are standard operating-systems concepts; no single paper is cited for them. The reinforcement-learning and scheduling-related sources below were verified against their published records.
+
+1. Watkins, C. J. C. H., & Dayan, P. (1992). Q-learning. *Machine Learning*, 8(3-4), 279–292. https://doi.org/10.1007/bf00992698 — Foundational tabular Q-learning algorithm and convergence proof used by the project's learned healing policy (`rl/q_learning.py`, `healing/policies.py`).
+
+2. Lee, H., Jung, S., & Jo, H. (2022). STUN: Reinforcement-Learning-Based Optimization of Kernel Scheduler Parameters for Static Workload Performance. *Applied Sciences*, 12(14), 7072. https://doi.org/10.3390/app12147072 — Kernel scheduler parameter optimization using Q-learning; related work in RL-based scheduling.
+
+3. Velingkar, G., Kumar, J. K., Varadarajan, R., Lanka, S., & Kumar, M. A. (2022). Task Scheduling Using Deep Q-Learning. In D. Gupta et al. (Eds.), *Advanced Machine Intelligence and Signal Processing* (Lecture Notes in Electrical Engineering, vol. 858, pp. 749–759). Springer. https://doi.org/10.1007/978-981-19-0840-8_58 — Deep Q-learning for task scheduling; related work.
+
+4. Sun, X., Duan, Y., Deng, Y., Guo, F., Cai, G., & Peng, Y. (2025). Dynamic Operating System Scheduling Using Double DQN: A Reinforcement Learning Approach to Task Optimization. arXiv:2503.23659 [cs.LG]. https://doi.org/10.48550/arXiv.2503.23659 — Double DQN for OS scheduling; related work.
+
+5. Shyalika, C., Silva, T., & Karunananda, A. (2020). Reinforcement learning in dynamic task scheduling: a review. *SN Computer Science*, 1, 306. — Review of RL for dynamic task scheduling; cited by reference 3.
+
+**Verification note:** Each reference above was checked against its published record (publisher page, DOI resolver, or arXiv abstract page). No reference was invented, and no DOI was fabricated. The project makes no claims that depend on any specific reference; references are provided for context only.
