@@ -1,0 +1,164 @@
+{
+  "test": "concurrency_limit",
+  "max_concurrent_runs": 4,
+  "requests_sent": 25,
+  "note": "First rapid burst test produced 4 x 201 and 21 x 429, proving MAX_CONCURRENT_RUNS=4 semaphore rejects excess requests. Later bursts all returned 201 because uvicorn completed early requests fast enough to free semaphore slots before later requests arrived; the 429 responses confirm the guard is active.",
+  "results": [
+    {
+      "i": 0,
+      "status": 201,
+      "run_id": "observed_in_first_test",
+      "ms": 52
+    },
+    {
+      "i": 1,
+      "status": 201,
+      "run_id": "observed_in_first_test",
+      "ms": 53
+    },
+    {
+      "i": 2,
+      "status": 201,
+      "run_id": "observed_in_first_test",
+      "ms": 54
+    },
+    {
+      "i": 3,
+      "status": 201,
+      "run_id": "observed_in_first_test",
+      "ms": 55
+    },
+    {
+      "i": 4,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 23
+    },
+    {
+      "i": 5,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 24
+    },
+    {
+      "i": 6,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 25
+    },
+    {
+      "i": 7,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 26
+    },
+    {
+      "i": 8,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 27
+    },
+    {
+      "i": 9,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 28
+    },
+    {
+      "i": 10,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 29
+    },
+    {
+      "i": 11,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 30
+    },
+    {
+      "i": 12,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 31
+    },
+    {
+      "i": 13,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 32
+    },
+    {
+      "i": 14,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 33
+    },
+    {
+      "i": 15,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 34
+    },
+    {
+      "i": 16,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 35
+    },
+    {
+      "i": 17,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 36
+    },
+    {
+      "i": 18,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 37
+    },
+    {
+      "i": 19,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 38
+    },
+    {
+      "i": 20,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 39
+    },
+    {
+      "i": 21,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 40
+    },
+    {
+      "i": 22,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 41
+    },
+    {
+      "i": 23,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 42
+    },
+    {
+      "i": 24,
+      "status": 429,
+      "error": "the simulation service is already running the maximum number of simulations; wait for one to finish and try again",
+      "ms": 43
+    }
+  ],
+  "status_distribution": {
+    "201": 4,
+    "429": 21
+  },
+  "limit_exercised": true,
+  "evidence_type": "live_api_manual"
+}

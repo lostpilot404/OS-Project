@@ -483,6 +483,7 @@ lit_rows = [
     ["Ismail et al. (2025)", "DRL MEC resource scheduling", "Cluster Computing", "Survey of edge scheduling"],
     ["Brunke et al. (2022)", "Safe RL real-world robotics", "Ann Rev Control", "Sim-to-real safety transfer"],
     ["Wang et al. (2023)", "Dynamic adaptive scheduling", "JLPEA", "Runtime classifier for SoC"],
+    ["Qin & Lu (2021)", "Self-healing smart manufacturing", "J. Manuf. Systems", "Fault diagnosis + self-healing review"],
 ]
 
 add_table_from_data(
@@ -1241,6 +1242,8 @@ references = [
     "Zhou, T., & Lin, M. (2023). CPU frequency scheduling of real-time applications on embedded devices with temporal encoding-based deep reinforcement learning. arXiv preprint arXiv:2309.03779.",
     "Zhu, Z., et al. (2023). Intelligent scheduling based on reinforcement learning approaches: Applying advanced Q-learning and SARSA reinforcement learning models for the optimisation of job shop scheduling problems. Electronics, 12(23), 4752. https://doi.org/10.3390/electronics12234752",
     "Ziaei, F., & Ranjbar, M. (2023). A reinforcement learning algorithm for scheduling parallel processors with identical speedup functions. Machine Learning with Applications, 14, 100485. https://doi.org/10.1016/j.mlwa.2023.100485",
+    "Qin, Z. J., & Lu, Y. Q. (2021). Self-organizing manufacturing network: A paradigm towards smart manufacturing in mass personalization. Journal of Manufacturing Systems, 60, 35-47. https://doi.org/10.1016/j.jmsy.2021.04.016",
+    "Rauba, P., Seedat, N., Kacprzyk, K., & van der Schaar, M. (2024). Self-healing machine learning: A framework for autonomous adaptation in real-world environments. In Advances in Neural Information Processing Systems (NeurIPS 2024). arXiv:2411.00186 [cs.LG]. https://arxiv.org/abs/2411.00186",
 ]
 
 for i, ref in enumerate(references):

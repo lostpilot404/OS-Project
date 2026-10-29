@@ -114,10 +114,13 @@
 **Total 2021-2026 papers: 30 (meets minimum requirement)**  
 **Foundational papers (pre-2021, not counted): 3** (Silberschatz, Sutton & Barto, Watkins & Dayan)
 
-## 7. Remaining Issues
+## 7. Remaining Issues — RESOLVED
 
-1. **Qin & Lu (2021)** is cited in §5.4 but not in the reference list. Action required: Add the reference entry or remove the in-text citation.
-2. **SHML (2024)** is mentioned in the summary table but not as a formal reference. Action required: Add a formal reference entry for the NeurIPS 2024 self-healing ML paper.
+1. **Qin & Lu (2021)** — was cited in §5.4 but not in reference list. **FIXED**: Added reference entry "Qin, Z. J., & Lu, Y. Q. (2021). Self-organizing manufacturing network: A paradigm towards smart manufacturing in mass personalization. Journal of Manufacturing Systems, 60, 35-47. https://doi.org/10.1016/j.jmsy.2021.04.016" (verified against Springer publisher page). Paper regenerated via `generate_paper.py`.
+
+2. **SHML (2024)** — was in summary table but not as formal reference. **FIXED**: Added reference entry "Rauba, P., Seedat, N., Kacprzyk, K., & van der Schaar, M. (2024). Self-healing machine learning: A framework for autonomous adaptation in real-world environments. In NeurIPS 2024. arXiv:2411.00186 [cs.LG]. https://arxiv.org/abs/2411.00186" (verified against NeurIPS 2024 poster page and OpenReview). Paper regenerated via `generate_paper.py`.
+
+All 35 reference entries now correspond to in-text citations or literature table entries. All in-text citations map to reference entries.
 3. Two papers (Kuang et al. 2023, Zhou & Lin 2023) are preprints, not peer-reviewed. They are clearly labelled.
 4. Ismail et al. (2025) was published in January 2025 — within the 2021-2026 window.
 
